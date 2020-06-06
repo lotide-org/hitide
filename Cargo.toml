@@ -1,0 +1,20 @@
+[package]
+name = "hitide"
+version = "0.1.0"
+authors = ["Colin Reeder <colin@vpzom.click>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+render = { git = "https://github.com/vpzomtrrfrt/render.rs", rev = "4c6e8c1" }
+trout = "0.1.1"
+hyper = "0.13.6"
+hyper-tls = "0.4.1"
+tokio = { version = "0.2.21", features = ["macros"] }
+serde_urlencoded = "0.6.1"
+serde_json = "1.0.53"
+serde_derive = "1.0.111"
+serde = "1.0.111"
+fallible-iterator = "0.2.0"
+ginger = "0.1.0"
