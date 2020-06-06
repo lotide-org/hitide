@@ -34,6 +34,43 @@ fn with_auth(mut new_req: hyper::Request<hyper::Body>, cookies: &CookieMap<'_>) 
 }
 
 #[derive(Deserialize, Debug)]
+struct RespLoginInfoUser {
+    id: i64,
+}
+
+#[derive(Deserialize, Debug)]
+struct RespLoginInfo {
+    user: RespLoginInfoUser,
+}
+
+#[derive(Debug)]
+struct PageBaseData {
+    login: Option<RespLoginInfo>,
+}
+
+async fn fetch_base_data(backend_host: &str, http_client: &crate::HttpClient, cookies: &CookieMap<'_>) -> Result<PageBaseData, crate::Error> {
+    let login = {
+        let api_res = http_client.request(
+            with_auth(
+                hyper::Request::get(format!("{}/api/unstable/logins/~current", backend_host))
+                .body(Default::default())?,
+                &cookies,
+            )?
+        ).await?;
+
+        if api_res.status() == hyper::StatusCode::UNAUTHORIZED {
+            Ok(None)
+        } else {
+            let api_res = res_to_error(api_res).await?;
+            let api_res = hyper::body::to_bytes(api_res.into_body()).await?;
+            serde_json::from_slice(&api_res)
+        }
+    }?;
+
+    Ok(PageBaseData { login })
+}
+
+#[derive(Deserialize, Debug)]
 struct RespMinimalAuthorInfo<'a> {
     id: i64,
     username: &'a str,
@@ -75,7 +112,7 @@ pub fn route_root() -> crate::RouteNode<()> {
 }
 
 #[render::component]
-fn HTPage<Children: render::Render>(children: Children) {
+fn HTPage<'base_data, Children: render::Render>(base_data: &'base_data PageBaseData, children: Children) {
     render::rsx! {
         <>
             <render::html::HTML5Doctype />
@@ -84,7 +121,16 @@ fn HTPage<Children: render::Render>(children: Children) {
                     <header class={"mainHeader"}>
                         <div>{"lotide"}</div>
                         <div>
-                            <a href={"/login"}>{"Login"}</a>
+                            {
+                                match base_data.login {
+                                    Some(_) => None,
+                                    None => {
+                                        Some(render::rsx! {
+                                            <a href={"/login"}>{"Login"}</a>
+                                        })
+                                    }
+                                }
+                            }
                         </div>
                     </header>
                     {children}
@@ -178,9 +224,13 @@ fn html_response(html: String) -> hyper::Response<hyper::Body> {
     res
 }
 
-async fn page_login(_: (), _ctx: Arc<crate::RouteContext>, _req: hyper::Request<hyper::Body>) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+async fn page_login(_: (), ctx: Arc<crate::RouteContext>, req: hyper::Request<hyper::Body>) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+    let cookies = get_cookie_map_for_req(&req)?;
+
+    let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, &cookies).await?;
+
     Ok(html_response(render::html! {
-        <HTPage>
+        <HTPage base_data={&base_data}>
             <form method={"POST"} action={"/login/submit"}>
                 <p>
                     <input r#type={"text"} name={"username"} />
@@ -238,6 +288,8 @@ async fn handler_login_submit(_: (), ctx: Arc<crate::RouteContext>, req: hyper::
 async fn page_home(_: (), ctx: Arc<crate::RouteContext>, req: hyper::Request<hyper::Body>) -> Result<hyper::Response<hyper::Body>, crate::Error> {
     let cookies = get_cookie_map_for_req(&req)?;
 
+    let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, &cookies).await?;
+
     let api_res = res_to_error(ctx.http_client.request(
             with_auth(
                 hyper::Request::get(format!("{}/api/unstable/users/me/following:posts", ctx.backend_host))
@@ -250,7 +302,7 @@ async fn page_home(_: (), ctx: Arc<crate::RouteContext>, req: hyper::Request<hyp
     let api_res: Vec<RespPostListPost<'_>> = serde_json::from_slice(&api_res)?;
 
     Ok(html_response(render::html! {
-        <HTPage>
+        <HTPage base_data={&base_data}>
             <ul>
                 {api_res.iter().map(|post| {
                     PostItem { post, in_community: false }
@@ -264,6 +316,10 @@ async fn page_community(params: (i64,), ctx: Arc<crate::RouteContext>, req: hype
     let (community_id,) = params;
 
     let cookies = get_cookie_map_for_req(&req)?;
+
+    // TODO parallelize requests
+
+    let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, &cookies).await?;
 
     let community_info_api_res = res_to_error(
         ctx.http_client.request(
@@ -294,7 +350,7 @@ async fn page_community(params: (i64,), ctx: Arc<crate::RouteContext>, req: hype
     let posts: Vec<RespPostListPost<'_>> = serde_json::from_slice(&posts_api_res)?;
 
     Ok(html_response(render::html! {
-        <HTPage>
+        <HTPage base_data={&base_data}>
             <h1>{community_info.name}</h1>
             <ul>
                 {posts.iter().map(|post| {
