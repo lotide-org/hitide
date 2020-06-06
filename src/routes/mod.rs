@@ -19,6 +19,10 @@ fn get_cookie_map<'a>(src: Option<&'a str>) -> Result<CookieMap<'a>, ginger::Par
     }
 }
 
+fn get_cookie_map_for_req<'a>(req: &'a hyper::Request<hyper::Body>) -> Result<CookieMap<'a>, crate::Error> {
+    get_cookie_map(req.headers().get(hyper::header::COOKIE).map(|x| x.to_str()).transpose()?).map_err(Into::into)
+}
+
 fn with_auth(mut new_req: hyper::Request<hyper::Body>, cookies: &CookieMap<'_>) -> Result<hyper::Request<hyper::Body>, hyper::header::InvalidHeaderValue> {
     let token = cookies.get("hitideToken").map(|c| c.value);
     if let Some(token) = token {
@@ -37,9 +41,27 @@ struct RespMinimalAuthorInfo<'a> {
     host: &'a str,
 }
 
+#[derive(Deserialize, Debug)]
+struct RespPostListPost<'a> {
+    id: i64,
+    title: &'a str,
+    href: &'a str,
+    author: Option<RespMinimalAuthorInfo<'a>>,
+    created: &'a str,
+    community: RespMinimalCommunityInfo<'a>,
+}
+
 pub fn route_root() -> crate::RouteNode<()> {
     crate::RouteNode::new()
         .with_handler_async("GET", page_home)
+        .with_child(
+            "communities",
+            crate::RouteNode::new()
+            .with_child_parse::<i64, _>(
+                crate::RouteNode::new()
+                .with_handler_async("GET", page_community)
+            )
+        )
         .with_child(
             "login",
             crate::RouteNode::new()
@@ -72,8 +94,38 @@ fn HTPage<Children: render::Render>(children: Children) {
     }
 }
 
+#[render::component]
+fn PostItem<'post>(post: &'post RespPostListPost<'post>, in_community: bool) {
+    render::rsx! {
+        <li>
+            <a href={post.href}>
+                {post.title}
+            </a>
+            <br />
+            {"Submitted by "}<UserLink user={post.author.as_ref()} />
+            {
+                if !in_community {
+                    Some(render::rsx! {
+                        <>{" to "}<CommunityLink community={&post.community} /></>
+                    })
+                } else {
+                    None
+                }
+            }
+        </li>
+    }
+}
+
+#[derive(Deserialize, Debug)]
+struct RespMinimalCommunityInfo<'a> {
+    id: i64,
+    name: &'a str,
+    local: bool,
+    host: &'a str,
+}
+
 struct UserLink<'user> {
-    user: Option<RespMinimalAuthorInfo<'user>>,
+    user: Option<&'user RespMinimalAuthorInfo<'user>>,
 }
 
 impl<'user> render::Render for UserLink<'user> {
@@ -95,6 +147,28 @@ impl<'user> render::Render for UserLink<'user> {
                 }).render_into(writer)
             }
         }
+    }
+}
+
+struct CommunityLink<'community> {
+    community: &'community RespMinimalCommunityInfo<'community>,
+}
+impl<'community> render::Render for CommunityLink<'community> {
+    fn render_into<W: std::fmt::Write>(self, writer: &mut W) -> std::fmt::Result {
+        let community = &self.community;
+
+        let href = format!("/communities/{}", community.id);
+        (render::rsx! {
+            <a href={&href}>
+            {
+                (if community.local {
+                    community.name.into()
+                } else {
+                    Cow::Owned(format!("{}@{}", community.name, community.host))
+                }).as_ref()
+            }
+            </a>
+        }).render_into(writer)
     }
 }
 
@@ -162,27 +236,7 @@ async fn handler_login_submit(_: (), ctx: Arc<crate::RouteContext>, req: hyper::
 }
 
 async fn page_home(_: (), ctx: Arc<crate::RouteContext>, req: hyper::Request<hyper::Body>) -> Result<hyper::Response<hyper::Body>, crate::Error> {
-    #[derive(Deserialize, Debug)]
-    struct RespMinimalCommunityInfo<'a> {
-        id: i64,
-        name: &'a str,
-        local: bool,
-        host: &'a str,
-    }
-
-    #[derive(Deserialize, Debug)]
-    struct RespPostListPost<'a> {
-        id: i64,
-        title: &'a str,
-        href: &'a str,
-        author: Option<RespMinimalAuthorInfo<'a>>,
-        created: &'a str,
-        community: RespMinimalCommunityInfo<'a>,
-    }
-
-    let cookies = get_cookie_map(req.headers().get(hyper::header::COOKIE).map(|x| x.to_str()).transpose()?)?;
-
-    println!("{:?}", cookies);
+    let cookies = get_cookie_map_for_req(&req)?;
 
     let api_res = res_to_error(ctx.http_client.request(
             with_auth(
@@ -195,21 +249,56 @@ async fn page_home(_: (), ctx: Arc<crate::RouteContext>, req: hyper::Request<hyp
     let api_res = hyper::body::to_bytes(api_res.into_body()).await?;
     let api_res: Vec<RespPostListPost<'_>> = serde_json::from_slice(&api_res)?;
 
-    println!("{:?}", api_res);
-
     Ok(html_response(render::html! {
         <HTPage>
             <ul>
-                {api_res.into_iter().map(|post| {
-                    render::rsx! {
-                        <li>
-                            <a href={post.href}>
-                                {post.title}
-                            </a>
-                            <br />
-                            {"Submitted by "}<UserLink user={post.author} />
-                        </li>
-                    }
+                {api_res.iter().map(|post| {
+                    PostItem { post, in_community: false }
+                }).collect::<Vec<_>>()}
+            </ul>
+        </HTPage>
+    }))
+}
+
+async fn page_community(params: (i64,), ctx: Arc<crate::RouteContext>, req: hyper::Request<hyper::Body>) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+    let (community_id,) = params;
+
+    let cookies = get_cookie_map_for_req(&req)?;
+
+    let community_info_api_res = res_to_error(
+        ctx.http_client.request(
+            with_auth(
+                hyper::Request::get(format!("{}/api/unstable/communities/{}", ctx.backend_host, community_id))
+                .body(Default::default())?,
+                &cookies,
+                )?
+            ).await?
+        ).await?;
+    let community_info_api_res = hyper::body::to_bytes(community_info_api_res.into_body()).await?;
+
+    let community_info: RespMinimalCommunityInfo = {
+        serde_json::from_slice(&community_info_api_res)?
+    };
+
+    let posts_api_res = res_to_error(
+        ctx.http_client.request(
+            with_auth(
+                hyper::Request::get(format!("{}/api/unstable/communities/{}/posts", ctx.backend_host, community_id))
+                .body(Default::default())?,
+                &cookies,
+                )?
+            ).await?
+        ).await?;
+    let posts_api_res = hyper::body::to_bytes(posts_api_res.into_body()).await?;
+
+    let posts: Vec<RespPostListPost<'_>> = serde_json::from_slice(&posts_api_res)?;
+
+    Ok(html_response(render::html! {
+        <HTPage>
+            <h1>{community_info.name}</h1>
+            <ul>
+                {posts.iter().map(|post| {
+                    PostItem { post, in_community: true }
                 }).collect::<Vec<_>>()}
             </ul>
         </HTPage>
