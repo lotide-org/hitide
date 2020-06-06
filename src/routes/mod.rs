@@ -119,7 +119,7 @@ fn HTPage<'base_data, Children: render::Render>(base_data: &'base_data PageBaseD
             <html>
                 <body>
                     <header class={"mainHeader"}>
-                        <div>{"lotide"}</div>
+                        <div><a href={"/"}>{"lotide"}</a></div>
                         <div>
                             {
                                 match base_data.login {
