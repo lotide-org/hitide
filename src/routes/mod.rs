@@ -88,29 +88,6 @@ struct RespPostListPost<'a> {
     community: RespMinimalCommunityInfo<'a>,
 }
 
-pub fn route_root() -> crate::RouteNode<()> {
-    crate::RouteNode::new()
-        .with_handler_async("GET", page_home)
-        .with_child(
-            "communities",
-            crate::RouteNode::new()
-            .with_child_parse::<i64, _>(
-                crate::RouteNode::new()
-                .with_handler_async("GET", page_community)
-            )
-        )
-        .with_child(
-            "login",
-            crate::RouteNode::new()
-            .with_handler_async("GET", page_login)
-            .with_child(
-                "submit",
-                crate::RouteNode::new()
-                .with_handler_async("POST", handler_login_submit)
-            )
-        )
-}
-
 #[render::component]
 fn HTPage<'base_data, Children: render::Render>(base_data: &'base_data PageBaseData, children: Children) {
     render::rsx! {
@@ -349,9 +326,16 @@ async fn page_community(params: (i64,), ctx: Arc<crate::RouteContext>, req: hype
 
     let posts: Vec<RespPostListPost<'_>> = serde_json::from_slice(&posts_api_res)?;
 
+    let follow_url = format!("/communities/{}/follow", community_id);
+
     Ok(html_response(render::html! {
         <HTPage base_data={&base_data}>
             <h1>{community_info.name}</h1>
+            <p>
+                <form method={"POST"} action={&follow_url}>
+                    <button r#type={"submit"}>{"Follow"}</button>
+                </form>
+            </p>
             <ul>
                 {posts.iter().map(|post| {
                     PostItem { post, in_community: true }
@@ -360,3 +344,55 @@ async fn page_community(params: (i64,), ctx: Arc<crate::RouteContext>, req: hype
         </HTPage>
     }))
 }
+
+pub async fn handler_community_follow(params: (i64,), ctx: Arc<crate::RouteContext>, req: hyper::Request<hyper::Body>) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+    let (community_id,) = params;
+
+    let cookies = get_cookie_map_for_req(&req)?;
+
+    res_to_error(
+        ctx.http_client.request(
+            with_auth(
+                hyper::Request::post(
+                    format!("{}/api/unstable/communities/{}/follow", ctx.backend_host, community_id)
+                )
+                    .body(Default::default())?,
+                &cookies,
+            )?
+        ).await?
+    ).await?;
+
+    Ok(hyper::Response::builder()
+       .status(hyper::StatusCode::SEE_OTHER)
+       .header(hyper::header::LOCATION, format!("/communities/{}", community_id))
+       .body("Successfully followed".into())?)
+}
+
+pub fn route_root() -> crate::RouteNode<()> {
+    crate::RouteNode::new()
+        .with_handler_async("GET", page_home)
+        .with_child(
+            "communities",
+            crate::RouteNode::new()
+            .with_child_parse::<i64, _>(
+                crate::RouteNode::new()
+                .with_handler_async("GET", page_community)
+                .with_child(
+                    "follow",
+                    crate::RouteNode::new()
+                    .with_handler_async("POST", handler_community_follow)
+                )
+            )
+        )
+        .with_child(
+            "login",
+            crate::RouteNode::new()
+            .with_handler_async("GET", page_login)
+            .with_child(
+                "submit",
+                crate::RouteNode::new()
+                .with_handler_async("POST", handler_login_submit)
+            )
+        )
+}
+
