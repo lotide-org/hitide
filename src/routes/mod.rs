@@ -314,13 +314,16 @@ async fn page_home(
 
     let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, &cookies).await?;
 
+    let for_user = base_data.login.is_some();
+
     let api_res = res_to_error(
         ctx.http_client
             .request(with_auth(
-                hyper::Request::get(format!(
-                    "{}/api/unstable/users/me/following:posts",
-                    ctx.backend_host
-                ))
+                hyper::Request::get(if for_user {
+                    format!("{}/api/unstable/users/me/following:posts", ctx.backend_host,)
+                } else {
+                    format!("{}/api/unstable/posts", ctx.backend_host,)
+                })
                 .body(Default::default())?,
                 &cookies,
             )?)
