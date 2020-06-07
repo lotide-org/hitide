@@ -1,6 +1,6 @@
 use crate::routes::{
-    fetch_base_data, get_cookie_map_for_req, html_response, res_to_error, with_auth, HTPage,
-    PostItem, RespMinimalCommunityInfo, RespPostListPost,
+    fetch_base_data, get_cookie_map, get_cookie_map_for_req, html_response, res_to_error,
+    with_auth, HTPage, PostItem, RespMinimalCommunityInfo, RespPostListPost,
 };
 use std::sync::Arc;
 
@@ -53,6 +53,7 @@ async fn page_community(
     let posts: Vec<RespPostListPost<'_>> = serde_json::from_slice(&posts_api_res)?;
 
     let follow_url = format!("/communities/{}/follow", community_id);
+    let new_post_url = format!("/communities/{}/new_post", community_id);
 
     Ok(html_response(render::html! {
         <HTPage base_data={&base_data}>
@@ -61,6 +62,9 @@ async fn page_community(
                 <form method={"POST"} action={&follow_url}>
                     <button r#type={"submit"}>{"Follow"}</button>
                 </form>
+            </p>
+            <p>
+                <a href={&new_post_url}>{"New Post"}</a>
             </p>
             <ul>
                 {posts.iter().map(|post| {
@@ -103,6 +107,83 @@ async fn handler_community_follow(
         .body("Successfully followed".into())?)
 }
 
+async fn page_community_new_post(
+    params: (i64,),
+    ctx: Arc<crate::RouteContext>,
+    req: hyper::Request<hyper::Body>,
+) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+    let (community_id,) = params;
+
+    let cookies = get_cookie_map_for_req(&req)?;
+
+    let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, &cookies).await?;
+
+    let submit_url = format!("/communities/{}/new_post/submit", community_id);
+
+    Ok(html_response(render::html! {
+        <HTPage base_data={&base_data}>
+            <h1>{"New Post"}</h1>
+            <form method={"POST"} action={&submit_url}>
+                <div>
+                    <label>
+                        {"Title: "}<input r#type={"text"} name={"title"} required={"true"} />
+                    </label>
+                </div>
+                <div>
+                    <label>
+                        {"URL: "}<input r#type={"text"} name={"href"} required={"true"} />
+                    </label>
+                </div>
+                <div>
+                    <button r#type={"submit"}>{"Submit"}</button>
+                </div>
+            </form>
+        </HTPage>
+    }))
+}
+
+async fn handler_communities_new_post_submit(
+    params: (i64,),
+    ctx: Arc<crate::RouteContext>,
+    req: hyper::Request<hyper::Body>,
+) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+    let (community_id,) = params;
+
+    let cookies_string = req
+        .headers()
+        .get(hyper::header::COOKIE)
+        .map(|x| x.to_str())
+        .transpose()?
+        .map(|x| x.to_owned());
+    let cookies_string = cookies_string.as_deref();
+
+    let cookies = get_cookie_map(cookies_string)?;
+
+    let body = hyper::body::to_bytes(req.into_body()).await?;
+    let mut body: serde_json::Value = serde_urlencoded::from_bytes(&body)?;
+    body["community"] = community_id.into();
+    let body = serde_json::to_vec(&body)?;
+
+    res_to_error(
+        ctx.http_client
+            .request(with_auth(
+                hyper::Request::post(format!("{}/api/unstable/posts", ctx.backend_host))
+                    .body(body.into())?,
+                &cookies,
+            )?)
+            .await?,
+    )
+    .await?;
+
+    Ok(hyper::Response::builder()
+        .status(hyper::StatusCode::SEE_OTHER)
+        .header(
+            hyper::header::LOCATION,
+            format!("/communities/{}", community_id),
+        )
+        .body("Successfully posted.".into())?)
+}
+
 pub fn route_communities() -> crate::RouteNode<()> {
     crate::RouteNode::new().with_child_parse::<i64, _>(
         crate::RouteNode::new()
@@ -110,6 +191,16 @@ pub fn route_communities() -> crate::RouteNode<()> {
             .with_child(
                 "follow",
                 crate::RouteNode::new().with_handler_async("POST", handler_community_follow),
+            )
+            .with_child(
+                "new_post",
+                crate::RouteNode::new()
+                    .with_handler_async("GET", page_community_new_post)
+                    .with_child(
+                        "submit",
+                        crate::RouteNode::new()
+                            .with_handler_async("POST", handler_communities_new_post_submit),
+                    ),
             ),
     )
 }
