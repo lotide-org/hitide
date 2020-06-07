@@ -19,15 +19,28 @@ fn get_cookie_map<'a>(src: Option<&'a str>) -> Result<CookieMap<'a>, ginger::Par
     }
 }
 
-fn get_cookie_map_for_req<'a>(req: &'a hyper::Request<hyper::Body>) -> Result<CookieMap<'a>, crate::Error> {
-    get_cookie_map(req.headers().get(hyper::header::COOKIE).map(|x| x.to_str()).transpose()?).map_err(Into::into)
+fn get_cookie_map_for_req<'a>(
+    req: &'a hyper::Request<hyper::Body>,
+) -> Result<CookieMap<'a>, crate::Error> {
+    get_cookie_map(
+        req.headers()
+            .get(hyper::header::COOKIE)
+            .map(|x| x.to_str())
+            .transpose()?,
+    )
+    .map_err(Into::into)
 }
 
-fn with_auth(mut new_req: hyper::Request<hyper::Body>, cookies: &CookieMap<'_>) -> Result<hyper::Request<hyper::Body>, hyper::header::InvalidHeaderValue> {
+fn with_auth(
+    mut new_req: hyper::Request<hyper::Body>,
+    cookies: &CookieMap<'_>,
+) -> Result<hyper::Request<hyper::Body>, hyper::header::InvalidHeaderValue> {
     let token = cookies.get("hitideToken").map(|c| c.value);
     if let Some(token) = token {
-        new_req.headers_mut()
-            .insert(hyper::header::AUTHORIZATION, hyper::header::HeaderValue::from_str(&format!("Bearer {}", token))?);
+        new_req.headers_mut().insert(
+            hyper::header::AUTHORIZATION,
+            hyper::header::HeaderValue::from_str(&format!("Bearer {}", token))?,
+        );
     }
 
     Ok(new_req)
@@ -48,15 +61,19 @@ struct PageBaseData {
     login: Option<RespLoginInfo>,
 }
 
-async fn fetch_base_data(backend_host: &str, http_client: &crate::HttpClient, cookies: &CookieMap<'_>) -> Result<PageBaseData, crate::Error> {
+async fn fetch_base_data(
+    backend_host: &str,
+    http_client: &crate::HttpClient,
+    cookies: &CookieMap<'_>,
+) -> Result<PageBaseData, crate::Error> {
     let login = {
-        let api_res = http_client.request(
-            with_auth(
+        let api_res = http_client
+            .request(with_auth(
                 hyper::Request::get(format!("{}/api/unstable/logins/~current", backend_host))
-                .body(Default::default())?,
+                    .body(Default::default())?,
                 &cookies,
-            )?
-        ).await?;
+            )?)
+            .await?;
 
         if api_res.status() == hyper::StatusCode::UNAUTHORIZED {
             Ok(None)
@@ -89,7 +106,10 @@ struct RespPostListPost<'a> {
 }
 
 #[render::component]
-fn HTPage<'base_data, Children: render::Render>(base_data: &'base_data PageBaseData, children: Children) {
+fn HTPage<'base_data, Children: render::Render>(
+    base_data: &'base_data PageBaseData,
+    children: Children,
+) {
     render::rsx! {
         <>
             <render::html::HTML5Doctype />
@@ -167,7 +187,8 @@ impl<'user> render::Render for UserLink<'user> {
                             }).as_ref()
                         }
                     </a>
-                }).render_into(writer)
+                })
+                .render_into(writer)
             }
         }
     }
@@ -191,17 +212,25 @@ impl<'community> render::Render for CommunityLink<'community> {
                 }).as_ref()
             }
             </a>
-        }).render_into(writer)
+        })
+        .render_into(writer)
     }
 }
 
 fn html_response(html: String) -> hyper::Response<hyper::Body> {
     let mut res = hyper::Response::new(html.into());
-    res.headers_mut().insert(hyper::header::CONTENT_TYPE, hyper::header::HeaderValue::from_static("text/html"));
+    res.headers_mut().insert(
+        hyper::header::CONTENT_TYPE,
+        hyper::header::HeaderValue::from_static("text/html"),
+    );
     res
 }
 
-async fn page_login(_: (), ctx: Arc<crate::RouteContext>, req: hyper::Request<hyper::Body>) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+async fn page_login(
+    _: (),
+    ctx: Arc<crate::RouteContext>,
+    req: hyper::Request<hyper::Body>,
+) -> Result<hyper::Response<hyper::Body>, crate::Error> {
     let cookies = get_cookie_map_for_req(&req)?;
 
     let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, &cookies).await?;
@@ -235,7 +264,11 @@ pub async fn res_to_error(
     }
 }
 
-async fn handler_login_submit(_: (), ctx: Arc<crate::RouteContext>, req: hyper::Request<hyper::Body>) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+async fn handler_login_submit(
+    _: (),
+    ctx: Arc<crate::RouteContext>,
+    req: hyper::Request<hyper::Body>,
+) -> Result<hyper::Response<hyper::Body>, crate::Error> {
     #[derive(Deserialize)]
     struct LoginsCreateResponse<'a> {
         token: &'a str,
@@ -245,10 +278,15 @@ async fn handler_login_submit(_: (), ctx: Arc<crate::RouteContext>, req: hyper::
     let body: serde_json::Value = serde_urlencoded::from_bytes(&body)?;
     let body = serde_json::to_vec(&body)?;
 
-    let api_res = res_to_error(ctx.http_client.request(
-        hyper::Request::post(format!("{}/api/unstable/logins", ctx.backend_host))
-            .body(body.into())?
-    ).await?).await?;
+    let api_res = res_to_error(
+        ctx.http_client
+            .request(
+                hyper::Request::post(format!("{}/api/unstable/logins", ctx.backend_host))
+                    .body(body.into())?,
+            )
+            .await?,
+    )
+    .await?;
 
     let api_res = hyper::body::to_bytes(api_res.into_body()).await?;
     let api_res: LoginsCreateResponse = serde_json::from_slice(&api_res)?;
@@ -257,23 +295,36 @@ async fn handler_login_submit(_: (), ctx: Arc<crate::RouteContext>, req: hyper::
 
     Ok(hyper::Response::builder()
         .status(hyper::StatusCode::SEE_OTHER)
-        .header(hyper::header::SET_COOKIE, format!("hitideToken={}; Path=/; Max-Age={}", token, COOKIE_AGE))
+        .header(
+            hyper::header::SET_COOKIE,
+            format!("hitideToken={}; Path=/; Max-Age={}", token, COOKIE_AGE),
+        )
         .header(hyper::header::LOCATION, "/")
         .body("Successfully logged in.".into())?)
 }
 
-async fn page_home(_: (), ctx: Arc<crate::RouteContext>, req: hyper::Request<hyper::Body>) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+async fn page_home(
+    _: (),
+    ctx: Arc<crate::RouteContext>,
+    req: hyper::Request<hyper::Body>,
+) -> Result<hyper::Response<hyper::Body>, crate::Error> {
     let cookies = get_cookie_map_for_req(&req)?;
 
     let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, &cookies).await?;
 
-    let api_res = res_to_error(ctx.http_client.request(
-            with_auth(
-                hyper::Request::get(format!("{}/api/unstable/users/me/following:posts", ctx.backend_host))
-                    .body(Default::default())?,
+    let api_res = res_to_error(
+        ctx.http_client
+            .request(with_auth(
+                hyper::Request::get(format!(
+                    "{}/api/unstable/users/me/following:posts",
+                    ctx.backend_host
+                ))
+                .body(Default::default())?,
                 &cookies,
-            )?
-    ).await?).await?;
+            )?)
+            .await?,
+    )
+    .await?;
 
     let api_res = hyper::body::to_bytes(api_res.into_body()).await?;
     let api_res: Vec<RespPostListPost<'_>> = serde_json::from_slice(&api_res)?;
@@ -289,7 +340,11 @@ async fn page_home(_: (), ctx: Arc<crate::RouteContext>, req: hyper::Request<hyp
     }))
 }
 
-async fn page_community(params: (i64,), ctx: Arc<crate::RouteContext>, req: hyper::Request<hyper::Body>) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+async fn page_community(
+    params: (i64,),
+    ctx: Arc<crate::RouteContext>,
+    req: hyper::Request<hyper::Body>,
+) -> Result<hyper::Response<hyper::Body>, crate::Error> {
     let (community_id,) = params;
 
     let cookies = get_cookie_map_for_req(&req)?;
@@ -299,29 +354,36 @@ async fn page_community(params: (i64,), ctx: Arc<crate::RouteContext>, req: hype
     let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, &cookies).await?;
 
     let community_info_api_res = res_to_error(
-        ctx.http_client.request(
-            with_auth(
-                hyper::Request::get(format!("{}/api/unstable/communities/{}", ctx.backend_host, community_id))
+        ctx.http_client
+            .request(with_auth(
+                hyper::Request::get(format!(
+                    "{}/api/unstable/communities/{}",
+                    ctx.backend_host, community_id
+                ))
                 .body(Default::default())?,
                 &cookies,
-                )?
-            ).await?
-        ).await?;
+            )?)
+            .await?,
+    )
+    .await?;
     let community_info_api_res = hyper::body::to_bytes(community_info_api_res.into_body()).await?;
 
-    let community_info: RespMinimalCommunityInfo = {
-        serde_json::from_slice(&community_info_api_res)?
-    };
+    let community_info: RespMinimalCommunityInfo =
+        { serde_json::from_slice(&community_info_api_res)? };
 
     let posts_api_res = res_to_error(
-        ctx.http_client.request(
-            with_auth(
-                hyper::Request::get(format!("{}/api/unstable/communities/{}/posts", ctx.backend_host, community_id))
+        ctx.http_client
+            .request(with_auth(
+                hyper::Request::get(format!(
+                    "{}/api/unstable/communities/{}/posts",
+                    ctx.backend_host, community_id
+                ))
                 .body(Default::default())?,
                 &cookies,
-                )?
-            ).await?
-        ).await?;
+            )?)
+            .await?,
+    )
+    .await?;
     let posts_api_res = hyper::body::to_bytes(posts_api_res.into_body()).await?;
 
     let posts: Vec<RespPostListPost<'_>> = serde_json::from_slice(&posts_api_res)?;
@@ -345,27 +407,36 @@ async fn page_community(params: (i64,), ctx: Arc<crate::RouteContext>, req: hype
     }))
 }
 
-pub async fn handler_community_follow(params: (i64,), ctx: Arc<crate::RouteContext>, req: hyper::Request<hyper::Body>) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+pub async fn handler_community_follow(
+    params: (i64,),
+    ctx: Arc<crate::RouteContext>,
+    req: hyper::Request<hyper::Body>,
+) -> Result<hyper::Response<hyper::Body>, crate::Error> {
     let (community_id,) = params;
 
     let cookies = get_cookie_map_for_req(&req)?;
 
     res_to_error(
-        ctx.http_client.request(
-            with_auth(
-                hyper::Request::post(
-                    format!("{}/api/unstable/communities/{}/follow", ctx.backend_host, community_id)
-                )
-                    .body(Default::default())?,
+        ctx.http_client
+            .request(with_auth(
+                hyper::Request::post(format!(
+                    "{}/api/unstable/communities/{}/follow",
+                    ctx.backend_host, community_id
+                ))
+                .body(Default::default())?,
                 &cookies,
-            )?
-        ).await?
-    ).await?;
+            )?)
+            .await?,
+    )
+    .await?;
 
     Ok(hyper::Response::builder()
-       .status(hyper::StatusCode::SEE_OTHER)
-       .header(hyper::header::LOCATION, format!("/communities/{}", community_id))
-       .body("Successfully followed".into())?)
+        .status(hyper::StatusCode::SEE_OTHER)
+        .header(
+            hyper::header::LOCATION,
+            format!("/communities/{}", community_id),
+        )
+        .body("Successfully followed".into())?)
 }
 
 pub fn route_root() -> crate::RouteNode<()> {
@@ -373,26 +444,23 @@ pub fn route_root() -> crate::RouteNode<()> {
         .with_handler_async("GET", page_home)
         .with_child(
             "communities",
-            crate::RouteNode::new()
-            .with_child_parse::<i64, _>(
+            crate::RouteNode::new().with_child_parse::<i64, _>(
                 crate::RouteNode::new()
-                .with_handler_async("GET", page_community)
-                .with_child(
-                    "follow",
-                    crate::RouteNode::new()
-                    .with_handler_async("POST", handler_community_follow)
-                )
-            )
+                    .with_handler_async("GET", page_community)
+                    .with_child(
+                        "follow",
+                        crate::RouteNode::new()
+                            .with_handler_async("POST", handler_community_follow),
+                    ),
+            ),
         )
         .with_child(
             "login",
             crate::RouteNode::new()
-            .with_handler_async("GET", page_login)
-            .with_child(
-                "submit",
-                crate::RouteNode::new()
-                .with_handler_async("POST", handler_login_submit)
-            )
+                .with_handler_async("GET", page_login)
+                .with_child(
+                    "submit",
+                    crate::RouteNode::new().with_handler_async("POST", handler_login_submit),
+                ),
         )
 }
-

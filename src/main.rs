@@ -47,8 +47,7 @@ pub fn simple_response(
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let backend_host =
-        std::env::var("BACKEND_HOST").expect("Missing BACKEND_HOST");
+    let backend_host = std::env::var("BACKEND_HOST").expect("Missing BACKEND_HOST");
 
     let port = match std::env::var("PORT") {
         Ok(port_str) => port_str.parse().expect("Failed to parse port"),
