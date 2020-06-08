@@ -248,6 +248,9 @@ async fn page_login(
                 </p>
                 <button r#type={"submit"}>{"Login"}</button>
             </form>
+            <p>
+                {"Or "}<a href={"/signup"}>{"create a new account"}</a>
+            </p>
         </HTPage>
     }))
 }
