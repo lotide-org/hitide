@@ -308,6 +308,85 @@ async fn handler_login_submit(
         .body("Successfully logged in.".into())?)
 }
 
+async fn page_new_community(
+    _: (),
+    ctx: Arc<crate::RouteContext>,
+    req: hyper::Request<hyper::Body>,
+) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+    let cookies = get_cookie_map_for_req(&req)?;
+
+    let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, &cookies).await?;
+
+    Ok(html_response(render::html! {
+        <HTPage base_data={&base_data}>
+            <h1>{"New Community"}</h1>
+            <form method={"POST"} action={"/new_community/submit"}>
+                <div>
+                    <label>
+                        {"Name: "}<input r#type={"text"} name={"name"} required={"true"} />
+                    </label>
+                </div>
+                <div>
+                    <button r#type={"submit"}>{"Create"}</button>
+                </div>
+            </form>
+        </HTPage>
+    }))
+}
+
+async fn handler_new_community_submit(
+    _: (),
+    ctx: Arc<crate::RouteContext>,
+    req: hyper::Request<hyper::Body>,
+) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+    let cookies_string = req
+        .headers()
+        .get(hyper::header::COOKIE)
+        .map(|x| x.to_str())
+        .transpose()?
+        .map(|x| x.to_owned());
+    let cookies_string = cookies_string.as_deref();
+
+    let cookies = get_cookie_map(cookies_string)?;
+
+    let body = hyper::body::to_bytes(req.into_body()).await?;
+    let body: serde_json::Value = serde_urlencoded::from_bytes(&body)?;
+    let body = serde_json::to_vec(&body)?;
+
+    #[derive(Deserialize)]
+    struct CommunitiesCreateResponseCommunity {
+        id: i64,
+    }
+
+    #[derive(Deserialize)]
+    struct CommunitiesCreateResponse {
+        community: CommunitiesCreateResponseCommunity,
+    }
+
+    let api_res = res_to_error(
+        ctx.http_client
+            .request(with_auth(
+                hyper::Request::post(format!("{}/api/unstable/communities", ctx.backend_host))
+                    .body(body.into())?,
+                &cookies,
+            )?)
+            .await?,
+    )
+    .await?;
+    let api_res = hyper::body::to_bytes(api_res.into_body()).await?;
+    let api_res: CommunitiesCreateResponse = serde_json::from_slice(&api_res)?;
+
+    let community_id = api_res.community.id;
+
+    Ok(hyper::Response::builder()
+        .status(hyper::StatusCode::SEE_OTHER)
+        .header(
+            hyper::header::LOCATION,
+            format!("/communities/{}", community_id),
+        )
+        .body("Successfully created.".into())?)
+}
+
 async fn page_signup(
     _: (),
     ctx: Arc<crate::RouteContext>,
@@ -423,6 +502,16 @@ pub fn route_root() -> crate::RouteNode<()> {
                 .with_child(
                     "submit",
                     crate::RouteNode::new().with_handler_async("POST", handler_login_submit),
+                ),
+        )
+        .with_child(
+            "new_community",
+            crate::RouteNode::new()
+                .with_handler_async("GET", page_new_community)
+                .with_child(
+                    "submit",
+                    crate::RouteNode::new()
+                        .with_handler_async("POST", handler_new_community_submit),
                 ),
         )
         .with_child(
