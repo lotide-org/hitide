@@ -552,7 +552,7 @@ dependencies = [
 [[package]]
 name = "render"
 version = "0.3.1"
-source = "git+https://github.com/vpzomtrrfrt/render.rs?rev=4c6e8c1#4c6e8c1a02cac79034c973e387bf1b836abff00c"
+source = "git+https://github.com/vpzomtrrfrt/render.rs?rev=0604925#060492504f5c8b0b0d9716af724bca2388689697"
 dependencies = [
  "render_macros",
 ]
@@ -560,7 +560,7 @@ dependencies = [
 [[package]]
 name = "render_macros"
 version = "0.3.1"
-source = "git+https://github.com/vpzomtrrfrt/render.rs?rev=4c6e8c1#4c6e8c1a02cac79034c973e387bf1b836abff00c"
+source = "git+https://github.com/vpzomtrrfrt/render.rs?rev=0604925#060492504f5c8b0b0d9716af724bca2388689697"
 dependencies = [
  "proc-macro2",
  "quote",

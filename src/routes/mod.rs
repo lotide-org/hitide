@@ -101,7 +101,8 @@ struct RespMinimalAuthorInfo<'a> {
 struct RespPostListPost<'a> {
     id: i64,
     title: &'a str,
-    href: &'a str,
+    href: Option<&'a str>,
+    content_text: Option<&'a str>,
     author: Option<RespMinimalAuthorInfo<'a>>,
     created: &'a str,
     community: RespMinimalCommunityInfo<'a>,
@@ -141,9 +142,10 @@ fn HTPage<'base_data, Children: render::Render>(
 
 #[render::component]
 fn PostItem<'post>(post: &'post RespPostListPost<'post>, in_community: bool) {
+    let post_link = format!("/posts/{}", post.id).into();
     render::rsx! {
         <li>
-            <a href={post.href}>
+            <a href={post.href.map(Cow::from).unwrap_or(post_link)}>
                 {post.title}
             </a>
             <br />
@@ -387,6 +389,65 @@ async fn handler_new_community_submit(
         .body("Successfully created.".into())?)
 }
 
+async fn page_post(
+    params: (i64,),
+    ctx: Arc<crate::RouteContext>,
+    req: hyper::Request<hyper::Body>,
+) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+    let (post_id,) = params;
+
+    let cookies = get_cookie_map_for_req(&req)?;
+
+    let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, &cookies).await?;
+
+    let api_res = res_to_error(
+        ctx.http_client
+            .request(with_auth(
+                hyper::Request::get(format!(
+                    "{}/api/unstable/posts/{}",
+                    ctx.backend_host, post_id
+                ))
+                .body(Default::default())?,
+                &cookies,
+            )?)
+            .await?,
+    )
+    .await?;
+    let api_res = hyper::body::to_bytes(api_res.into_body()).await?;
+
+    let post: RespPostListPost = serde_json::from_slice(&api_res)?;
+
+    Ok(html_response(render::html! {
+        <HTPage base_data={&base_data}>
+            <h1>{post.title}</h1>
+            <p>
+                {"Submitted by "}<UserLink user={post.author.as_ref()} />
+                {" to "}<CommunityLink community={&post.community} />
+            </p>
+            {
+                match post.href {
+                    None => None,
+                    Some(href) => {
+                        Some(render::rsx! {
+                            <p><a href={href}>{href}</a></p>
+                        })
+                    }
+                }
+            }
+            {
+                match post.content_text {
+                    None => None,
+                    Some(content_text) => {
+                        Some(render::rsx! {
+                            <p>{content_text}</p>
+                        })
+                    }
+                }
+            }
+        </HTPage>
+    }))
+}
+
 async fn page_signup(
     _: (),
     ctx: Arc<crate::RouteContext>,
@@ -513,6 +574,12 @@ pub fn route_root() -> crate::RouteNode<()> {
                     crate::RouteNode::new()
                         .with_handler_async("POST", handler_new_community_submit),
                 ),
+        )
+        .with_child(
+            "posts",
+            crate::RouteNode::new().with_child_parse::<i64, _>(
+                crate::RouteNode::new().with_handler_async("GET", page_post),
+            ),
         )
         .with_child(
             "signup",

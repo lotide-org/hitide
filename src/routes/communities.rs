@@ -2,6 +2,7 @@ use crate::routes::{
     fetch_base_data, get_cookie_map, get_cookie_map_for_req, html_response, res_to_error,
     with_auth, HTPage, PostItem, RespMinimalCommunityInfo, RespPostListPost,
 };
+use std::collections::HashMap;
 use std::sync::Arc;
 
 async fn page_community(
@@ -131,7 +132,14 @@ async fn page_community_new_post(
                 </div>
                 <div>
                     <label>
-                        {"URL: "}<input r#type={"text"} name={"href"} required={"true"} />
+                        {"URL: "}<input r#type={"text"} name={"href"} />
+                    </label>
+                </div>
+                <div>
+                    <label>
+                        {"Text:"}
+                        <br />
+                        <textarea name={"content_text"}>{""}</textarea>
                     </label>
                 </div>
                 <div>
@@ -160,8 +168,14 @@ async fn handler_communities_new_post_submit(
     let cookies = get_cookie_map(cookies_string)?;
 
     let body = hyper::body::to_bytes(req.into_body()).await?;
-    let mut body: serde_json::Value = serde_urlencoded::from_bytes(&body)?;
-    body["community"] = community_id.into();
+    let mut body: HashMap<&str, serde_json::Value> = serde_urlencoded::from_bytes(&body)?;
+    body.insert("community", community_id.into());
+    if body.get("content_text").and_then(|x| x.as_str()) == Some("") {
+        body.remove("content_text");
+    }
+    if body.get("href").and_then(|x| x.as_str()) == Some("") {
+        body.remove("href");
+    }
     let body = serde_json::to_vec(&body)?;
 
     res_to_error(
