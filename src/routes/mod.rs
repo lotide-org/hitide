@@ -305,6 +305,70 @@ async fn handler_login_submit(
         .body("Successfully logged in.".into())?)
 }
 
+async fn page_signup(
+    _: (),
+    ctx: Arc<crate::RouteContext>,
+    req: hyper::Request<hyper::Body>,
+) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+    let cookies = get_cookie_map_for_req(&req)?;
+
+    let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, &cookies).await?;
+
+    Ok(html_response(render::html! {
+        <HTPage base_data={&base_data}>
+            <form method={"POST"} action={"/signup/submit"}>
+                <p>
+                    <input r#type={"text"} name={"username"} />
+                </p>
+                <p>
+                    <input r#type={"password"} name={"password"} />
+                </p>
+                <button r#type={"submit"}>{"Register"}</button>
+            </form>
+        </HTPage>
+    }))
+}
+
+async fn handler_signup_submit(
+    _: (),
+    ctx: Arc<crate::RouteContext>,
+    req: hyper::Request<hyper::Body>,
+) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+    #[derive(Deserialize)]
+    struct UsersCreateResponse<'a> {
+        token: &'a str,
+    }
+
+    let body = hyper::body::to_bytes(req.into_body()).await?;
+    let mut body: serde_json::Value = serde_urlencoded::from_bytes(&body)?;
+    body["login"] = true.into();
+    let body = serde_json::to_vec(&body)?;
+
+    let api_res = res_to_error(
+        ctx.http_client
+            .request(
+                hyper::Request::post(format!("{}/api/unstable/users", ctx.backend_host))
+                    .body(body.into())?,
+            )
+            .await?,
+    )
+    .await?;
+
+    let api_res = hyper::body::to_bytes(api_res.into_body()).await?;
+    let api_res: UsersCreateResponse = serde_json::from_slice(&api_res)?;
+
+    let token = api_res.token;
+
+    Ok(hyper::Response::builder()
+        .status(hyper::StatusCode::SEE_OTHER)
+        .header(
+            hyper::header::SET_COOKIE,
+            format!("hitideToken={}; Path=/; Max-Age={}", token, COOKIE_AGE),
+        )
+        .header(hyper::header::LOCATION, "/")
+        .body("Successfully registered new account.".into())?)
+}
+
 async fn page_home(
     _: (),
     ctx: Arc<crate::RouteContext>,
@@ -356,6 +420,15 @@ pub fn route_root() -> crate::RouteNode<()> {
                 .with_child(
                     "submit",
                     crate::RouteNode::new().with_handler_async("POST", handler_login_submit),
+                ),
+        )
+        .with_child(
+            "signup",
+            crate::RouteNode::new()
+                .with_handler_async("GET", page_signup)
+                .with_child(
+                    "submit",
+                    crate::RouteNode::new().with_handler_async("POST", handler_signup_submit),
                 ),
         )
 }
