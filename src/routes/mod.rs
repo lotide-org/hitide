@@ -24,13 +24,17 @@ fn get_cookie_map<'a>(src: Option<&'a str>) -> Result<CookieMap<'a>, ginger::Par
 fn get_cookie_map_for_req<'a>(
     req: &'a hyper::Request<hyper::Body>,
 ) -> Result<CookieMap<'a>, crate::Error> {
-    get_cookie_map(
-        req.headers()
-            .get(hyper::header::COOKIE)
-            .map(|x| x.to_str())
-            .transpose()?,
-    )
-    .map_err(Into::into)
+    get_cookie_map(get_cookies_string(req)?).map_err(Into::into)
+}
+
+fn get_cookies_string<'a>(
+    req: &'a hyper::Request<hyper::Body>,
+) -> Result<Option<&'a str>, crate::Error> {
+    Ok(req
+        .headers()
+        .get(hyper::header::COOKIE)
+        .map(|x| x.to_str())
+        .transpose()?)
 }
 
 fn with_auth(
@@ -106,6 +110,28 @@ struct RespPostListPost<'a> {
     author: Option<RespMinimalAuthorInfo<'a>>,
     created: &'a str,
     community: RespMinimalCommunityInfo<'a>,
+}
+
+#[derive(Deserialize, Debug)]
+struct RespPostCommentInfo<'a> {
+    id: i64,
+    author: Option<RespMinimalAuthorInfo<'a>>,
+    created: &'a str,
+    content_text: &'a str,
+}
+
+#[derive(Deserialize, Debug)]
+struct RespPostInfo<'a> {
+    #[serde(flatten, borrow)]
+    pub base: RespPostListPost<'a>,
+    #[serde(borrow)]
+    pub comments: Vec<RespPostCommentInfo<'a>>,
+}
+
+impl<'a> AsRef<RespPostListPost<'a>> for RespPostInfo<'a> {
+    fn as_ref(&self) -> &RespPostListPost<'a> {
+        &self.base
+    }
 }
 
 #[render::component]
@@ -341,14 +367,8 @@ async fn handler_new_community_submit(
     ctx: Arc<crate::RouteContext>,
     req: hyper::Request<hyper::Body>,
 ) -> Result<hyper::Response<hyper::Body>, crate::Error> {
-    let cookies_string = req
-        .headers()
-        .get(hyper::header::COOKIE)
-        .map(|x| x.to_str())
-        .transpose()?
-        .map(|x| x.to_owned());
+    let cookies_string = get_cookies_string(&req)?.map(ToOwned::to_owned);
     let cookies_string = cookies_string.as_deref();
-
     let cookies = get_cookie_map(cookies_string)?;
 
     let body = hyper::body::to_bytes(req.into_body()).await?;
@@ -415,17 +435,17 @@ async fn page_post(
     .await?;
     let api_res = hyper::body::to_bytes(api_res.into_body()).await?;
 
-    let post: RespPostListPost = serde_json::from_slice(&api_res)?;
+    let post: RespPostInfo = serde_json::from_slice(&api_res)?;
 
     Ok(html_response(render::html! {
         <HTPage base_data={&base_data}>
-            <h1>{post.title}</h1>
+            <h1>{post.as_ref().title}</h1>
             <p>
-                {"Submitted by "}<UserLink user={post.author.as_ref()} />
-                {" to "}<CommunityLink community={&post.community} />
+                {"Submitted by "}<UserLink user={post.as_ref().author.as_ref()} />
+                {" to "}<CommunityLink community={&post.as_ref().community} />
             </p>
             {
-                match post.href {
+                match post.as_ref().href {
                     None => None,
                     Some(href) => {
                         Some(render::rsx! {
@@ -435,7 +455,7 @@ async fn page_post(
                 }
             }
             {
-                match post.content_text {
+                match post.as_ref().content_text {
                     None => None,
                     Some(content_text) => {
                         Some(render::rsx! {
@@ -444,8 +464,73 @@ async fn page_post(
                     }
                 }
             }
+            <div>
+                <h2>{"Comments"}</h2>
+                {
+                    if base_data.login.is_some() {
+                        Some(render::rsx! {
+                            <form method={"POST"} action={format!("/posts/{}/submit_reply", post.as_ref().id)}>
+                                <div>
+                                    <textarea name={"content_text"}>{()}</textarea>
+                                </div>
+                                <button r#type={"submit"}>{"Post Comment"}</button>
+                            </form>
+                        })
+                    } else {
+                        None
+                    }
+                }
+                <ul>
+                    {
+                        post.comments.iter().map(|comment| {
+                            render::rsx! {
+                                <li>
+                                    {comment.content_text}
+                                    <br />
+                                    <small>{"- "}<cite><UserLink user={comment.author.as_ref()} /></cite></small>
+                                </li>
+                            }
+                        }).collect::<Vec<_>>()
+                    }
+                </ul>
+            </div>
         </HTPage>
     }))
+}
+
+async fn handler_post_submit_reply(
+    params: (i64,),
+    ctx: Arc<crate::RouteContext>,
+    req: hyper::Request<hyper::Body>,
+) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+    let (post_id,) = params;
+
+    let cookies_string = get_cookies_string(&req)?.map(ToOwned::to_owned);
+    let cookies_string = cookies_string.as_deref();
+    let cookies = get_cookie_map(cookies_string)?;
+
+    let body = hyper::body::to_bytes(req.into_body()).await?;
+    let body: serde_json::Value = serde_urlencoded::from_bytes(&body)?;
+    let body = serde_json::to_vec(&body)?;
+
+    res_to_error(
+        ctx.http_client
+            .request(with_auth(
+                hyper::Request::post(format!(
+                    "{}/api/unstable/posts/{}/replies",
+                    ctx.backend_host, post_id
+                ))
+                .body(body.into())?,
+                &cookies,
+            )?)
+            .await?,
+    )
+    .await?;
+
+    Ok(hyper::Response::builder()
+        .status(hyper::StatusCode::SEE_OTHER)
+        .header(hyper::header::LOCATION, format!("/posts/{}", post_id))
+        .body("Successfully posted.".into())?)
 }
 
 async fn page_signup(
@@ -578,7 +663,13 @@ pub fn route_root() -> crate::RouteNode<()> {
         .with_child(
             "posts",
             crate::RouteNode::new().with_child_parse::<i64, _>(
-                crate::RouteNode::new().with_handler_async("GET", page_post),
+                crate::RouteNode::new()
+                    .with_handler_async("GET", page_post)
+                    .with_child(
+                        "submit_reply",
+                        crate::RouteNode::new()
+                            .with_handler_async("POST", handler_post_submit_reply),
+                    ),
             ),
         )
         .with_child(
