@@ -144,6 +144,9 @@ fn HTPage<'base_data, Children: render::Render>(
         <>
             <render::html::HTML5Doctype />
             <html>
+                <head>
+                    <meta charset={"utf-8"} />
+                </head>
                 <body>
                     <header class={"mainHeader"}>
                         <div><a href={"/"}>{"lotide"}</a></div>
@@ -167,14 +170,37 @@ fn HTPage<'base_data, Children: render::Render>(
     }
 }
 
+fn abbreviate_link(href: &str) -> &str {
+    // Attempt to find the hostname from the URL
+    match href.find("://") {
+        Some(idx1) => match href[(idx1 + 3)..].find('/') {
+            Some(idx2) => Some(&href[(idx1 + 3)..(idx1 + 3 + idx2)]),
+            None => None,
+        },
+        None => None,
+    }
+    .unwrap_or(href)
+}
+
 #[render::component]
 fn PostItem<'post>(post: &'post RespPostListPost<'post>, in_community: bool) {
-    let post_link = format!("/posts/{}", post.id).into();
     render::rsx! {
         <li>
-            <a href={post.href.map(Cow::from).unwrap_or(post_link)}>
+            <a href={format!("/posts/{}", post.id)}>
                 {post.title}
             </a>
+            {
+                if let Some(href) = post.href {
+                    Some(render::rsx! {
+                        <>
+                            {" "}
+                            <em><a href={href}>{abbreviate_link(href)}{" ↗"}</a></em>
+                        </>
+                    })
+                } else {
+                    None
+                }
+            }
             <br />
             {"Submitted by "}<UserLink user={post.author.as_ref()} />
             {
