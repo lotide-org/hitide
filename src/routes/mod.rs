@@ -118,6 +118,7 @@ struct RespPostCommentInfo<'a> {
     author: Option<RespMinimalAuthorInfo<'a>>,
     created: &'a str,
     content_text: &'a str,
+    replies: Option<Vec<RespPostCommentInfo<'a>>>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -247,6 +248,41 @@ impl<'community> render::Render for CommunityLink<'community> {
     }
 }
 
+#[render::component]
+fn Comment<'comment>(comment: &'comment RespPostCommentInfo<'comment>) {
+    render::rsx! {
+        <li>
+            <small><cite><UserLink user={comment.author.as_ref()} /></cite>{":"}</small>
+            <br />
+            {comment.content_text}
+            <br />
+            <div>
+                <a href={format!("/comments/{}", comment.id)}>{"reply"}</a>
+            </div>
+
+            {
+                match &comment.replies {
+                    Some(replies) => {
+                        Some(render::rsx! {
+                            <ul>
+                                {
+                                    replies.iter().map(|reply| {
+                                        render::rsx! {
+                                            <Comment comment={reply} />
+                                        }
+                                    })
+                                    .collect::<Vec<_>>()
+                                }
+                            </ul>
+                        })
+                    },
+                    None => None,
+                }
+            }
+        </li>
+    }
+}
+
 fn html_response(html: String) -> hyper::Response<hyper::Body> {
     let mut res = hyper::Response::new(html.into());
     res.headers_mut().insert(
@@ -254,6 +290,100 @@ fn html_response(html: String) -> hyper::Response<hyper::Body> {
         hyper::header::HeaderValue::from_static("text/html"),
     );
     res
+}
+
+async fn page_comment(
+    params: (i64,),
+    ctx: Arc<crate::RouteContext>,
+    req: hyper::Request<hyper::Body>,
+) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+    let (comment_id,) = params;
+
+    let cookies = get_cookie_map_for_req(&req)?;
+
+    let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, &cookies).await?;
+
+    let api_res = res_to_error(
+        ctx.http_client
+            .request(with_auth(
+                hyper::Request::get(format!(
+                    "{}/api/unstable/comments/{}",
+                    ctx.backend_host, comment_id
+                ))
+                .body(Default::default())?,
+                &cookies,
+            )?)
+            .await?,
+    )
+    .await?;
+    let api_res = hyper::body::to_bytes(api_res.into_body()).await?;
+    let comment: RespPostCommentInfo<'_> = serde_json::from_slice(&api_res)?;
+
+    Ok(html_response(render::html! {
+        <HTPage base_data={&base_data}>
+            <p>
+                <small><cite><UserLink user={comment.author.as_ref()} /></cite>{":"}</small>
+                <br />
+                {comment.content_text}
+            </p>
+            <form method={"POST"} action={format!("/comments/{}/submit_reply", comment.id)}>
+                <div>
+                    <textarea name={"content_text"}>{()}</textarea>
+                </div>
+                <button r#type={"submit"}>{"Reply"}</button>
+            </form>
+        </HTPage>
+    }))
+}
+
+async fn handler_comment_submit_reply(
+    params: (i64,),
+    ctx: Arc<crate::RouteContext>,
+    req: hyper::Request<hyper::Body>,
+) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+    #[derive(Deserialize)]
+    struct CommentsRepliesCreateResponsePost {
+        id: i64,
+    }
+    #[derive(Deserialize)]
+    struct CommentsRepliesCreateResponse {
+        post: CommentsRepliesCreateResponsePost,
+    }
+
+    let (comment_id,) = params;
+
+    let cookies_string = get_cookies_string(&req)?.map(ToOwned::to_owned);
+    let cookies_string = cookies_string.as_deref();
+    let cookies = get_cookie_map(cookies_string)?;
+
+    let body = hyper::body::to_bytes(req.into_body()).await?;
+    let body: serde_json::Value = serde_urlencoded::from_bytes(&body)?;
+    let body = serde_json::to_vec(&body)?;
+
+    let api_res = res_to_error(
+        ctx.http_client
+            .request(with_auth(
+                hyper::Request::post(format!(
+                    "{}/api/unstable/comments/{}/replies",
+                    ctx.backend_host, comment_id
+                ))
+                .body(body.into())?,
+                &cookies,
+            )?)
+            .await?,
+    )
+    .await?;
+
+    let api_res = hyper::body::to_bytes(api_res.into_body()).await?;
+    let api_res: CommentsRepliesCreateResponse = serde_json::from_slice(&api_res)?;
+
+    Ok(hyper::Response::builder()
+        .status(hyper::StatusCode::SEE_OTHER)
+        .header(
+            hyper::header::LOCATION,
+            format!("/posts/{}", api_res.post.id),
+        )
+        .body("Successfully posted.".into())?)
 }
 
 async fn page_login(
@@ -484,11 +614,7 @@ async fn page_post(
                     {
                         post.comments.iter().map(|comment| {
                             render::rsx! {
-                                <li>
-                                    {comment.content_text}
-                                    <br />
-                                    <small>{"- "}<cite><UserLink user={comment.author.as_ref()} /></cite></small>
-                                </li>
+                                <Comment comment={comment} />
                             }
                         }).collect::<Vec<_>>()
                     }
@@ -640,6 +766,18 @@ async fn page_home(
 pub fn route_root() -> crate::RouteNode<()> {
     crate::RouteNode::new()
         .with_handler_async("GET", page_home)
+        .with_child(
+            "comments",
+            crate::RouteNode::new().with_child_parse::<i64, _>(
+                crate::RouteNode::new()
+                    .with_handler_async("GET", page_comment)
+                    .with_child(
+                        "submit_reply",
+                        crate::RouteNode::new()
+                            .with_handler_async("POST", handler_comment_submit_reply),
+                    ),
+            ),
+        )
         .with_child("communities", communities::route_communities())
         .with_child(
             "login",
