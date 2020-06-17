@@ -3,6 +3,7 @@ use std::borrow::Cow;
 use std::sync::Arc;
 
 mod communities;
+mod r#static;
 
 const COOKIE_AGE: u32 = 60 * 60 * 24 * 365;
 
@@ -146,11 +147,12 @@ fn HTPage<'base_data, Children: render::Render>(
             <html>
                 <head>
                     <meta charset={"utf-8"} />
+                    <link rel={"stylesheet"} href={"/static/main.css"} />
                 </head>
                 <body>
                     <header class={"mainHeader"}>
-                        <div><a href={"/"}>{"lotide"}</a></div>
-                        <div>
+                        <div class={"left"}><a href={"/"}>{"lotide"}</a></div>
+                        <div class={"right"}>
                             {
                                 match base_data.login {
                                     Some(_) => None,
@@ -845,4 +847,5 @@ pub fn route_root() -> crate::RouteNode<()> {
                     crate::RouteNode::new().with_handler_async("POST", handler_signup_submit),
                 ),
         )
+        .with_child("static", r#static::route_static())
 }
