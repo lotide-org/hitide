@@ -5,6 +5,7 @@ RUN apt-get update \
 WORKDIR /usr/src/hitide
 COPY Cargo.* ./
 COPY src ./src
+COPY res ./res
 RUN cargo build --release
 
 FROM debian:buster-slim
