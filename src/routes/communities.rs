@@ -58,7 +58,7 @@ async fn page_community(
 
     Ok(html_response(render::html! {
         <HTPage base_data={&base_data}>
-            <h1>{community_info.name}</h1>
+            <h1>{community_info.name.as_ref()}</h1>
             <p>
                 <form method={"POST"} action={&follow_url}>
                     <button r#type={"submit"}>{"Follow"}</button>

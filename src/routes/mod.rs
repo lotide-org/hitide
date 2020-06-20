@@ -97,28 +97,32 @@ async fn fetch_base_data(
 #[derive(Deserialize, Debug)]
 struct RespMinimalAuthorInfo<'a> {
     id: i64,
-    username: &'a str,
+    username: Cow<'a, str>,
     local: bool,
-    host: &'a str,
+    host: Cow<'a, str>,
 }
 
 #[derive(Deserialize, Debug)]
 struct RespPostListPost<'a> {
     id: i64,
-    title: &'a str,
-    href: Option<&'a str>,
-    content_text: Option<&'a str>,
+    title: Cow<'a, str>,
+    href: Option<Cow<'a, str>>,
+    content_text: Option<Cow<'a, str>>,
+    #[serde(borrow)]
     author: Option<RespMinimalAuthorInfo<'a>>,
-    created: &'a str,
+    created: Cow<'a, str>,
+    #[serde(borrow)]
     community: RespMinimalCommunityInfo<'a>,
 }
 
 #[derive(Deserialize, Debug)]
 struct RespPostCommentInfo<'a> {
     id: i64,
+    #[serde(borrow)]
     author: Option<RespMinimalAuthorInfo<'a>>,
-    created: &'a str,
-    content_text: &'a str,
+    created: Cow<'a, str>,
+    content_text: Cow<'a, str>,
+    #[serde(borrow)]
     replies: Option<Vec<RespPostCommentInfo<'a>>>,
 }
 
@@ -189,14 +193,14 @@ fn PostItem<'post>(post: &'post RespPostListPost<'post>, in_community: bool) {
     render::rsx! {
         <li>
             <a href={format!("/posts/{}", post.id)}>
-                {post.title}
+                {post.title.as_ref()}
             </a>
             {
-                if let Some(href) = post.href {
+                if let Some(href) = &post.href {
                     Some(render::rsx! {
                         <>
                             {" "}
-                            <em><a href={href}>{abbreviate_link(href)}{" ↗"}</a></em>
+                            <em><a href={href.as_ref()}>{abbreviate_link(&href)}{" ↗"}</a></em>
                         </>
                     })
                 } else {
@@ -221,9 +225,9 @@ fn PostItem<'post>(post: &'post RespPostListPost<'post>, in_community: bool) {
 #[derive(Deserialize, Debug)]
 struct RespMinimalCommunityInfo<'a> {
     id: i64,
-    name: &'a str,
+    name: Cow<'a, str>,
     local: bool,
-    host: &'a str,
+    host: Cow<'a, str>,
 }
 
 struct UserLink<'user> {
@@ -240,7 +244,7 @@ impl<'user> render::Render for UserLink<'user> {
                     <a href={&href}>
                         {
                             (if user.local {
-                                user.username.into()
+                                user.username.as_ref().into()
                             } else {
                                 Cow::Owned(format!("{}@{}", user.username, user.host))
                             }).as_ref()
@@ -265,7 +269,7 @@ impl<'community> render::Render for CommunityLink<'community> {
             <a href={&href}>
             {
                 (if community.local {
-                    community.name.into()
+                    community.name.as_ref().into()
                 } else {
                     Cow::Owned(format!("{}@{}", community.name, community.host))
                 }).as_ref()
@@ -282,7 +286,7 @@ fn Comment<'comment>(comment: &'comment RespPostCommentInfo<'comment>) {
         <li>
             <small><cite><UserLink user={comment.author.as_ref()} /></cite>{":"}</small>
             <br />
-            {comment.content_text}
+            {comment.content_text.as_ref()}
             <br />
             <div>
                 <a href={format!("/comments/{}", comment.id)}>{"reply"}</a>
@@ -352,7 +356,7 @@ async fn page_comment(
             <p>
                 <small><cite><UserLink user={comment.author.as_ref()} /></cite>{":"}</small>
                 <br />
-                {comment.content_text}
+                {comment.content_text.as_ref()}
             </p>
             <form method={"POST"} action={format!("/comments/{}/submit_reply", comment.id)}>
                 <div>
@@ -597,27 +601,27 @@ async fn page_post(
 
     Ok(html_response(render::html! {
         <HTPage base_data={&base_data}>
-            <h1>{post.as_ref().title}</h1>
+            <h1>{post.as_ref().title.as_ref()}</h1>
             <p>
                 {"Submitted by "}<UserLink user={post.as_ref().author.as_ref()} />
                 {" to "}<CommunityLink community={&post.as_ref().community} />
             </p>
             {
-                match post.as_ref().href {
+                match &post.as_ref().href {
                     None => None,
                     Some(href) => {
                         Some(render::rsx! {
-                            <p><a href={href}>{href}</a></p>
+                            <p><a href={href.as_ref()}>{href.as_ref()}</a></p>
                         })
                     }
                 }
             }
             {
-                match post.as_ref().content_text {
+                match &post.as_ref().content_text {
                     None => None,
                     Some(content_text) => {
                         Some(render::rsx! {
-                            <p>{content_text}</p>
+                            <p>{content_text.as_ref()}</p>
                         })
                     }
                 }
