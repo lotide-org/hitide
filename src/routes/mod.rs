@@ -53,6 +53,17 @@ fn with_auth(
     Ok(new_req)
 }
 
+fn author_is_me(author: &Option<RespMinimalAuthorInfo<'_>>, login: &Option<RespLoginInfo>) -> bool {
+    if let Some(author) = author {
+        if let Some(login) = login {
+            if author.id == login.user.id {
+                return true;
+            }
+        }
+    }
+    false
+}
+
 #[derive(Deserialize, Debug)]
 struct RespLoginInfoUser {
     id: i64,
@@ -281,15 +292,27 @@ impl<'community> render::Render for CommunityLink<'community> {
 }
 
 #[render::component]
-fn Comment<'comment>(comment: &'comment RespPostCommentInfo<'comment>) {
+fn Comment<'comment, 'base_data>(
+    comment: &'comment RespPostCommentInfo<'comment>,
+    base_data: &'base_data PageBaseData,
+) {
     render::rsx! {
         <li>
             <small><cite><UserLink user={comment.author.as_ref()} /></cite>{":"}</small>
             <br />
             {comment.content_text.as_ref()}
             <br />
-            <div>
+            <div class={"actionList"}>
                 <a href={format!("/comments/{}", comment.id)}>{"reply"}</a>
+                {
+                    if author_is_me(&comment.author, &base_data.login) {
+                        Some(render::rsx! {
+                            <a href={format!("/comments/{}/delete", comment.id)}>{"delete"}</a>
+                        })
+                    } else {
+                        None
+                    }
+                }
             </div>
 
             {
@@ -300,7 +323,7 @@ fn Comment<'comment>(comment: &'comment RespPostCommentInfo<'comment>) {
                                 {
                                     replies.iter().map(|reply| {
                                         render::rsx! {
-                                            <Comment comment={reply} />
+                                            <Comment comment={reply} base_data />
                                         }
                                     })
                                     .collect::<Vec<_>>()
@@ -366,6 +389,81 @@ async fn page_comment(
             </form>
         </HTPage>
     }))
+}
+
+async fn page_comment_delete(
+    params: (i64,),
+    ctx: Arc<crate::RouteContext>,
+    req: hyper::Request<hyper::Body>,
+) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+    let (comment_id,) = params;
+
+    let cookies = get_cookie_map_for_req(&req)?;
+
+    let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, &cookies).await?;
+
+    let api_res = res_to_error(
+        ctx.http_client
+            .request(with_auth(
+                hyper::Request::get(format!(
+                    "{}/api/unstable/comments/{}",
+                    ctx.backend_host, comment_id
+                ))
+                .body(Default::default())?,
+                &cookies,
+            )?)
+            .await?,
+    )
+    .await?;
+    let api_res = hyper::body::to_bytes(api_res.into_body()).await?;
+    let comment: RespPostCommentInfo<'_> = serde_json::from_slice(&api_res)?;
+
+    Ok(html_response(render::html! {
+        <HTPage base_data={&base_data}>
+            <p>
+                <small><cite><UserLink user={comment.author.as_ref()} /></cite>{":"}</small>
+                <br />
+                {comment.content_text.as_ref()}
+            </p>
+            <div id={"delete"}>
+                <h2>{"Delete this comment?"}</h2>
+                <form method={"POST"} action={format!("/comments/{}/delete/confirm", comment.id)}>
+                    <a href={format!("/comments/{}/", comment.id)}>{"No, cancel"}</a>
+                    {" "}
+                    <button r#type={"submit"}>{"Yes, delete"}</button>
+                </form>
+            </div>
+        </HTPage>
+    }))
+}
+
+async fn handler_comment_delete_confirm(
+    params: (i64,),
+    ctx: Arc<crate::RouteContext>,
+    req: hyper::Request<hyper::Body>,
+) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+    let (comment_id,) = params;
+
+    let cookies = get_cookie_map_for_req(&req)?;
+
+    res_to_error(
+        ctx.http_client
+            .request(with_auth(
+                hyper::Request::delete(format!(
+                    "{}/api/unstable/comments/{}",
+                    ctx.backend_host, comment_id,
+                ))
+                .body("".into())?,
+                &cookies,
+            )?)
+            .await?,
+    )
+    .await?;
+
+    Ok(hyper::Response::builder()
+        .status(hyper::StatusCode::SEE_OTHER)
+        .header(hyper::header::LOCATION, "/")
+        .body("Successfully deleted.".into())?)
 }
 
 async fn handler_comment_submit_reply(
@@ -626,6 +724,17 @@ async fn page_post(
                     }
                 }
             }
+            {
+                if author_is_me(&post.as_ref().author, &base_data.login) {
+                    Some(render::rsx! {
+                        <p>
+                            <a href={format!("/posts/{}/delete", post_id)}>{"delete"}</a>
+                            </p>
+                    })
+                } else {
+                    None
+                }
+            }
             <div>
                 <h2>{"Comments"}</h2>
                 {
@@ -646,7 +755,7 @@ async fn page_post(
                     {
                         post.comments.iter().map(|comment| {
                             render::rsx! {
-                                <Comment comment={comment} />
+                                <Comment comment={comment} base_data={&base_data} />
                             }
                         }).collect::<Vec<_>>()
                     }
@@ -654,6 +763,76 @@ async fn page_post(
             </div>
         </HTPage>
     }))
+}
+
+async fn page_post_delete(
+    params: (i64,),
+    ctx: Arc<crate::RouteContext>,
+    req: hyper::Request<hyper::Body>,
+) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+    let (post_id,) = params;
+
+    let cookies = get_cookie_map_for_req(&req)?;
+
+    let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, &cookies).await?;
+
+    let api_res = res_to_error(
+        ctx.http_client
+            .request(with_auth(
+                hyper::Request::get(format!(
+                    "{}/api/unstable/posts/{}",
+                    ctx.backend_host, post_id
+                ))
+                .body(Default::default())?,
+                &cookies,
+            )?)
+            .await?,
+    )
+    .await?;
+    let api_res = hyper::body::to_bytes(api_res.into_body()).await?;
+
+    let post: RespPostInfo = serde_json::from_slice(&api_res)?;
+
+    Ok(html_response(render::html! {
+        <HTPage base_data={&base_data}>
+            <h1>{post.as_ref().title.as_ref()}</h1>
+            <h2>{"Delete this post?"}</h2>
+            <form method={"POST"} action={format!("/posts/{}/delete/confirm", post.as_ref().id)}>
+                <a href={format!("/posts/{}/", post.as_ref().id)}>{"No, cancel"}</a>
+                {" "}
+                <button r#type={"submit"}>{"Yes, delete"}</button>
+            </form>
+        </HTPage>
+    }))
+}
+
+async fn handler_post_delete_confirm(
+    params: (i64,),
+    ctx: Arc<crate::RouteContext>,
+    req: hyper::Request<hyper::Body>,
+) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+    let (post_id,) = params;
+
+    let cookies = get_cookie_map_for_req(&req)?;
+
+    res_to_error(
+        ctx.http_client
+            .request(with_auth(
+                hyper::Request::delete(format!(
+                    "{}/api/unstable/posts/{}",
+                    ctx.backend_host, post_id,
+                ))
+                .body("".into())?,
+                &cookies,
+            )?)
+            .await?,
+    )
+    .await?;
+
+    Ok(hyper::Response::builder()
+        .status(hyper::StatusCode::SEE_OTHER)
+        .header(hyper::header::LOCATION, "/")
+        .body("Successfully deleted.".into())?)
 }
 
 async fn handler_post_submit_reply(
@@ -804,6 +983,16 @@ pub fn route_root() -> crate::RouteNode<()> {
                 crate::RouteNode::new()
                     .with_handler_async("GET", page_comment)
                     .with_child(
+                        "delete",
+                        crate::RouteNode::new()
+                            .with_handler_async("GET", page_comment_delete)
+                            .with_child(
+                                "confirm",
+                                crate::RouteNode::new()
+                                    .with_handler_async("POST", handler_comment_delete_confirm),
+                            ),
+                    )
+                    .with_child(
                         "submit_reply",
                         crate::RouteNode::new()
                             .with_handler_async("POST", handler_comment_submit_reply),
@@ -835,6 +1024,16 @@ pub fn route_root() -> crate::RouteNode<()> {
             crate::RouteNode::new().with_child_parse::<i64, _>(
                 crate::RouteNode::new()
                     .with_handler_async("GET", page_post)
+                    .with_child(
+                        "delete",
+                        crate::RouteNode::new()
+                            .with_handler_async("GET", page_post_delete)
+                            .with_child(
+                                "confirm",
+                                crate::RouteNode::new()
+                                    .with_handler_async("POST", handler_post_delete_confirm),
+                            ),
+                    )
                     .with_child(
                         "submit_reply",
                         crate::RouteNode::new()

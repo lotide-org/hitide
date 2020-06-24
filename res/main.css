@@ -18,3 +18,7 @@ body {
 .mainHeader > .right {
 	float: right;
 }
+
+.actionList > * {
+	margin-right: .5em;
+}
