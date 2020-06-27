@@ -1,9 +1,66 @@
 use crate::routes::{
     fetch_base_data, get_cookie_map, get_cookie_map_for_req, html_response, res_to_error,
-    with_auth, HTPage, PostItem, RespMinimalCommunityInfo, RespPostListPost,
+    with_auth, CommunityLink, HTPage, PostItem, RespMinimalCommunityInfo, RespPostListPost,
 };
 use std::collections::HashMap;
 use std::sync::Arc;
+
+async fn page_communities(
+    _: (),
+    ctx: Arc<crate::RouteContext>,
+    req: hyper::Request<hyper::Body>,
+) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+    let cookies = get_cookie_map_for_req(&req)?;
+    let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, &cookies).await?;
+
+    let api_res = res_to_error(
+        ctx.http_client
+            .request(
+                hyper::Request::get(format!("{}/api/unstable/communities", ctx.backend_host,))
+                    .body(Default::default())?,
+            )
+            .await?,
+    )
+    .await?;
+    let api_res = hyper::body::to_bytes(api_res.into_body()).await?;
+    let communities: Vec<RespMinimalCommunityInfo> = serde_json::from_slice(&api_res)?;
+
+    Ok(html_response(render::html! {
+        <HTPage base_data={&base_data}>
+            <h1>{"Communities"}</h1>
+            <div>
+                <h2>{"Local"}</h2>
+                <ul>
+                    {
+                        communities.iter()
+                            .filter(|x| x.local)
+                            .map(|community| {
+                                render::rsx! {
+                                    <li><CommunityLink community={&community} /></li>
+                                }
+                            })
+                            .collect::<Vec<_>>()
+                    }
+                </ul>
+            </div>
+            <div>
+                <h2>{"Remote"}</h2>
+                <ul>
+                    {
+                        communities.iter()
+                            .filter(|x| !x.local)
+                            .map(|community| {
+                                render::rsx! {
+                                    <li><CommunityLink community={&community} /></li>
+                                }
+                            })
+                            .collect::<Vec<_>>()
+                    }
+                </ul>
+            </div>
+        </HTPage>
+    }))
+}
 
 async fn page_community(
     params: (i64,),
@@ -199,22 +256,24 @@ async fn handler_communities_new_post_submit(
 }
 
 pub fn route_communities() -> crate::RouteNode<()> {
-    crate::RouteNode::new().with_child_parse::<i64, _>(
-        crate::RouteNode::new()
-            .with_handler_async("GET", page_community)
-            .with_child(
-                "follow",
-                crate::RouteNode::new().with_handler_async("POST", handler_community_follow),
-            )
-            .with_child(
-                "new_post",
-                crate::RouteNode::new()
-                    .with_handler_async("GET", page_community_new_post)
-                    .with_child(
-                        "submit",
-                        crate::RouteNode::new()
-                            .with_handler_async("POST", handler_communities_new_post_submit),
-                    ),
-            ),
-    )
+    crate::RouteNode::new()
+        .with_handler_async("GET", page_communities)
+        .with_child_parse::<i64, _>(
+            crate::RouteNode::new()
+                .with_handler_async("GET", page_community)
+                .with_child(
+                    "follow",
+                    crate::RouteNode::new().with_handler_async("POST", handler_community_follow),
+                )
+                .with_child(
+                    "new_post",
+                    crate::RouteNode::new()
+                        .with_handler_async("GET", page_community_new_post)
+                        .with_child(
+                            "submit",
+                            crate::RouteNode::new()
+                                .with_handler_async("POST", handler_communities_new_post_submit),
+                        ),
+                ),
+        )
 }

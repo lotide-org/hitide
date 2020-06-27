@@ -22,3 +22,9 @@ body {
 .actionList > * {
 	margin-right: .5em;
 }
+
+.siteName {
+	font-weight: bold;
+	font-size: 1.2em;
+	margin-right: 1em;
+}

@@ -191,8 +191,11 @@ fn HTPage<'base_data, Children: render::Render>(
                 </head>
                 <body>
                     <header class={"mainHeader"}>
-                        <div class={"left"}><a href={"/"}>{"lotide"}</a></div>
-                        <div class={"right"}>
+                        <div class={"left actionList"}>
+                            <a href={"/"} class={"siteName"}>{"lotide"}</a>
+                            <a href={"/communities"}>{"Communities"}</a>
+                        </div>
+                        <div class={"right actionList"}>
                             {
                                 match base_data.login {
                                     Some(_) => None,
