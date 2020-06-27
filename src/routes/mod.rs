@@ -113,17 +113,32 @@ struct RespMinimalAuthorInfo<'a> {
     host: Cow<'a, str>,
 }
 
+trait HavingContent {
+    fn content_text(&self) -> Option<&str>;
+    fn content_html(&self) -> Option<&str>;
+}
+
 #[derive(Deserialize, Debug)]
 struct RespPostListPost<'a> {
     id: i64,
     title: Cow<'a, str>,
     href: Option<Cow<'a, str>>,
     content_text: Option<Cow<'a, str>>,
+    content_html: Option<Cow<'a, str>>,
     #[serde(borrow)]
     author: Option<RespMinimalAuthorInfo<'a>>,
     created: Cow<'a, str>,
     #[serde(borrow)]
     community: RespMinimalCommunityInfo<'a>,
+}
+
+impl<'a> HavingContent for RespPostListPost<'a> {
+    fn content_text(&self) -> Option<&str> {
+        self.content_text.as_deref()
+    }
+    fn content_html(&self) -> Option<&str> {
+        self.content_html.as_deref()
+    }
 }
 
 #[derive(Deserialize, Debug)]
@@ -132,9 +147,19 @@ struct RespPostCommentInfo<'a> {
     #[serde(borrow)]
     author: Option<RespMinimalAuthorInfo<'a>>,
     created: Cow<'a, str>,
-    content_text: Cow<'a, str>,
+    content_text: Option<Cow<'a, str>>,
+    content_html: Option<Cow<'a, str>>,
     #[serde(borrow)]
     replies: Option<Vec<RespPostCommentInfo<'a>>>,
+}
+
+impl<'a> HavingContent for RespPostCommentInfo<'a> {
+    fn content_text(&self) -> Option<&str> {
+        self.content_text.as_deref()
+    }
+    fn content_html(&self) -> Option<&str> {
+        self.content_html.as_deref()
+    }
 }
 
 #[derive(Deserialize, Debug)]
@@ -291,6 +316,33 @@ impl<'community> render::Render for CommunityLink<'community> {
     }
 }
 
+struct Content<'a, T: HavingContent + 'a> {
+    src: &'a T,
+}
+
+impl<'a, T: HavingContent + 'a> render::Render for Content<'a, T> {
+    fn render_into<W: std::fmt::Write>(self, writer: &mut W) -> std::fmt::Result {
+        match self.src.content_html() {
+            Some(html) => {
+                let cleaned = ammonia::clean(&html);
+                writer.write_str("<p>")?;
+                render::raw!(cleaned.as_ref()).render_into(writer)?;
+                writer.write_str("</p>")?;
+            }
+            None => match self.src.content_text() {
+                Some(text) => {
+                    writer.write_str("<p>")?;
+                    text.render_into(writer)?;
+                    writer.write_str("</p>")?;
+                }
+                None => {}
+            },
+        }
+
+        Ok(())
+    }
+}
+
 #[render::component]
 fn Comment<'comment, 'base_data>(
     comment: &'comment RespPostCommentInfo<'comment>,
@@ -299,9 +351,7 @@ fn Comment<'comment, 'base_data>(
     render::rsx! {
         <li>
             <small><cite><UserLink user={comment.author.as_ref()} /></cite>{":"}</small>
-            <br />
-            {comment.content_text.as_ref()}
-            <br />
+            <Content src={comment} />
             <div class={"actionList"}>
                 <a href={format!("/comments/{}", comment.id)}>{"reply"}</a>
                 {
@@ -378,8 +428,7 @@ async fn page_comment(
         <HTPage base_data={&base_data}>
             <p>
                 <small><cite><UserLink user={comment.author.as_ref()} /></cite>{":"}</small>
-                <br />
-                {comment.content_text.as_ref()}
+                <Content src={&comment} />
             </p>
             <form method={"POST"} action={format!("/comments/{}/submit_reply", comment.id)}>
                 <div>
@@ -423,7 +472,7 @@ async fn page_comment_delete(
             <p>
                 <small><cite><UserLink user={comment.author.as_ref()} /></cite>{":"}</small>
                 <br />
-                {comment.content_text.as_ref()}
+                <Content src={&comment} />
             </p>
             <div id={"delete"}>
                 <h2>{"Delete this comment?"}</h2>
@@ -714,16 +763,7 @@ async fn page_post(
                     }
                 }
             }
-            {
-                match &post.as_ref().content_text {
-                    None => None,
-                    Some(content_text) => {
-                        Some(render::rsx! {
-                            <p>{content_text.as_ref()}</p>
-                        })
-                    }
-                }
-            }
+            <Content src={post.as_ref()} />
             {
                 if author_is_me(&post.as_ref().author, &base_data.login) {
                     Some(render::rsx! {
