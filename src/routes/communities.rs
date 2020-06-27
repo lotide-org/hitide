@@ -30,6 +30,13 @@ async fn page_communities(
             <h1>{"Communities"}</h1>
             <div>
                 <h2>{"Local"}</h2>
+                {
+                    if base_data.login.is_some() {
+                        Some(render::rsx! { <a href={"/new_community"}>{"Create Community"}</a> })
+                    } else {
+                        None
+                    }
+                }
                 <ul>
                     {
                         communities.iter()
