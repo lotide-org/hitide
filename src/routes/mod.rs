@@ -648,6 +648,78 @@ async fn handler_login_submit(
         .body("Successfully logged in.".into())?)
 }
 
+async fn page_lookup(
+    _: (),
+    ctx: Arc<crate::RouteContext>,
+    req: hyper::Request<hyper::Body>,
+) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+    let cookies = get_cookie_map_for_req(&req)?;
+    let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, &cookies).await?;
+
+    #[derive(Deserialize)]
+    struct LookupQuery<'a> {
+        query: Option<Cow<'a, str>>,
+    }
+
+    let query: LookupQuery<'_> = serde_urlencoded::from_str(req.uri().query().unwrap_or(""))?;
+    let query = query.query;
+
+    #[derive(Deserialize)]
+    struct LookupResult {
+        id: i64,
+    }
+
+    let api_res: Option<Vec<LookupResult>> = if let Some(query) = &query {
+        let api_res = res_to_error(
+            ctx.http_client
+                .request(
+                    hyper::Request::get(format!(
+                        "{}/api/unstable/actors:lookup/{}",
+                        ctx.backend_host,
+                        urlencoding::encode(&query)
+                    ))
+                    .body(Default::default())?,
+                )
+                .await?,
+        )
+        .await?;
+
+        let api_res = hyper::body::to_bytes(api_res.into_body()).await?;
+        Some(serde_json::from_slice(&api_res)?)
+    } else {
+        None
+    };
+
+    match api_res {
+        Some(items) if !items.is_empty() => Ok(hyper::Response::builder()
+            .status(hyper::StatusCode::FOUND)
+            .header(
+                hyper::header::LOCATION,
+                format!("/communities/{}", items[0].id),
+            )
+            .body("Redirecting…".into())?),
+        _ => {
+            Ok(html_response(render::html! {
+                <HTPage base_data={&base_data}>
+                    <h1>{"Lookup"}</h1>
+                    <form method={"GET"} action={"/lookup"}>
+                        <input r#type={"text"} name={"query"} value={query.as_deref().unwrap_or("")} />
+                    </form>
+                    {
+                        match api_res {
+                            None => None,
+                            Some(_) => {
+                                // non-empty case is handled above
+                                Some(render::rsx! { <p>{"Nothing found."}</p> })
+                            },
+                        }
+                    }
+                </HTPage>
+            }))
+        }
+    }
+}
+
 async fn page_new_community(
     _: (),
     ctx: Arc<crate::RouteContext>,
@@ -1051,6 +1123,10 @@ pub fn route_root() -> crate::RouteNode<()> {
                     "submit",
                     crate::RouteNode::new().with_handler_async("POST", handler_login_submit),
                 ),
+        )
+        .with_child(
+            "lookup",
+            crate::RouteNode::new().with_handler_async("GET", page_lookup),
         )
         .with_child(
             "new_community",

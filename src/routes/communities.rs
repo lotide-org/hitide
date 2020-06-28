@@ -52,6 +52,14 @@ async fn page_communities(
             </div>
             <div>
                 <h2>{"Remote"}</h2>
+                <form method={"GET"} action={"/lookup"}>
+                    <label>
+                        {"Add by ID: "}
+                        <input r#type={"text"} name={"query"} placeholder={"group@example.com"} />
+                    </label>
+                    {" "}
+                    <button r#type={"submit"}>{"Fetch"}</button>
+                </form>
                 <ul>
                     {
                         communities.iter()
