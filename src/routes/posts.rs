@@ -1,8 +1,10 @@
 use super::{
-    author_is_me, fetch_base_data, get_cookie_map, get_cookie_map_for_req, get_cookies_string,
-    html_response, res_to_error, with_auth, Comment, CommunityLink, Content, HTPage, RespPostInfo,
-    UserLink,
+    fetch_base_data, get_cookie_map, get_cookie_map_for_req, get_cookies_string, html_response,
+    res_to_error, with_auth,
 };
+use crate::components::{Comment, CommunityLink, Content, HTPage, UserLink};
+use crate::resp_types::RespPostInfo;
+use crate::util::author_is_me;
 use std::sync::Arc;
 
 async fn page_post(

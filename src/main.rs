@@ -1,10 +1,14 @@
 #![feature(proc_macro_hygiene)]
 #![allow(unused_braces)]
 
+use crate::resp_types::RespLoginInfo;
 use std::sync::Arc;
 use trout::hyper::RoutingFailureExtHyper;
 
+mod components;
+mod resp_types;
 mod routes;
+mod util;
 
 pub type HttpClient = hyper::Client<hyper_tls::HttpsConnector<hyper::client::HttpConnector>>;
 
@@ -34,6 +38,11 @@ impl<T: 'static + std::error::Error + Send> From<T> for Error {
     fn from(err: T) -> Error {
         Error::Internal(Box::new(err))
     }
+}
+
+#[derive(Debug)]
+pub struct PageBaseData {
+    pub login: Option<RespLoginInfo>,
 }
 
 pub fn simple_response(
