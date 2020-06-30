@@ -166,6 +166,7 @@ impl<'a> HavingContent for RespPostCommentInfo<'a> {
 struct RespPostInfo<'a> {
     #[serde(flatten, borrow)]
     pub base: RespPostListPost<'a>,
+    pub score: i64,
     #[serde(borrow)]
     pub comments: Vec<RespPostCommentInfo<'a>>,
 }
@@ -356,7 +357,20 @@ fn Comment<'comment, 'base_data>(
             <small><cite><UserLink user={comment.author.as_ref()} /></cite>{":"}</small>
             <Content src={comment} />
             <div class={"actionList"}>
-                <a href={format!("/comments/{}", comment.id)}>{"reply"}</a>
+                {
+                    if base_data.login.is_some() {
+                        Some(render::rsx! {
+                            <>
+                                <form method={"POST"} action={format!("/comments/{}/like", comment.id)} style={"display: inline"}>
+                                    <button r#type={"submit"}>{"Like"}</button>
+                                </form>
+                                <a href={format!("/comments/{}", comment.id)}>{"reply"}</a>
+                            </>
+                        })
+                    } else {
+                        None
+                    }
+                }
                 {
                     if author_is_me(&comment.author, &base_data.login) {
                         Some(render::rsx! {
@@ -516,6 +530,35 @@ async fn handler_comment_delete_confirm(
         .status(hyper::StatusCode::SEE_OTHER)
         .header(hyper::header::LOCATION, "/")
         .body("Successfully deleted.".into())?)
+}
+
+async fn handler_comment_like(
+    params: (i64,),
+    ctx: Arc<crate::RouteContext>,
+    req: hyper::Request<hyper::Body>,
+) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+    let (comment_id,) = params;
+
+    let cookies = get_cookie_map_for_req(&req)?;
+
+    res_to_error(
+        ctx.http_client
+            .request(with_auth(
+                hyper::Request::post(format!(
+                    "{}/api/unstable/comments/{}/like",
+                    ctx.backend_host, comment_id
+                ))
+                .body(Default::default())?,
+                &cookies,
+            )?)
+            .await?,
+    )
+    .await?;
+
+    Ok(hyper::Response::builder()
+        .status(hyper::StatusCode::SEE_OTHER)
+        .header(hyper::header::LOCATION, format!("/comments/{}", comment_id))
+        .body("Successfully liked.".into())?)
 }
 
 async fn handler_comment_submit_reply(
@@ -825,6 +868,21 @@ async fn page_post(
         <HTPage base_data={&base_data}>
             <h1>{post.as_ref().title.as_ref()}</h1>
             <p>
+                <em>{post.score.to_string()}{" points"}</em>
+                {" "}
+                {
+                    if base_data.login.is_some() {
+                        Some(render::rsx! {
+                            <form method={"POST"} action={format!("/posts/{}/like", post_id)}>
+                                <button r#type={"submit"}>{"Like"}</button>
+                            </form>
+                        })
+                    } else {
+                        None
+                    }
+                }
+            </p>
+            <p>
                 {"Submitted by "}<UserLink user={post.as_ref().author.as_ref()} />
                 {" to "}<CommunityLink community={&post.as_ref().community} />
             </p>
@@ -844,7 +902,7 @@ async fn page_post(
                     Some(render::rsx! {
                         <p>
                             <a href={format!("/posts/{}/delete", post_id)}>{"delete"}</a>
-                            </p>
+                        </p>
                     })
                 } else {
                     None
@@ -948,6 +1006,35 @@ async fn handler_post_delete_confirm(
         .status(hyper::StatusCode::SEE_OTHER)
         .header(hyper::header::LOCATION, "/")
         .body("Successfully deleted.".into())?)
+}
+
+async fn handler_post_like(
+    params: (i64,),
+    ctx: Arc<crate::RouteContext>,
+    req: hyper::Request<hyper::Body>,
+) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+    let (post_id,) = params;
+
+    let cookies = get_cookie_map_for_req(&req)?;
+
+    res_to_error(
+        ctx.http_client
+            .request(with_auth(
+                hyper::Request::post(format!(
+                    "{}/api/unstable/posts/{}/like",
+                    ctx.backend_host, post_id
+                ))
+                .body(Default::default())?,
+                &cookies,
+            )?)
+            .await?,
+    )
+    .await?;
+
+    Ok(hyper::Response::builder()
+        .status(hyper::StatusCode::SEE_OTHER)
+        .header(hyper::header::LOCATION, format!("/posts/{}", post_id))
+        .body("Successfully liked.".into())?)
 }
 
 async fn handler_post_submit_reply(
@@ -1108,6 +1195,10 @@ pub fn route_root() -> crate::RouteNode<()> {
                             ),
                     )
                     .with_child(
+                        "like",
+                        crate::RouteNode::new().with_handler_async("POST", handler_comment_like),
+                    )
+                    .with_child(
                         "submit_reply",
                         crate::RouteNode::new()
                             .with_handler_async("POST", handler_comment_submit_reply),
@@ -1152,6 +1243,10 @@ pub fn route_root() -> crate::RouteNode<()> {
                                 crate::RouteNode::new()
                                     .with_handler_async("POST", handler_post_delete_confirm),
                             ),
+                    )
+                    .with_child(
+                        "like",
+                        crate::RouteNode::new().with_handler_async("POST", handler_post_like),
                     )
                     .with_child(
                         "submit_reply",
