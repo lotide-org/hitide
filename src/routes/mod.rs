@@ -93,6 +93,31 @@ fn html_response(html: String) -> hyper::Response<hyper::Body> {
     res
 }
 
+async fn page_about(
+    _: (),
+    ctx: Arc<crate::RouteContext>,
+    req: hyper::Request<hyper::Body>,
+) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+    let cookies = get_cookie_map_for_req(&req)?;
+
+    let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, &cookies).await?;
+
+    Ok(html_response(render::html! {
+        <HTPage base_data={&base_data}>
+            <h2>{"What is lotide?"}</h2>
+            <p>
+                {"lotide is an attempt to build a federated forum. "}
+                {"Users can create communities to share links and text posts and discuss them with other users, including those registered on other servers through "}
+                <a href={"https://activitypub.rocks"}>{"ActivityPub"}</a>{"."}
+            </p>
+            <p>
+                {"For more information or to view the source code, check out the "}
+                <a href={"https://sr.ht/~vpzom/lotide/"}>{"SourceHut page"}</a>{"."}
+            </p>
+        </HTPage>
+    }))
+}
+
 async fn page_comment(
     params: (i64,),
     ctx: Arc<crate::RouteContext>,
@@ -622,6 +647,10 @@ async fn page_home(
 pub fn route_root() -> crate::RouteNode<()> {
     crate::RouteNode::new()
         .with_handler_async("GET", page_home)
+        .with_child(
+            "about",
+            crate::RouteNode::new().with_handler_async("GET", page_about),
+        )
         .with_child(
             "comments",
             crate::RouteNode::new().with_child_parse::<i64, _>(

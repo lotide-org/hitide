@@ -155,6 +155,7 @@ pub fn HTPage<'base_data, Children: render::Render>(
                         <div class={"left actionList"}>
                             <a href={"/"} class={"siteName"}>{"lotide"}</a>
                             <a href={"/communities"}>{"Communities"}</a>
+                            <a href={"/about"}>{"About"}</a>
                         </div>
                         <div class={"right actionList"}>
                             {
