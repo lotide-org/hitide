@@ -3,7 +3,7 @@ use std::borrow::Cow;
 use std::sync::Arc;
 
 use crate::components::{Content, HTPage, PostItem, UserLink};
-use crate::resp_types::{RespPostCommentInfo, RespPostListPost};
+use crate::resp_types::{RespMinimalAuthorInfo, RespPostCommentInfo, RespPostListPost};
 use crate::PageBaseData;
 
 mod communities;
@@ -604,6 +604,43 @@ async fn handler_signup_submit(
         .body("Successfully registered new account.".into())?)
 }
 
+async fn page_user(
+    params: (i64,),
+    ctx: Arc<crate::RouteContext>,
+    req: hyper::Request<hyper::Body>,
+) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+    let (user_id,) = params;
+
+    let cookies = get_cookie_map_for_req(&req)?;
+
+    let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, &cookies).await?;
+
+    let api_res = res_to_error(
+        ctx.http_client
+            .request(
+                hyper::Request::get(format!(
+                    "{}/api/unstable/users/{}",
+                    ctx.backend_host, user_id
+                ))
+                .body(Default::default())?,
+            )
+            .await?,
+    )
+    .await?;
+
+    let api_res = hyper::body::to_bytes(api_res.into_body()).await?;
+    let user: RespMinimalAuthorInfo<'_> = serde_json::from_slice(&api_res)?;
+
+    Ok(html_response(render::html! {
+        <HTPage base_data={&base_data}>
+            <h1>{user.username.as_ref()}</h1>
+            <p>
+                <em>{"User post listing is not currently implemented."}</em>
+            </p>
+        </HTPage>
+    }))
+}
+
 async fn page_home(
     _: (),
     ctx: Arc<crate::RouteContext>,
@@ -712,4 +749,10 @@ pub fn route_root() -> crate::RouteNode<()> {
                 ),
         )
         .with_child("static", r#static::route_static())
+        .with_child(
+            "users",
+            crate::RouteNode::new().with_child_parse::<i64, _>(
+                crate::RouteNode::new().with_handler_async("GET", page_user),
+            ),
+        )
 }
