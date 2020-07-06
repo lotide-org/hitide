@@ -32,6 +32,7 @@ pub enum Error {
     InternalStr(String),
     UserError(hyper::Response<hyper::Body>),
     RoutingError(trout::RoutingFailure),
+    RemoteError((hyper::StatusCode, String)),
 }
 
 impl<T: 'static + std::error::Error + Send> From<T> for Error {
@@ -86,16 +87,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             Ok(val) => val,
                             Err(Error::UserError(res)) => res,
                             Err(Error::RoutingError(err)) => err.to_simple_response(),
-                            Err(Error::Internal(err)) => {
+                            Err(err) => {
                                 eprintln!("Error: {:?}", err);
-
-                                simple_response(
-                                    hyper::StatusCode::INTERNAL_SERVER_ERROR,
-                                    "Internal Server Error",
-                                )
-                            }
-                            Err(Error::InternalStr(err)) => {
-                                eprintln!("Error: {}", err);
 
                                 simple_response(
                                     hyper::StatusCode::INTERNAL_SERVER_ERROR,

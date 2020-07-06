@@ -237,3 +237,36 @@ impl<'user> render::Render for UserLink<'user> {
         }
     }
 }
+
+fn maybe_fill_value<'a>(values: &'a Option<&'a serde_json::Value>, name: &str) -> &'a str {
+    values
+        .and_then(|values| values.get(name))
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("")
+}
+
+#[render::component]
+pub fn MaybeFillInput<'a>(
+    values: &'a Option<&'a serde_json::Value>,
+    r#type: &'a str,
+    name: &'a str,
+    required: bool,
+) {
+    render::rsx! {
+        <input
+            r#type
+            name
+            value={maybe_fill_value(values, name)}
+            required={if required { "true" } else { "false" }}
+        />
+    }
+}
+
+#[render::component]
+pub fn MaybeFillTextArea<'a>(values: &'a Option<&'a serde_json::Value>, name: &'a str) {
+    render::rsx! {
+        <textarea name>
+            {maybe_fill_value(values, name)}
+        </textarea>
+    }
+}

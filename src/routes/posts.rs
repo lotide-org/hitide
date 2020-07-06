@@ -1,5 +1,5 @@
 use super::{
-    fetch_base_data, get_cookie_map, get_cookie_map_for_req, get_cookies_string, html_response,
+    fetch_base_data, get_cookie_map_for_headers, get_cookie_map_for_req, html_response,
     res_to_error, with_auth,
 };
 use crate::components::{Comment, CommunityLink, Content, HTPage, UserLink};
@@ -215,11 +215,10 @@ async fn handler_post_submit_reply(
 ) -> Result<hyper::Response<hyper::Body>, crate::Error> {
     let (post_id,) = params;
 
-    let cookies_string = get_cookies_string(&req)?.map(ToOwned::to_owned);
-    let cookies_string = cookies_string.as_deref();
-    let cookies = get_cookie_map(cookies_string)?;
+    let (req_parts, body) = req.into_parts();
+    let cookies = get_cookie_map_for_headers(&req_parts.headers)?;
 
-    let body = hyper::body::to_bytes(req.into_body()).await?;
+    let body = hyper::body::to_bytes(body).await?;
     let body: serde_json::Value = serde_urlencoded::from_bytes(&body)?;
     let body = serde_json::to_vec(&body)?;
 

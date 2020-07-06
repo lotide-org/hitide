@@ -8,7 +8,7 @@ license = "AGPL-3.0-or-later"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-render = { git = "https://github.com/vpzomtrrfrt/render.rs", rev = "0604925" }
+render = { git = "https://github.com/vpzomtrrfrt/render.rs", rev = "d996c5d" }
 trout = "0.2.0"
 hyper = "0.13.6"
 hyper-tls = "0.4.1"
@@ -21,3 +21,4 @@ fallible-iterator = "0.2.0"
 ginger = "0.1.0"
 ammonia = "3.1.0"
 urlencoding = "1.1.1"
+http = "0.2.1"

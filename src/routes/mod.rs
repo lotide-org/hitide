@@ -2,7 +2,7 @@ use serde_derive::Deserialize;
 use std::borrow::Cow;
 use std::sync::Arc;
 
-use crate::components::{Content, HTPage, PostItem, UserLink};
+use crate::components::{Content, HTPage, MaybeFillInput, MaybeFillTextArea, PostItem, UserLink};
 use crate::resp_types::{RespMinimalAuthorInfo, RespPostCommentInfo, RespPostListPost};
 use crate::PageBaseData;
 
@@ -30,14 +30,17 @@ fn get_cookie_map<'a>(src: Option<&'a str>) -> Result<CookieMap<'a>, ginger::Par
 fn get_cookie_map_for_req<'a>(
     req: &'a hyper::Request<hyper::Body>,
 ) -> Result<CookieMap<'a>, crate::Error> {
-    get_cookie_map(get_cookies_string(req)?).map_err(Into::into)
+    get_cookie_map_for_headers(req.headers())
 }
 
-fn get_cookies_string<'a>(
-    req: &'a hyper::Request<hyper::Body>,
-) -> Result<Option<&'a str>, crate::Error> {
-    Ok(req
-        .headers()
+fn get_cookie_map_for_headers<'a>(
+    headers: &'a hyper::HeaderMap,
+) -> Result<CookieMap<'a>, crate::Error> {
+    get_cookie_map(get_cookies_string(headers)?).map_err(Into::into)
+}
+
+fn get_cookies_string<'a>(headers: &'a hyper::HeaderMap) -> Result<Option<&'a str>, crate::Error> {
+    Ok(headers
         .get(hyper::header::COOKIE)
         .map(|x| x.to_str())
         .transpose()?)
@@ -127,6 +130,16 @@ async fn page_comment(
 
     let cookies = get_cookie_map_for_req(&req)?;
 
+    page_comment_inner(comment_id, &cookies, ctx, None, None).await
+}
+
+async fn page_comment_inner(
+    comment_id: i64,
+    cookies: &CookieMap<'_>,
+    ctx: Arc<crate::RouteContext>,
+    display_error: Option<String>,
+    prev_values: Option<&serde_json::Value>,
+) -> Result<hyper::Response<hyper::Body>, crate::Error> {
     let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, &cookies).await?;
 
     let api_res = res_to_error(
@@ -151,9 +164,16 @@ async fn page_comment(
                 <small><cite><UserLink user={comment.author.as_ref()} /></cite>{":"}</small>
                 <Content src={&comment} />
             </p>
+            {
+                display_error.map(|msg| {
+                    render::rsx! {
+                        <div class={"errorBox"}>{msg}</div>
+                    }
+                })
+            }
             <form method={"POST"} action={format!("/comments/{}/submit_reply", comment.id)}>
                 <div>
-                    <textarea name={"content_text"}>{()}</textarea>
+                    <MaybeFillTextArea values={&prev_values} name={"content_text"} />
                 </div>
                 <button r#type={"submit"}>{"Reply"}</button>
             </form>
@@ -170,6 +190,15 @@ async fn page_comment_delete(
 
     let cookies = get_cookie_map_for_req(&req)?;
 
+    page_comment_delete_inner(comment_id, ctx, &cookies, None).await
+}
+
+async fn page_comment_delete_inner(
+    comment_id: i64,
+    ctx: Arc<crate::RouteContext>,
+    cookies: &CookieMap<'_>,
+    display_error: Option<String>,
+) -> Result<hyper::Response<hyper::Body>, crate::Error> {
     let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, &cookies).await?;
 
     let api_res = res_to_error(
@@ -197,6 +226,13 @@ async fn page_comment_delete(
             </p>
             <div id={"delete"}>
                 <h2>{"Delete this comment?"}</h2>
+                {
+                    display_error.map(|msg| {
+                        render::rsx! {
+                            <div class={"errorBox"}>{msg}</div>
+                        }
+                    })
+                }
                 <form method={"POST"} action={format!("/comments/{}/delete/confirm", comment.id)}>
                     <a href={format!("/comments/{}/", comment.id)}>{"No, cancel"}</a>
                     {" "}
@@ -216,7 +252,7 @@ async fn handler_comment_delete_confirm(
 
     let cookies = get_cookie_map_for_req(&req)?;
 
-    res_to_error(
+    let api_res = res_to_error(
         ctx.http_client
             .request(with_auth(
                 hyper::Request::delete(format!(
@@ -228,12 +264,18 @@ async fn handler_comment_delete_confirm(
             )?)
             .await?,
     )
-    .await?;
+    .await;
 
-    Ok(hyper::Response::builder()
-        .status(hyper::StatusCode::SEE_OTHER)
-        .header(hyper::header::LOCATION, "/")
-        .body("Successfully deleted.".into())?)
+    match api_res {
+        Ok(_) => Ok(hyper::Response::builder()
+            .status(hyper::StatusCode::SEE_OTHER)
+            .header(hyper::header::LOCATION, "/")
+            .body("Successfully deleted.".into())?),
+        Err(crate::Error::RemoteError((status, message))) if status.is_client_error() => {
+            page_comment_delete_inner(comment_id, ctx, &cookies, Some(message)).await
+        }
+        Err(other) => Err(other),
+    }
 }
 
 async fn handler_comment_like(
@@ -281,13 +323,12 @@ async fn handler_comment_submit_reply(
 
     let (comment_id,) = params;
 
-    let cookies_string = get_cookies_string(&req)?.map(ToOwned::to_owned);
-    let cookies_string = cookies_string.as_deref();
-    let cookies = get_cookie_map(cookies_string)?;
+    let (req_parts, body) = req.into_parts();
 
-    let body = hyper::body::to_bytes(req.into_body()).await?;
+    let cookies = get_cookie_map_for_headers(&req_parts.headers)?;
+
+    let body = hyper::body::to_bytes(body).await?;
     let body: serde_json::Value = serde_urlencoded::from_bytes(&body)?;
-    let body = serde_json::to_vec(&body)?;
 
     let api_res = res_to_error(
         ctx.http_client
@@ -296,23 +337,31 @@ async fn handler_comment_submit_reply(
                     "{}/api/unstable/comments/{}/replies",
                     ctx.backend_host, comment_id
                 ))
-                .body(body.into())?,
+                .body(serde_json::to_vec(&body)?.into())?,
                 &cookies,
             )?)
             .await?,
     )
-    .await?;
+    .await;
 
-    let api_res = hyper::body::to_bytes(api_res.into_body()).await?;
-    let api_res: CommentsRepliesCreateResponse = serde_json::from_slice(&api_res)?;
+    match api_res {
+        Ok(api_res) => {
+            let api_res = hyper::body::to_bytes(api_res.into_body()).await?;
+            let api_res: CommentsRepliesCreateResponse = serde_json::from_slice(&api_res)?;
 
-    Ok(hyper::Response::builder()
-        .status(hyper::StatusCode::SEE_OTHER)
-        .header(
-            hyper::header::LOCATION,
-            format!("/posts/{}", api_res.post.id),
-        )
-        .body("Successfully posted.".into())?)
+            Ok(hyper::Response::builder()
+                .status(hyper::StatusCode::SEE_OTHER)
+                .header(
+                    hyper::header::LOCATION,
+                    format!("/posts/{}", api_res.post.id),
+                )
+                .body("Successfully posted.".into())?)
+        }
+        Err(crate::Error::RemoteError((status, message))) if status.is_client_error() => {
+            page_comment_inner(comment_id, &cookies, ctx, Some(message), Some(&body)).await
+        }
+        Err(other) => Err(other),
+    }
 }
 
 async fn page_login(
@@ -320,18 +369,34 @@ async fn page_login(
     ctx: Arc<crate::RouteContext>,
     req: hyper::Request<hyper::Body>,
 ) -> Result<hyper::Response<hyper::Body>, crate::Error> {
-    let cookies = get_cookie_map_for_req(&req)?;
+    page_login_inner(ctx, req.into_parts().0, None, None).await
+}
+
+async fn page_login_inner(
+    ctx: Arc<crate::RouteContext>,
+    req_parts: http::request::Parts,
+    display_error: Option<String>,
+    prev_values: Option<&serde_json::Value>,
+) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+    let cookies = get_cookie_map_for_headers(&req_parts.headers)?;
 
     let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, &cookies).await?;
 
     Ok(html_response(render::html! {
         <HTPage base_data={&base_data}>
+            {
+                display_error.map(|msg| {
+                    render::rsx! {
+                        <div class={"errorBox"}>{msg}</div>
+                    }
+                })
+            }
             <form method={"POST"} action={"/login/submit"}>
                 <p>
-                    <input r#type={"text"} name={"username"} />
+                    <MaybeFillInput values={&prev_values} r#type={"text"} name={"username"} required={true} />
                 </p>
                 <p>
-                    <input r#type={"password"} name={"password"} />
+                    <MaybeFillInput values={&prev_values} r#type={"password"} name={"password"} required={true} />
                 </p>
                 <button r#type={"submit"}>{"Login"}</button>
             </form>
@@ -345,13 +410,14 @@ async fn page_login(
 pub async fn res_to_error(
     res: hyper::Response<hyper::Body>,
 ) -> Result<hyper::Response<hyper::Body>, crate::Error> {
-    if res.status().is_success() {
+    let status = res.status();
+    if status.is_success() {
         Ok(res)
     } else {
         let bytes = hyper::body::to_bytes(res.into_body()).await?;
-        Err(crate::Error::InternalStr(format!(
-            "Error in remote response: {}",
-            String::from_utf8_lossy(&bytes)
+        Err(crate::Error::RemoteError((
+            status,
+            String::from_utf8_lossy(&bytes).into_owned(),
         )))
     }
 }
@@ -366,33 +432,42 @@ async fn handler_login_submit(
         token: &'a str,
     }
 
-    let body = hyper::body::to_bytes(req.into_body()).await?;
+    let (req_parts, body) = req.into_parts();
+
+    let body = hyper::body::to_bytes(body).await?;
     let body: serde_json::Value = serde_urlencoded::from_bytes(&body)?;
-    let body = serde_json::to_vec(&body)?;
 
     let api_res = res_to_error(
         ctx.http_client
             .request(
                 hyper::Request::post(format!("{}/api/unstable/logins", ctx.backend_host))
-                    .body(body.into())?,
+                    .body(serde_json::to_vec(&body)?.into())?,
             )
             .await?,
     )
-    .await?;
+    .await;
 
-    let api_res = hyper::body::to_bytes(api_res.into_body()).await?;
-    let api_res: LoginsCreateResponse = serde_json::from_slice(&api_res)?;
+    match api_res {
+        Ok(api_res) => {
+            let api_res = hyper::body::to_bytes(api_res.into_body()).await?;
+            let api_res: LoginsCreateResponse = serde_json::from_slice(&api_res)?;
 
-    let token = api_res.token;
+            let token = api_res.token;
 
-    Ok(hyper::Response::builder()
-        .status(hyper::StatusCode::SEE_OTHER)
-        .header(
-            hyper::header::SET_COOKIE,
-            format!("hitideToken={}; Path=/; Max-Age={}", token, COOKIE_AGE),
-        )
-        .header(hyper::header::LOCATION, "/")
-        .body("Successfully logged in.".into())?)
+            Ok(hyper::Response::builder()
+                .status(hyper::StatusCode::SEE_OTHER)
+                .header(
+                    hyper::header::SET_COOKIE,
+                    format!("hitideToken={}; Path=/; Max-Age={}", token, COOKIE_AGE),
+                )
+                .header(hyper::header::LOCATION, "/")
+                .body("Successfully logged in.".into())?)
+        }
+        Err(crate::Error::RemoteError((status, message))) if status.is_client_error() => {
+            page_login_inner(ctx, req_parts, Some(message), Some(&body)).await
+        }
+        Err(other) => Err(other),
+    }
 }
 
 async fn page_lookup(
@@ -416,7 +491,7 @@ async fn page_lookup(
         id: i64,
     }
 
-    let api_res: Option<Vec<LookupResult>> = if let Some(query) = &query {
+    let api_res: Option<Result<Vec<LookupResult>, String>> = if let Some(query) = &query {
         let api_res = res_to_error(
             ctx.http_client
                 .request(
@@ -429,23 +504,31 @@ async fn page_lookup(
                 )
                 .await?,
         )
-        .await?;
+        .await;
 
-        let api_res = hyper::body::to_bytes(api_res.into_body()).await?;
-        Some(serde_json::from_slice(&api_res)?)
+        Some(match api_res {
+            Ok(api_res) => {
+                let api_res = hyper::body::to_bytes(api_res.into_body()).await?;
+                Ok(serde_json::from_slice(&api_res)?)
+            }
+            Err(crate::Error::RemoteError((status, message))) if status.is_client_error() => {
+                Err(message)
+            }
+            Err(other) => return Err(other),
+        })
     } else {
         None
     };
 
     match api_res {
-        Some(items) if !items.is_empty() => Ok(hyper::Response::builder()
+        Some(Ok(items)) if !items.is_empty() => Ok(hyper::Response::builder()
             .status(hyper::StatusCode::FOUND)
             .header(
                 hyper::header::LOCATION,
                 format!("/communities/{}", items[0].id),
             )
             .body("Redirecting…".into())?),
-        _ => {
+        api_res => {
             Ok(html_response(render::html! {
                 <HTPage base_data={&base_data}>
                     <h1>{"Lookup"}</h1>
@@ -455,10 +538,15 @@ async fn page_lookup(
                     {
                         match api_res {
                             None => None,
-                            Some(_) => {
+                            Some(Ok(_)) => {
                                 // non-empty case is handled above
-                                Some(render::rsx! { <p>{"Nothing found."}</p> })
+                                Some(render::rsx! { <p>{Cow::Borrowed("Nothing found.")}</p> })
                             },
+                            Some(Err(display_error)) => {
+                                Some(render::rsx! {
+                                    <div class={"errorBox"}>{display_error.into()}</div>
+                                })
+                            }
                         }
                     }
                 </HTPage>
@@ -474,15 +562,31 @@ async fn page_new_community(
 ) -> Result<hyper::Response<hyper::Body>, crate::Error> {
     let cookies = get_cookie_map_for_req(&req)?;
 
+    page_new_community_inner(ctx, &cookies, None, None).await
+}
+
+async fn page_new_community_inner(
+    ctx: Arc<crate::RouteContext>,
+    cookies: &CookieMap<'_>,
+    display_error: Option<String>,
+    prev_values: Option<&serde_json::Value>,
+) -> Result<hyper::Response<hyper::Body>, crate::Error> {
     let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, &cookies).await?;
 
     Ok(html_response(render::html! {
         <HTPage base_data={&base_data}>
             <h1>{"New Community"}</h1>
+            {
+                display_error.map(|msg| {
+                    render::rsx! {
+                        <div class={"errorBox"}>{msg}</div>
+                    }
+                })
+            }
             <form method={"POST"} action={"/new_community/submit"}>
                 <div>
                     <label>
-                        {"Name: "}<input r#type={"text"} name={"name"} required={"true"} />
+                        {"Name: "}<MaybeFillInput values={&prev_values} r#type={"text"} name={"name"} required={true} />
                     </label>
                 </div>
                 <div>
@@ -498,13 +602,12 @@ async fn handler_new_community_submit(
     ctx: Arc<crate::RouteContext>,
     req: hyper::Request<hyper::Body>,
 ) -> Result<hyper::Response<hyper::Body>, crate::Error> {
-    let cookies_string = get_cookies_string(&req)?.map(ToOwned::to_owned);
-    let cookies_string = cookies_string.as_deref();
-    let cookies = get_cookie_map(cookies_string)?;
+    let (req_parts, body) = req.into_parts();
 
-    let body = hyper::body::to_bytes(req.into_body()).await?;
+    let cookies = get_cookie_map_for_headers(&req_parts.headers)?;
+
+    let body = hyper::body::to_bytes(body).await?;
     let body: serde_json::Value = serde_urlencoded::from_bytes(&body)?;
-    let body = serde_json::to_vec(&body)?;
 
     #[derive(Deserialize)]
     struct CommunitiesCreateResponseCommunity {
@@ -520,24 +623,33 @@ async fn handler_new_community_submit(
         ctx.http_client
             .request(with_auth(
                 hyper::Request::post(format!("{}/api/unstable/communities", ctx.backend_host))
-                    .body(body.into())?,
+                    .body(serde_json::to_vec(&body)?.into())?,
                 &cookies,
             )?)
             .await?,
     )
-    .await?;
-    let api_res = hyper::body::to_bytes(api_res.into_body()).await?;
-    let api_res: CommunitiesCreateResponse = serde_json::from_slice(&api_res)?;
+    .await;
 
-    let community_id = api_res.community.id;
+    match api_res {
+        Ok(api_res) => {
+            let api_res = hyper::body::to_bytes(api_res.into_body()).await?;
+            let api_res: CommunitiesCreateResponse = serde_json::from_slice(&api_res)?;
 
-    Ok(hyper::Response::builder()
-        .status(hyper::StatusCode::SEE_OTHER)
-        .header(
-            hyper::header::LOCATION,
-            format!("/communities/{}", community_id),
-        )
-        .body("Successfully created.".into())?)
+            let community_id = api_res.community.id;
+
+            Ok(hyper::Response::builder()
+                .status(hyper::StatusCode::SEE_OTHER)
+                .header(
+                    hyper::header::LOCATION,
+                    format!("/communities/{}", community_id),
+                )
+                .body("Successfully created.".into())?)
+        }
+        Err(crate::Error::RemoteError((status, message))) if status.is_client_error() => {
+            page_new_community_inner(ctx, &cookies, Some(message), Some(&body)).await
+        }
+        Err(other) => Err(other),
+    }
 }
 
 async fn page_signup(
@@ -545,18 +657,34 @@ async fn page_signup(
     ctx: Arc<crate::RouteContext>,
     req: hyper::Request<hyper::Body>,
 ) -> Result<hyper::Response<hyper::Body>, crate::Error> {
-    let cookies = get_cookie_map_for_req(&req)?;
+    page_signup_inner(ctx, req.headers(), None, None).await
+}
+
+async fn page_signup_inner(
+    ctx: Arc<crate::RouteContext>,
+    headers: &hyper::HeaderMap,
+    display_error: Option<String>,
+    prev_values: Option<&serde_json::Value>,
+) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+    let cookies = get_cookie_map_for_headers(&headers)?;
 
     let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, &cookies).await?;
 
     Ok(html_response(render::html! {
         <HTPage base_data={&base_data}>
+            {
+                display_error.map(|msg| {
+                    render::rsx! {
+                        <div class={"errorBox"}>{msg}</div>
+                    }
+                })
+            }
             <form method={"POST"} action={"/signup/submit"}>
                 <p>
-                    <input r#type={"text"} name={"username"} />
+                    <MaybeFillInput values={&prev_values} r#type={"text"} name={"username"} required={true} />
                 </p>
                 <p>
-                    <input r#type={"password"} name={"password"} />
+                    <MaybeFillInput values={&prev_values} r#type={"password"} name={"password"} required={true} />
                 </p>
                 <button r#type={"submit"}>{"Register"}</button>
             </form>
@@ -574,34 +702,43 @@ async fn handler_signup_submit(
         token: &'a str,
     }
 
-    let body = hyper::body::to_bytes(req.into_body()).await?;
+    let (req_parts, body) = req.into_parts();
+
+    let body = hyper::body::to_bytes(body).await?;
     let mut body: serde_json::Value = serde_urlencoded::from_bytes(&body)?;
     body["login"] = true.into();
-    let body = serde_json::to_vec(&body)?;
 
     let api_res = res_to_error(
         ctx.http_client
             .request(
                 hyper::Request::post(format!("{}/api/unstable/users", ctx.backend_host))
-                    .body(body.into())?,
+                    .body(serde_json::to_vec(&body)?.into())?,
             )
             .await?,
     )
-    .await?;
+    .await;
 
-    let api_res = hyper::body::to_bytes(api_res.into_body()).await?;
-    let api_res: UsersCreateResponse = serde_json::from_slice(&api_res)?;
+    match api_res {
+        Ok(api_res) => {
+            let api_res = hyper::body::to_bytes(api_res.into_body()).await?;
+            let api_res: UsersCreateResponse = serde_json::from_slice(&api_res)?;
 
-    let token = api_res.token;
+            let token = api_res.token;
 
-    Ok(hyper::Response::builder()
-        .status(hyper::StatusCode::SEE_OTHER)
-        .header(
-            hyper::header::SET_COOKIE,
-            format!("hitideToken={}; Path=/; Max-Age={}", token, COOKIE_AGE),
-        )
-        .header(hyper::header::LOCATION, "/")
-        .body("Successfully registered new account.".into())?)
+            Ok(hyper::Response::builder()
+                .status(hyper::StatusCode::SEE_OTHER)
+                .header(
+                    hyper::header::SET_COOKIE,
+                    format!("hitideToken={}; Path=/; Max-Age={}", token, COOKIE_AGE),
+                )
+                .header(hyper::header::LOCATION, "/")
+                .body("Successfully registered new account.".into())?)
+        }
+        Err(crate::Error::RemoteError((status, message))) if status.is_client_error() => {
+            page_signup_inner(ctx, &req_parts.headers, Some(message), Some(&body)).await
+        }
+        Err(other) => Err(other),
+    }
 }
 
 async fn page_user(
