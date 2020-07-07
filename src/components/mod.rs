@@ -138,8 +138,9 @@ impl<'a, T: HavingContent + 'a> render::Render for Content<'a, T> {
 }
 
 #[render::component]
-pub fn HTPage<'base_data, Children: render::Render>(
-    base_data: &'base_data PageBaseData,
+pub fn HTPage<'a, Children: render::Render>(
+    base_data: &'a PageBaseData,
+    title: &'a str,
     children: Children,
 ) {
     render::rsx! {
@@ -149,6 +150,7 @@ pub fn HTPage<'base_data, Children: render::Render>(
                 <head>
                     <meta charset={"utf-8"} />
                     <link rel={"stylesheet"} href={"/static/main.css"} />
+                    <title>{title}</title>
                 </head>
                 <body>
                     <header class={"mainHeader"}>

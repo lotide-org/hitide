@@ -27,7 +27,7 @@ async fn page_communities(
     let communities: Vec<RespMinimalCommunityInfo> = serde_json::from_slice(&api_res)?;
 
     Ok(html_response(render::html! {
-        <HTPage base_data={&base_data}>
+        <HTPage base_data={&base_data} title={"Communities"}>
             <h1>{"Communities"}</h1>
             <div>
                 <h2>{"Local"}</h2>
@@ -129,9 +129,11 @@ async fn page_community(
     let follow_url = format!("/communities/{}/follow", community_id);
     let new_post_url = format!("/communities/{}/new_post", community_id);
 
+    let title = community_info.name.as_ref();
+
     Ok(html_response(render::html! {
-        <HTPage base_data={&base_data}>
-            <h1>{community_info.name.as_ref()}</h1>
+        <HTPage base_data={&base_data} title>
+            <h1>{title}</h1>
             <p>
                 <form method={"POST"} action={&follow_url}>
                     <button r#type={"submit"}>{"Follow"}</button>
@@ -195,7 +197,7 @@ async fn page_community_new_post(
     let submit_url = format!("/communities/{}/new_post/submit", community_id);
 
     Ok(html_response(render::html! {
-        <HTPage base_data={&base_data}>
+        <HTPage base_data={&base_data} title={"New Post"}>
             <h1>{"New Post"}</h1>
             <form method={"POST"} action={&submit_url}>
                 <div>

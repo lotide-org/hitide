@@ -106,7 +106,7 @@ async fn page_about(
     let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, &cookies).await?;
 
     Ok(html_response(render::html! {
-        <HTPage base_data={&base_data}>
+        <HTPage base_data={&base_data} title={"About lotide"}>
             <h2>{"What is lotide?"}</h2>
             <p>
                 {"lotide is an attempt to build a federated forum. "}
@@ -159,7 +159,7 @@ async fn page_comment_inner(
     let comment: RespPostCommentInfo<'_> = serde_json::from_slice(&api_res)?;
 
     Ok(html_response(render::html! {
-        <HTPage base_data={&base_data}>
+        <HTPage base_data={&base_data} title={"Comment"}>
             <p>
                 <small><cite><UserLink user={comment.author.as_ref()} /></cite>{":"}</small>
                 <Content src={&comment} />
@@ -218,7 +218,7 @@ async fn page_comment_delete_inner(
     let comment: RespPostCommentInfo<'_> = serde_json::from_slice(&api_res)?;
 
     Ok(html_response(render::html! {
-        <HTPage base_data={&base_data}>
+        <HTPage base_data={&base_data} title={"Delete Comment"}>
             <p>
                 <small><cite><UserLink user={comment.author.as_ref()} /></cite>{":"}</small>
                 <br />
@@ -383,7 +383,7 @@ async fn page_login_inner(
     let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, &cookies).await?;
 
     Ok(html_response(render::html! {
-        <HTPage base_data={&base_data}>
+        <HTPage base_data={&base_data} title={"Login"}>
             {
                 display_error.map(|msg| {
                     render::rsx! {
@@ -530,7 +530,7 @@ async fn page_lookup(
             .body("Redirecting…".into())?),
         api_res => {
             Ok(html_response(render::html! {
-                <HTPage base_data={&base_data}>
+                <HTPage base_data={&base_data} title={"Lookup"}>
                     <h1>{"Lookup"}</h1>
                     <form method={"GET"} action={"/lookup"}>
                         <input r#type={"text"} name={"query"} value={query.as_deref().unwrap_or("")} />
@@ -574,7 +574,7 @@ async fn page_new_community_inner(
     let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, &cookies).await?;
 
     Ok(html_response(render::html! {
-        <HTPage base_data={&base_data}>
+        <HTPage base_data={&base_data} title={"New Community"}>
             <h1>{"New Community"}</h1>
             {
                 display_error.map(|msg| {
@@ -671,7 +671,7 @@ async fn page_signup_inner(
     let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, &cookies).await?;
 
     Ok(html_response(render::html! {
-        <HTPage base_data={&base_data}>
+        <HTPage base_data={&base_data} title={"Register"}>
             {
                 display_error.map(|msg| {
                     render::rsx! {
@@ -768,9 +768,11 @@ async fn page_user(
     let api_res = hyper::body::to_bytes(api_res.into_body()).await?;
     let user: RespMinimalAuthorInfo<'_> = serde_json::from_slice(&api_res)?;
 
+    let title = user.username.as_ref();
+
     Ok(html_response(render::html! {
-        <HTPage base_data={&base_data}>
-            <h1>{user.username.as_ref()}</h1>
+        <HTPage base_data={&base_data} title>
+            <h1>{title}</h1>
             <p>
                 <em>{"User post listing is not currently implemented."}</em>
             </p>
@@ -808,7 +810,7 @@ async fn page_home(
     let api_res: Vec<RespPostListPost<'_>> = serde_json::from_slice(&api_res)?;
 
     Ok(html_response(render::html! {
-        <HTPage base_data={&base_data}>
+        <HTPage base_data={&base_data} title={"lotide"}>
             <ul>
                 {api_res.iter().map(|post| {
                     PostItem { post, in_community: false }

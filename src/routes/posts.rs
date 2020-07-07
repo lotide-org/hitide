@@ -35,9 +35,11 @@ async fn page_post(
 
     let post: RespPostInfo = serde_json::from_slice(&api_res)?;
 
+    let title = post.as_ref().title.as_ref();
+
     Ok(html_response(render::html! {
-        <HTPage base_data={&base_data}>
-            <h1>{post.as_ref().title.as_ref()}</h1>
+        <HTPage base_data={&base_data} title={title}>
+            <h1>{title}</h1>
             <p>
                 <em>{post.score.to_string()}{" points"}</em>
                 {" "}
@@ -138,7 +140,7 @@ async fn page_post_delete(
     let post: RespPostInfo = serde_json::from_slice(&api_res)?;
 
     Ok(html_response(render::html! {
-        <HTPage base_data={&base_data}>
+        <HTPage base_data={&base_data} title={"Delete Post"}>
             <h1>{post.as_ref().title.as_ref()}</h1>
             <h2>{"Delete this post?"}</h2>
             <form method={"POST"} action={format!("/posts/{}/delete/confirm", post.as_ref().id)}>
