@@ -21,7 +21,7 @@ pub fn Comment<'comment, 'base_data>(
                         Some(render::rsx! {
                             <>
                                 <form method={"POST"} action={format!("/comments/{}/like", comment.id)} style={"display: inline"}>
-                                    <button r#type={"submit"}>{"Like"}</button>
+                                    <BoolSubmitButton value={comment.your_vote.is_some()} do_text={"Like"} done_text={"Liked"} />
                                 </form>
                                 <a href={format!("/comments/{}", comment.id)}>{"reply"}</a>
                             </>
@@ -270,5 +270,18 @@ pub fn MaybeFillTextArea<'a>(values: &'a Option<&'a serde_json::Value>, name: &'
         <textarea name>
             {maybe_fill_value(values, name)}
         </textarea>
+    }
+}
+
+#[render::component]
+pub fn BoolSubmitButton<'a>(value: bool, do_text: &'a str, done_text: &'a str) {
+    if value {
+        render::rsx! {
+            <button disabled={""}>{done_text}</button>
+        }
+    } else {
+        render::rsx! {
+            <button type={"submit"}>{do_text}</button>
+        }
     }
 }

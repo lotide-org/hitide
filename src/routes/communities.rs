@@ -1,5 +1,5 @@
-use crate::components::{CommunityLink, HTPage, PostItem};
-use crate::resp_types::{RespMinimalCommunityInfo, RespPostListPost};
+use crate::components::{BoolSubmitButton, CommunityLink, HTPage, PostItem};
+use crate::resp_types::{RespCommunityInfoMaybeYour, RespMinimalCommunityInfo, RespPostListPost};
 use crate::routes::{
     fetch_base_data, get_cookie_map, get_cookie_map_for_req, html_response, res_to_error, with_auth,
 };
@@ -95,8 +95,14 @@ async fn page_community(
         ctx.http_client
             .request(with_auth(
                 hyper::Request::get(format!(
-                    "{}/api/unstable/communities/{}",
-                    ctx.backend_host, community_id
+                    "{}/api/unstable/communities/{}{}",
+                    ctx.backend_host,
+                    community_id,
+                    if base_data.login.is_some() {
+                        "?include_your=true"
+                    } else {
+                        ""
+                    },
                 ))
                 .body(Default::default())?,
                 &cookies,
@@ -106,7 +112,7 @@ async fn page_community(
     .await?;
     let community_info_api_res = hyper::body::to_bytes(community_info_api_res.into_body()).await?;
 
-    let community_info: RespMinimalCommunityInfo =
+    let community_info: RespCommunityInfoMaybeYour =
         { serde_json::from_slice(&community_info_api_res)? };
 
     let posts_api_res = res_to_error(
@@ -129,14 +135,16 @@ async fn page_community(
     let follow_url = format!("/communities/{}/follow", community_id);
     let new_post_url = format!("/communities/{}/new_post", community_id);
 
-    let title = community_info.name.as_ref();
+    let title = community_info.as_ref().name.as_ref();
+
+    let following = community_info.your_follow.is_some();
 
     Ok(html_response(render::html! {
         <HTPage base_data={&base_data} title>
             <h1>{title}</h1>
             <p>
                 <form method={"POST"} action={&follow_url}>
-                    <button r#type={"submit"}>{"Follow"}</button>
+                    <BoolSubmitButton value={following} do_text={"Follow"} done_text={"Following"} />
                 </form>
             </p>
             <p>

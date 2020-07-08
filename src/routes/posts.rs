@@ -2,7 +2,7 @@ use super::{
     fetch_base_data, get_cookie_map_for_headers, get_cookie_map_for_req, html_response,
     res_to_error, with_auth,
 };
-use crate::components::{Comment, CommunityLink, Content, HTPage, UserLink};
+use crate::components::{BoolSubmitButton, Comment, CommunityLink, Content, HTPage, UserLink};
 use crate::resp_types::RespPostInfo;
 use crate::util::author_is_me;
 use std::sync::Arc;
@@ -22,8 +22,14 @@ async fn page_post(
         ctx.http_client
             .request(with_auth(
                 hyper::Request::get(format!(
-                    "{}/api/unstable/posts/{}",
-                    ctx.backend_host, post_id
+                    "{}/api/unstable/posts/{}{}",
+                    ctx.backend_host,
+                    post_id,
+                    if base_data.login.is_some() {
+                        "?include_your=true"
+                    } else {
+                        ""
+                    },
                 ))
                 .body(Default::default())?,
                 &cookies,
@@ -47,7 +53,7 @@ async fn page_post(
                     if base_data.login.is_some() {
                         Some(render::rsx! {
                             <form method={"POST"} action={format!("/posts/{}/like", post_id)}>
-                                <button r#type={"submit"}>{"Like"}</button>
+                                <BoolSubmitButton value={post.your_vote.is_some()} do_text={"Like"} done_text={"Liked"} />
                             </form>
                         })
                     } else {

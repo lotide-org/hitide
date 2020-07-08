@@ -31,6 +31,7 @@ pub struct RespPostCommentInfo<'a> {
     pub created: Cow<'a, str>,
     pub content_text: Option<Cow<'a, str>>,
     pub content_html: Option<Cow<'a, str>>,
+    pub your_vote: Option<Empty>,
     #[serde(borrow)]
     pub replies: Option<Vec<RespPostCommentInfo<'a>>>,
 }
@@ -42,6 +43,7 @@ pub struct RespPostInfo<'a> {
     pub score: i64,
     #[serde(borrow)]
     pub comments: Vec<RespPostCommentInfo<'a>>,
+    pub your_vote: Option<Empty>,
 }
 
 impl<'a> AsRef<RespPostListPost<'a>> for RespPostInfo<'a> {
@@ -66,4 +68,20 @@ pub struct RespLoginInfoUser {
 #[derive(Deserialize, Debug)]
 pub struct RespLoginInfo {
     pub user: RespLoginInfoUser,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct Empty {}
+
+#[derive(Deserialize)]
+pub struct RespCommunityInfoMaybeYour<'a> {
+    #[serde(flatten)]
+    pub base: RespMinimalCommunityInfo<'a>,
+    pub your_follow: Option<Empty>,
+}
+
+impl<'a> AsRef<RespMinimalCommunityInfo<'a>> for RespCommunityInfoMaybeYour<'a> {
+    fn as_ref(&self) -> &RespMinimalCommunityInfo<'a> {
+        &self.base
+    }
 }
