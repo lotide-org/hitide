@@ -73,11 +73,16 @@ pub struct RespLoginInfo {
 #[derive(Deserialize, Debug)]
 pub struct Empty {}
 
+#[derive(Deserialize, Debug)]
+pub struct RespYourFollow {
+    pub accepted: bool,
+}
+
 #[derive(Deserialize)]
 pub struct RespCommunityInfoMaybeYour<'a> {
     #[serde(flatten)]
     pub base: RespMinimalCommunityInfo<'a>,
-    pub your_follow: Option<Empty>,
+    pub your_follow: Option<RespYourFollow>,
 }
 
 impl<'a> AsRef<RespMinimalCommunityInfo<'a>> for RespCommunityInfoMaybeYour<'a> {

@@ -1,5 +1,7 @@
-use crate::components::{BoolSubmitButton, CommunityLink, HTPage, PostItem};
-use crate::resp_types::{RespCommunityInfoMaybeYour, RespMinimalCommunityInfo, RespPostListPost};
+use crate::components::{CommunityLink, HTPage, PostItem};
+use crate::resp_types::{
+    RespCommunityInfoMaybeYour, RespMinimalCommunityInfo, RespPostListPost, RespYourFollow,
+};
 use crate::routes::{
     fetch_base_data, get_cookie_map, get_cookie_map_for_req, html_response, res_to_error, with_auth,
 };
@@ -132,20 +134,43 @@ async fn page_community(
 
     let posts: Vec<RespPostListPost<'_>> = serde_json::from_slice(&posts_api_res)?;
 
-    let follow_url = format!("/communities/{}/follow", community_id);
     let new_post_url = format!("/communities/{}/new_post", community_id);
 
     let title = community_info.as_ref().name.as_ref();
-
-    let following = community_info.your_follow.is_some();
 
     Ok(html_response(render::html! {
         <HTPage base_data={&base_data} title>
             <h1>{title}</h1>
             <p>
-                <form method={"POST"} action={&follow_url}>
-                    <BoolSubmitButton value={following} do_text={"Follow"} done_text={"Following"} />
-                </form>
+                {
+                    if base_data.login.is_some() {
+                        Some(match community_info.your_follow {
+                            Some(RespYourFollow { accepted: true }) => {
+                                render::rsx! {
+                                    <form method={"POST"} action={format!("/communities/{}/unfollow", community_id)}>
+                                        <button type={"submit"}>{"Unfollow"}</button>
+                                    </form>
+                                }
+                            },
+                            Some(RespYourFollow { accepted: false }) => {
+                                render::rsx! {
+                                    <form>
+                                        <button disabled={""}>{"Follow request sent!"}</button>
+                                    </form>
+                                }
+                            },
+                            None => {
+                                render::rsx! {
+                                    <form method={"POST"} action={format!("/communities/{}/follow", community_id)}>
+                                        <button type={"submit"}>{"Follow"}</button>
+                                    </form>
+                                }
+                            }
+                        })
+                    } else {
+                        None
+                    }
+                }
             </p>
             <p>
                 <a href={&new_post_url}>{"New Post"}</a>
@@ -175,7 +200,8 @@ async fn handler_community_follow(
                     "{}/api/unstable/communities/{}/follow",
                     ctx.backend_host, community_id
                 ))
-                .body(Default::default())?,
+                .header(hyper::header::CONTENT_TYPE, "application/json")
+                .body("{\"try_wait_for_accept\":true}".into())?,
                 &cookies,
             )?)
             .await?,
@@ -189,6 +215,38 @@ async fn handler_community_follow(
             format!("/communities/{}", community_id),
         )
         .body("Successfully followed".into())?)
+}
+
+async fn handler_community_unfollow(
+    params: (i64,),
+    ctx: Arc<crate::RouteContext>,
+    req: hyper::Request<hyper::Body>,
+) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+    let (community_id,) = params;
+
+    let cookies = get_cookie_map_for_req(&req)?;
+
+    res_to_error(
+        ctx.http_client
+            .request(with_auth(
+                hyper::Request::post(format!(
+                    "{}/api/unstable/communities/{}/unfollow",
+                    ctx.backend_host, community_id
+                ))
+                .body(Default::default())?,
+                &cookies,
+            )?)
+            .await?,
+    )
+    .await?;
+
+    Ok(hyper::Response::builder()
+        .status(hyper::StatusCode::SEE_OTHER)
+        .header(
+            hyper::header::LOCATION,
+            format!("/communities/{}", community_id),
+        )
+        .body("Successfully unfollowed".into())?)
 }
 
 async fn page_community_new_post(
@@ -290,6 +348,10 @@ pub fn route_communities() -> crate::RouteNode<()> {
                 .with_child(
                     "follow",
                     crate::RouteNode::new().with_handler_async("POST", handler_community_follow),
+                )
+                .with_child(
+                    "unfollow",
+                    crate::RouteNode::new().with_handler_async("POST", handler_community_unfollow),
                 )
                 .with_child(
                     "new_post",
