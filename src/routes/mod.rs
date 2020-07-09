@@ -307,6 +307,35 @@ async fn handler_comment_like(
         .body("Successfully liked.".into())?)
 }
 
+async fn handler_comment_unlike(
+    params: (i64,),
+    ctx: Arc<crate::RouteContext>,
+    req: hyper::Request<hyper::Body>,
+) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+    let (comment_id,) = params;
+
+    let cookies = get_cookie_map_for_req(&req)?;
+
+    res_to_error(
+        ctx.http_client
+            .request(with_auth(
+                hyper::Request::post(format!(
+                    "{}/api/unstable/comments/{}/unlike",
+                    ctx.backend_host, comment_id
+                ))
+                .body(Default::default())?,
+                &cookies,
+            )?)
+            .await?,
+    )
+    .await?;
+
+    Ok(hyper::Response::builder()
+        .status(hyper::StatusCode::SEE_OTHER)
+        .header(hyper::header::LOCATION, format!("/comments/{}", comment_id))
+        .body("Successfully unliked.".into())?)
+}
+
 async fn handler_comment_submit_reply(
     params: (i64,),
     ctx: Arc<crate::RouteContext>,
@@ -845,6 +874,10 @@ pub fn route_root() -> crate::RouteNode<()> {
                     .with_child(
                         "like",
                         crate::RouteNode::new().with_handler_async("POST", handler_comment_like),
+                    )
+                    .with_child(
+                        "unlike",
+                        crate::RouteNode::new().with_handler_async("POST", handler_comment_unlike),
                     )
                     .with_child(
                         "submit_reply",

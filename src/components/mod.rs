@@ -20,9 +20,21 @@ pub fn Comment<'comment, 'base_data>(
                     if base_data.login.is_some() {
                         Some(render::rsx! {
                             <>
-                                <form method={"POST"} action={format!("/comments/{}/like", comment.id)} style={"display: inline"}>
-                                    <BoolSubmitButton value={comment.your_vote.is_some()} do_text={"Like"} done_text={"Liked"} />
-                                </form>
+                                {
+                                    if comment.your_vote.is_some() {
+                                        render::rsx! {
+                                            <form method={"POST"} action={format!("/comments/{}/unlike", comment.id)}>
+                                                <button type={"submit"}>{"Unlike"}</button>
+                                            </form>
+                                        }
+                                    } else {
+                                        render::rsx! {
+                                            <form method={"POST"} action={format!("/comments/{}/like", comment.id)}>
+                                                <button type={"submit"}>{"Like"}</button>
+                                            </form>
+                                        }
+                                    }
+                                }
                                 <a href={format!("/comments/{}", comment.id)}>{"reply"}</a>
                             </>
                         })

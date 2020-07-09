@@ -2,7 +2,7 @@ use super::{
     fetch_base_data, get_cookie_map_for_headers, get_cookie_map_for_req, html_response,
     res_to_error, with_auth,
 };
-use crate::components::{BoolSubmitButton, Comment, CommunityLink, Content, HTPage, UserLink};
+use crate::components::{Comment, CommunityLink, Content, HTPage, UserLink};
 use crate::resp_types::RespPostInfo;
 use crate::util::author_is_me;
 use std::sync::Arc;
@@ -51,10 +51,18 @@ async fn page_post(
                 {" "}
                 {
                     if base_data.login.is_some() {
-                        Some(render::rsx! {
-                            <form method={"POST"} action={format!("/posts/{}/like", post_id)}>
-                                <BoolSubmitButton value={post.your_vote.is_some()} do_text={"Like"} done_text={"Liked"} />
-                            </form>
+                        Some(if post.your_vote.is_some() {
+                            render::rsx! {
+                                <form method={"POST"} action={format!("/posts/{}/unlike", post_id)}>
+                                    <button type={"submit"}>{"Unlike"}</button>
+                                </form>
+                            }
+                        } else {
+                            render::rsx! {
+                                <form method={"POST"} action={format!("/posts/{}/like", post_id)}>
+                                    <button type={"submit"}>{"Like"}</button>
+                                </form>
+                            }
                         })
                     } else {
                         None
@@ -216,6 +224,35 @@ async fn handler_post_like(
         .body("Successfully liked.".into())?)
 }
 
+async fn handler_post_unlike(
+    params: (i64,),
+    ctx: Arc<crate::RouteContext>,
+    req: hyper::Request<hyper::Body>,
+) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+    let (post_id,) = params;
+
+    let cookies = get_cookie_map_for_req(&req)?;
+
+    res_to_error(
+        ctx.http_client
+            .request(with_auth(
+                hyper::Request::post(format!(
+                    "{}/api/unstable/posts/{}/unlike",
+                    ctx.backend_host, post_id
+                ))
+                .body(Default::default())?,
+                &cookies,
+            )?)
+            .await?,
+    )
+    .await?;
+
+    Ok(hyper::Response::builder()
+        .status(hyper::StatusCode::SEE_OTHER)
+        .header(hyper::header::LOCATION, format!("/posts/{}", post_id))
+        .body("Successfully unliked.".into())?)
+}
+
 async fn handler_post_submit_reply(
     params: (i64,),
     ctx: Arc<crate::RouteContext>,
@@ -267,6 +304,10 @@ pub fn route_posts() -> crate::RouteNode<()> {
             .with_child(
                 "like",
                 crate::RouteNode::new().with_handler_async("POST", handler_post_like),
+            )
+            .with_child(
+                "unlike",
+                crate::RouteNode::new().with_handler_async("POST", handler_post_unlike),
             )
             .with_child(
                 "submit_reply",
