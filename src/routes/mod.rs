@@ -2,8 +2,11 @@ use serde_derive::Deserialize;
 use std::borrow::Cow;
 use std::sync::Arc;
 
-use crate::components::{Content, HTPage, MaybeFillInput, MaybeFillTextArea, PostItem, UserLink};
+use crate::components::{
+    Comment, Content, HTPage, MaybeFillInput, MaybeFillTextArea, PostItem, UserLink,
+};
 use crate::resp_types::{RespMinimalAuthorInfo, RespPostCommentInfo, RespPostListPost};
+use crate::util::author_is_me;
 use crate::PageBaseData;
 
 mod communities;
@@ -146,8 +149,14 @@ async fn page_comment_inner(
         ctx.http_client
             .request(with_auth(
                 hyper::Request::get(format!(
-                    "{}/api/unstable/comments/{}",
-                    ctx.backend_host, comment_id
+                    "{}/api/unstable/comments/{}{}",
+                    ctx.backend_host,
+                    comment_id,
+                    if base_data.login.is_some() {
+                        "?include_your=true"
+                    } else {
+                        ""
+                    },
                 ))
                 .body(Default::default())?,
                 &cookies,
@@ -164,6 +173,42 @@ async fn page_comment_inner(
                 <small><cite><UserLink user={comment.author.as_ref()} /></cite>{":"}</small>
                 <Content src={&comment} />
             </p>
+            <div class={"actionList"}>
+                {
+                    if base_data.login.is_some() {
+                        Some(render::rsx! {
+                            <>
+                                {
+                                    if comment.your_vote.is_some() {
+                                        render::rsx! {
+                                            <form method={"POST"} action={format!("/comments/{}/unlike", comment.id)}>
+                                                <button type={"submit"}>{"Unlike"}</button>
+                                            </form>
+                                        }
+                                    } else {
+                                        render::rsx! {
+                                            <form method={"POST"} action={format!("/comments/{}/like", comment.id)}>
+                                                <button type={"submit"}>{"Like"}</button>
+                                            </form>
+                                        }
+                                    }
+                                }
+                            </>
+                        })
+                    } else {
+                        None
+                    }
+                }
+                {
+                    if author_is_me(&comment.author, &base_data.login) {
+                        Some(render::rsx! {
+                            <a href={format!("/comments/{}/delete", comment.id)}>{"delete"}</a>
+                        })
+                    } else {
+                        None
+                    }
+                }
+            </div>
             {
                 display_error.map(|msg| {
                     render::rsx! {
@@ -171,12 +216,29 @@ async fn page_comment_inner(
                     }
                 })
             }
-            <form method={"POST"} action={format!("/comments/{}/submit_reply", comment.id)}>
-                <div>
-                    <MaybeFillTextArea values={&prev_values} name={"content_text"} />
-                </div>
-                <button r#type={"submit"}>{"Reply"}</button>
-            </form>
+            {
+                if base_data.login.is_some() {
+                    Some(render::rsx! {
+                        <form method={"POST"} action={format!("/comments/{}/submit_reply", comment.id)}>
+                            <div>
+                                <MaybeFillTextArea values={&prev_values} name={"content_text"} />
+                            </div>
+                            <button r#type={"submit"}>{"Reply"}</button>
+                        </form>
+                    })
+                } else {
+                    None
+                }
+            }
+            <ul>
+                {
+                    comment.replies.as_ref().unwrap().iter().map(|reply| {
+                        render::rsx! {
+                            <Comment comment={reply} base_data={&base_data} />
+                        }
+                    }).collect::<Vec<_>>()
+                }
+            </ul>
         </HTPage>
     }))
 }
