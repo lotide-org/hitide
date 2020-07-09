@@ -54,8 +54,7 @@ pub fn Comment<'comment, 'base_data>(
             </div>
 
             {
-                match &comment.replies {
-                    Some(replies) => {
+                if let Some(replies) = &comment.replies {
                         Some(render::rsx! {
                             <ul>
                                 {
@@ -68,8 +67,17 @@ pub fn Comment<'comment, 'base_data>(
                                 }
                             </ul>
                         })
-                    },
-                    None => None,
+                } else {
+                    None
+                }
+            }
+            {
+                if comment.replies.is_none() && comment.has_replies {
+                    Some(render::rsx! {
+                        <ul><li><a href={format!("/comments/{}", comment.id)}>{"-> View More Comments"}</a></li></ul>
+                    })
+                } else {
+                    None
                 }
             }
         </li>

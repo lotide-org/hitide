@@ -34,6 +34,7 @@ pub struct RespPostCommentInfo<'a> {
     pub your_vote: Option<Empty>,
     #[serde(borrow)]
     pub replies: Option<Vec<RespPostCommentInfo<'a>>>,
+    pub has_replies: bool,
 }
 
 #[derive(Deserialize, Debug)]
