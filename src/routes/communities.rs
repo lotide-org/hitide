@@ -142,7 +142,8 @@ async fn page_community(
 
     Ok(html_response(render::html! {
         <HTPage base_data={&base_data} title>
-            <h1>{title}</h1>
+            <h1 style={"margin-bottom: 0"}>{title}</h1>
+            <em>{format!("@{}@{}", community_info.as_ref().name, community_info.as_ref().host)}</em>
             <p>
                 {
                     if base_data.login.is_some() {
