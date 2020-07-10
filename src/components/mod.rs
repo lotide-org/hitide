@@ -1,4 +1,5 @@
-use std::borrow::Cow;
+use std::borrow::{Borrow, Cow};
+use std::collections::HashMap;
 
 use crate::resp_types::{
     RespMinimalAuthorInfo, RespMinimalCommunityInfo, RespPostCommentInfo, RespPostListPost,
@@ -260,7 +261,28 @@ impl<'user> render::Render for UserLink<'user> {
     }
 }
 
-fn maybe_fill_value<'a>(values: &'a Option<&'a serde_json::Value>, name: &str) -> &'a str {
+pub trait GetIndex<K, V> {
+    fn get<'a>(&'a self, key: K) -> Option<&'a V>;
+}
+
+impl<K: Borrow<Q> + Eq + std::hash::Hash, V, Q: ?Sized + Eq + std::hash::Hash> GetIndex<&Q, V>
+    for HashMap<K, V>
+{
+    fn get<'a>(&'a self, key: &Q) -> Option<&'a V> {
+        HashMap::get(self, key)
+    }
+}
+
+impl<I: serde_json::value::Index> GetIndex<I, serde_json::Value> for serde_json::Value {
+    fn get<'a>(&'a self, key: I) -> Option<&'a serde_json::Value> {
+        self.get(key)
+    }
+}
+
+fn maybe_fill_value<'a, 'b, M: GetIndex<&'b str, serde_json::Value>>(
+    values: &'a Option<&'a M>,
+    name: &'b str,
+) -> &'a str {
     values
         .and_then(|values| values.get(name))
         .and_then(serde_json::Value::as_str)
@@ -268,24 +290,38 @@ fn maybe_fill_value<'a>(values: &'a Option<&'a serde_json::Value>, name: &str) -
 }
 
 #[render::component]
-pub fn MaybeFillInput<'a>(
-    values: &'a Option<&'a serde_json::Value>,
+pub fn MaybeFillInput<'a, M: GetIndex<&'a str, serde_json::Value>>(
+    values: &'a Option<&'a M>,
     r#type: &'a str,
     name: &'a str,
     required: bool,
 ) {
-    render::rsx! {
-        <input
-            r#type
-            name
-            value={maybe_fill_value(values, name)}
-            required={if required { "true" } else { "false" }}
-        />
+    let value = maybe_fill_value(values, name);
+    if required {
+        render::rsx! {
+            <input
+                r#type
+                name
+                value
+                required={""}
+            />
+        }
+    } else {
+        render::rsx! {
+            <input
+                r#type
+                name
+                value
+            />
+        }
     }
 }
 
 #[render::component]
-pub fn MaybeFillTextArea<'a>(values: &'a Option<&'a serde_json::Value>, name: &'a str) {
+pub fn MaybeFillTextArea<'a, M: GetIndex<&'a str, serde_json::Value>>(
+    values: &'a Option<&'a M>,
+    name: &'a str,
+) {
     render::rsx! {
         <textarea name>
             {maybe_fill_value(values, name)}

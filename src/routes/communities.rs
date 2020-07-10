@@ -1,10 +1,12 @@
-use crate::components::{CommunityLink, HTPage, PostItem};
+use crate::components::{CommunityLink, HTPage, MaybeFillInput, MaybeFillTextArea, PostItem};
 use crate::resp_types::{
     RespCommunityInfoMaybeYour, RespMinimalCommunityInfo, RespPostListPost, RespYourFollow,
 };
 use crate::routes::{
-    fetch_base_data, get_cookie_map, get_cookie_map_for_req, html_response, res_to_error, with_auth,
+    fetch_base_data, get_cookie_map, get_cookie_map_for_req, html_response, res_to_error,
+    with_auth, CookieMap,
 };
+use serde_derive::Deserialize;
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -258,6 +260,16 @@ async fn page_community_new_post(
 
     let cookies = get_cookie_map_for_req(&req)?;
 
+    page_community_new_post_inner(community_id, &cookies, ctx, None, None).await
+}
+
+async fn page_community_new_post_inner(
+    community_id: i64,
+    cookies: &CookieMap<'_>,
+    ctx: Arc<crate::RouteContext>,
+    display_error: Option<String>,
+    prev_values: Option<&HashMap<&str, serde_json::Value>>,
+) -> Result<hyper::Response<hyper::Body>, crate::Error> {
     let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, &cookies).await?;
 
     let submit_url = format!("/communities/{}/new_post/submit", community_id);
@@ -265,22 +277,29 @@ async fn page_community_new_post(
     Ok(html_response(render::html! {
         <HTPage base_data={&base_data} title={"New Post"}>
             <h1>{"New Post"}</h1>
+            {
+                display_error.map(|msg| {
+                    render::rsx! {
+                        <div class={"errorBox"}>{msg}</div>
+                    }
+                })
+            }
             <form method={"POST"} action={&submit_url}>
                 <div>
                     <label>
-                        {"Title: "}<input r#type={"text"} name={"title"} required={"true"} />
+                        {"Title: "}<MaybeFillInput values={&prev_values} r#type={"text"} name={"title"} required={true} />
                     </label>
                 </div>
                 <div>
                     <label>
-                        {"URL: "}<input r#type={"text"} name={"href"} />
+                        {"URL: "}<MaybeFillInput values={&prev_values} r#type={"text"} name={"href"} required={false} />
                     </label>
                 </div>
                 <div>
                     <label>
                         {"Text:"}
                         <br />
-                        <textarea name={"content_text"}>{""}</textarea>
+                        <MaybeFillTextArea values={&prev_values} name={"content_text"} />
                     </label>
                 </div>
                 <div>
@@ -317,26 +336,39 @@ async fn handler_communities_new_post_submit(
     if body.get("href").and_then(|x| x.as_str()) == Some("") {
         body.remove("href");
     }
-    let body = serde_json::to_vec(&body)?;
 
-    res_to_error(
+    let api_res = res_to_error(
         ctx.http_client
             .request(with_auth(
                 hyper::Request::post(format!("{}/api/unstable/posts", ctx.backend_host))
-                    .body(body.into())?,
+                    .body(serde_json::to_vec(&body)?.into())?,
                 &cookies,
             )?)
             .await?,
     )
-    .await?;
+    .await;
 
-    Ok(hyper::Response::builder()
-        .status(hyper::StatusCode::SEE_OTHER)
-        .header(
-            hyper::header::LOCATION,
-            format!("/communities/{}", community_id),
-        )
-        .body("Successfully posted.".into())?)
+    match api_res {
+        Ok(api_res) => {
+            #[derive(Deserialize)]
+            struct PostsCreateResponse {
+                id: i64,
+            }
+
+            let api_res = hyper::body::to_bytes(api_res.into_body()).await?;
+            let api_res: PostsCreateResponse = serde_json::from_slice(&api_res)?;
+
+            Ok(hyper::Response::builder()
+                .status(hyper::StatusCode::SEE_OTHER)
+                .header(hyper::header::LOCATION, format!("/posts/{}", api_res.id))
+                .body("Successfully posted.".into())?)
+        }
+        Err(crate::Error::RemoteError((_, message))) => {
+            page_community_new_post_inner(community_id, &cookies, ctx, Some(message), Some(&body))
+                .await
+        }
+        Err(other) => Err(other),
+    }
 }
 
 pub fn route_communities() -> crate::RouteNode<()> {

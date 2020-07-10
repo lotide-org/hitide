@@ -15,6 +15,11 @@ mod r#static;
 
 const COOKIE_AGE: u32 = 60 * 60 * 24 * 365;
 
+#[derive(Deserialize)]
+struct ReturnToParams<'a> {
+    return_to: Option<Cow<'a, str>>,
+}
+
 type CookieMap<'a> = std::collections::HashMap<&'a str, ginger::Cookie<'a>>;
 
 fn get_cookie_map<'a>(src: Option<&'a str>) -> Result<CookieMap<'a>, ginger::ParseError> {
@@ -252,16 +257,21 @@ async fn page_comment_delete(
 
     let cookies = get_cookie_map_for_req(&req)?;
 
-    page_comment_delete_inner(comment_id, ctx, &cookies, None).await
+    page_comment_delete_inner(comment_id, ctx, &req.headers(), &cookies, None).await
 }
 
 async fn page_comment_delete_inner(
     comment_id: i64,
     ctx: Arc<crate::RouteContext>,
+    headers: &hyper::header::HeaderMap,
     cookies: &CookieMap<'_>,
     display_error: Option<String>,
 ) -> Result<hyper::Response<hyper::Body>, crate::Error> {
     let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, &cookies).await?;
+
+    let referer = headers
+        .get(hyper::header::REFERER)
+        .and_then(|x| x.to_str().ok());
 
     let api_res = res_to_error(
         ctx.http_client
@@ -296,6 +306,15 @@ async fn page_comment_delete_inner(
                     })
                 }
                 <form method={"POST"} action={format!("/comments/{}/delete/confirm", comment.id)}>
+                    {
+                        if let Some(referer) = referer {
+                            Some(render::rsx! {
+                                <input type={"hidden"} name={"return_to"} value={referer} />
+                            })
+                        } else {
+                            None
+                        }
+                    }
                     <a href={format!("/comments/{}/", comment.id)}>{"No, cancel"}</a>
                     {" "}
                     <button r#type={"submit"}>{"Yes, delete"}</button>
@@ -312,7 +331,12 @@ async fn handler_comment_delete_confirm(
 ) -> Result<hyper::Response<hyper::Body>, crate::Error> {
     let (comment_id,) = params;
 
-    let cookies = get_cookie_map_for_req(&req)?;
+    let (req_parts, body) = req.into_parts();
+
+    let cookies = get_cookie_map_for_headers(&req_parts.headers)?;
+
+    let body = hyper::body::to_bytes(body).await?;
+    let body: ReturnToParams = serde_urlencoded::from_bytes(&body)?;
 
     let api_res = res_to_error(
         ctx.http_client
@@ -331,10 +355,18 @@ async fn handler_comment_delete_confirm(
     match api_res {
         Ok(_) => Ok(hyper::Response::builder()
             .status(hyper::StatusCode::SEE_OTHER)
-            .header(hyper::header::LOCATION, "/")
+            .header(
+                hyper::header::LOCATION,
+                if let Some(return_to) = &body.return_to {
+                    &return_to
+                } else {
+                    "/"
+                },
+            )
             .body("Successfully deleted.".into())?),
         Err(crate::Error::RemoteError((status, message))) if status.is_client_error() => {
-            page_comment_delete_inner(comment_id, ctx, &cookies, Some(message)).await
+            page_comment_delete_inner(comment_id, ctx, &req_parts.headers, &cookies, Some(message))
+                .await
         }
         Err(other) => Err(other),
     }
@@ -348,6 +380,11 @@ async fn handler_comment_like(
     let (comment_id,) = params;
 
     let cookies = get_cookie_map_for_req(&req)?;
+
+    let referer = req
+        .headers()
+        .get(hyper::header::REFERER)
+        .and_then(|x| x.to_str().ok());
 
     res_to_error(
         ctx.http_client
@@ -365,7 +402,15 @@ async fn handler_comment_like(
 
     Ok(hyper::Response::builder()
         .status(hyper::StatusCode::SEE_OTHER)
-        .header(hyper::header::LOCATION, format!("/comments/{}", comment_id))
+        .header(
+            hyper::header::LOCATION,
+            (if let Some(referer) = referer {
+                Cow::Borrowed(referer)
+            } else {
+                format!("/comments/{}", comment_id).into()
+            })
+            .as_ref(),
+        )
         .body("Successfully liked.".into())?)
 }
 
@@ -377,6 +422,11 @@ async fn handler_comment_unlike(
     let (comment_id,) = params;
 
     let cookies = get_cookie_map_for_req(&req)?;
+
+    let referer = req
+        .headers()
+        .get(hyper::header::REFERER)
+        .and_then(|x| x.to_str().ok());
 
     res_to_error(
         ctx.http_client
@@ -394,7 +444,15 @@ async fn handler_comment_unlike(
 
     Ok(hyper::Response::builder()
         .status(hyper::StatusCode::SEE_OTHER)
-        .header(hyper::header::LOCATION, format!("/comments/{}", comment_id))
+        .header(
+            hyper::header::LOCATION,
+            (if let Some(referer) = referer {
+                Cow::Borrowed(referer)
+            } else {
+                format!("/comments/{}", comment_id).into()
+            })
+            .as_ref(),
+        )
         .body("Successfully unliked.".into())?)
 }
 
@@ -403,15 +461,6 @@ async fn handler_comment_submit_reply(
     ctx: Arc<crate::RouteContext>,
     req: hyper::Request<hyper::Body>,
 ) -> Result<hyper::Response<hyper::Body>, crate::Error> {
-    #[derive(Deserialize)]
-    struct CommentsRepliesCreateResponsePost {
-        id: i64,
-    }
-    #[derive(Deserialize)]
-    struct CommentsRepliesCreateResponse {
-        post: CommentsRepliesCreateResponsePost,
-    }
-
     let (comment_id,) = params;
 
     let (req_parts, body) = req.into_parts();
@@ -436,18 +485,10 @@ async fn handler_comment_submit_reply(
     .await;
 
     match api_res {
-        Ok(api_res) => {
-            let api_res = hyper::body::to_bytes(api_res.into_body()).await?;
-            let api_res: CommentsRepliesCreateResponse = serde_json::from_slice(&api_res)?;
-
-            Ok(hyper::Response::builder()
-                .status(hyper::StatusCode::SEE_OTHER)
-                .header(
-                    hyper::header::LOCATION,
-                    format!("/posts/{}", api_res.post.id),
-                )
-                .body("Successfully posted.".into())?)
-        }
+        Ok(_) => Ok(hyper::Response::builder()
+            .status(hyper::StatusCode::SEE_OTHER)
+            .header(hyper::header::LOCATION, format!("/comments/{}", comment_id))
+            .body("Successfully posted.".into())?),
         Err(crate::Error::RemoteError((status, message))) if status.is_client_error() => {
             page_comment_inner(comment_id, &cookies, ctx, Some(message), Some(&body)).await
         }
