@@ -177,6 +177,7 @@ pub fn HTPage<'a, Children: render::Render>(
                     <header class={"mainHeader"}>
                         <div class={"left actionList"}>
                             <a href={"/"} class={"siteName"}>{"lotide"}</a>
+                            <a href={"/all"}>{"All"}</a>
                             <a href={"/communities"}>{"Communities"}</a>
                             <a href={"/about"}>{"About"}</a>
                         </div>

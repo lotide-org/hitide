@@ -921,16 +921,17 @@ async fn page_home(
 
     let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, &cookies).await?;
 
-    let for_user = base_data.login.is_some();
+    if base_data.login.is_none() {
+        return page_all_inner(&cookies, &base_data, ctx).await;
+    }
 
     let api_res = res_to_error(
         ctx.http_client
             .request(with_auth(
-                hyper::Request::get(if for_user {
-                    format!("{}/api/unstable/users/me/following:posts", ctx.backend_host,)
-                } else {
-                    format!("{}/api/unstable/posts", ctx.backend_host,)
-                })
+                hyper::Request::get(format!(
+                    "{}/api/unstable/users/me/following:posts",
+                    ctx.backend_host
+                ))
                 .body(Default::default())?,
                 &cookies,
             )?)
@@ -943,6 +944,73 @@ async fn page_home(
 
     Ok(html_response(render::html! {
         <HTPage base_data={&base_data} title={"lotide"}>
+            {
+                if api_res.is_empty() {
+                    Some(render::rsx! {
+                        <p>
+                            {"Looks like there's nothing here. Why not "}
+                            <a href={"/communities"}>{"follow some communities"}</a>
+                            {"?"}
+                        </p>
+                    })
+                } else {
+                    None
+                }
+            }
+            <ul>
+                {api_res.iter().map(|post| {
+                    PostItem { post, in_community: false }
+                }).collect::<Vec<_>>()}
+            </ul>
+        </HTPage>
+    }))
+}
+
+async fn page_all(
+    _: (),
+    ctx: Arc<crate::RouteContext>,
+    req: hyper::Request<hyper::Body>,
+) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+    let cookies = get_cookie_map_for_req(&req)?;
+
+    let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, &cookies).await?;
+
+    page_all_inner(&cookies, &base_data, ctx).await
+}
+
+async fn page_all_inner(
+    cookies: &CookieMap<'_>,
+    base_data: &crate::PageBaseData,
+    ctx: Arc<crate::RouteContext>,
+) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+    let api_res = res_to_error(
+        ctx.http_client
+            .request(with_auth(
+                hyper::Request::get(format!("{}/api/unstable/posts", ctx.backend_host))
+                    .body(Default::default())?,
+                &cookies,
+            )?)
+            .await?,
+    )
+    .await?;
+
+    let api_res = hyper::body::to_bytes(api_res.into_body()).await?;
+    let api_res: Vec<RespPostListPost<'_>> = serde_json::from_slice(&api_res)?;
+
+    Ok(html_response(render::html! {
+        <HTPage base_data={&base_data} title={"lotide"}>
+            <h1>{"The Whole Known Network"}</h1>
+            {
+                if api_res.is_empty() {
+                    Some(render::rsx! {
+                        <p>
+                        {"Looks like there's nothing here (yet!)."}
+                        </p>
+                    })
+                } else {
+                    None
+                }
+            }
             <ul>
                 {api_res.iter().map(|post| {
                     PostItem { post, in_community: false }
@@ -958,6 +1026,10 @@ pub fn route_root() -> crate::RouteNode<()> {
         .with_child(
             "about",
             crate::RouteNode::new().with_handler_async("GET", page_about),
+        )
+        .with_child(
+            "all",
+            crate::RouteNode::new().with_handler_async("GET", page_all),
         )
         .with_child(
             "comments",
