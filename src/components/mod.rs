@@ -283,10 +283,12 @@ impl<I: serde_json::value::Index> GetIndex<I, serde_json::Value> for serde_json:
 fn maybe_fill_value<'a, 'b, M: GetIndex<&'b str, serde_json::Value>>(
     values: &'a Option<&'a M>,
     name: &'b str,
+    default_value: Option<&'a str>,
 ) -> &'a str {
     values
         .and_then(|values| values.get(name))
         .and_then(serde_json::Value::as_str)
+        .or(default_value)
         .unwrap_or("")
 }
 
@@ -297,7 +299,7 @@ pub fn MaybeFillInput<'a, M: GetIndex<&'a str, serde_json::Value>>(
     name: &'a str,
     required: bool,
 ) {
-    let value = maybe_fill_value(values, name);
+    let value = maybe_fill_value(values, name, None);
     if required {
         render::rsx! {
             <input
@@ -322,10 +324,11 @@ pub fn MaybeFillInput<'a, M: GetIndex<&'a str, serde_json::Value>>(
 pub fn MaybeFillTextArea<'a, M: GetIndex<&'a str, serde_json::Value>>(
     values: &'a Option<&'a M>,
     name: &'a str,
+    default_value: Option<&'a str>,
 ) {
     render::rsx! {
         <textarea name>
-            {maybe_fill_value(values, name)}
+            {maybe_fill_value(values, name, default_value)}
         </textarea>
     }
 }

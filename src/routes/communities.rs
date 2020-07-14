@@ -3,8 +3,8 @@ use crate::resp_types::{
     RespCommunityInfoMaybeYour, RespMinimalCommunityInfo, RespPostListPost, RespYourFollow,
 };
 use crate::routes::{
-    fetch_base_data, get_cookie_map, get_cookie_map_for_req, html_response, res_to_error,
-    with_auth, CookieMap,
+    fetch_base_data, get_cookie_map, get_cookie_map_for_headers, get_cookie_map_for_req,
+    html_response, res_to_error, with_auth, CookieMap,
 };
 use serde_derive::Deserialize;
 use std::collections::HashMap;
@@ -179,6 +179,17 @@ async fn page_community(
                 <p>
                     <a href={&new_post_url}>{"New Post"}</a>
                 </p>
+                {
+                    if community_info.you_are_moderator == Some(true) {
+                        Some(render::rsx! {
+                            <p>
+                                <a href={format!("/communities/{}/edit", community_id)}>{"Customize"}</a>
+                            </p>
+                        })
+                    } else {
+                        None
+                    }
+                }
                 <p>{community_info.description.as_ref()}</p>
             </div>
             {
@@ -195,6 +206,112 @@ async fn page_community(
             </ul>
         </HTPage>
     }))
+}
+
+async fn page_community_edit(
+    params: (i64,),
+    ctx: Arc<crate::RouteContext>,
+    req: hyper::Request<hyper::Body>,
+) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+    let (community_id,) = params;
+
+    let cookies = get_cookie_map_for_req(&req)?;
+
+    page_community_edit_inner(community_id, &cookies, ctx, None, None).await
+}
+
+async fn page_community_edit_inner(
+    community_id: i64,
+    cookies: &CookieMap<'_>,
+    ctx: Arc<crate::RouteContext>,
+    display_error: Option<String>,
+    prev_values: Option<&HashMap<&str, serde_json::Value>>,
+) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+    let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, &cookies).await?;
+
+    let community_info_api_res = res_to_error(
+        ctx.http_client
+            .request(with_auth(
+                hyper::Request::get(format!(
+                    "{}/api/unstable/communities/{}",
+                    ctx.backend_host, community_id,
+                ))
+                .body(Default::default())?,
+                &cookies,
+            )?)
+            .await?,
+    )
+    .await?;
+    let community_info_api_res = hyper::body::to_bytes(community_info_api_res.into_body()).await?;
+
+    let community_info: RespCommunityInfoMaybeYour =
+        { serde_json::from_slice(&community_info_api_res)? };
+
+    Ok(html_response(render::html! {
+        <HTPage base_data={&base_data} title={"Edit Community"}>
+            <h1>{"Edit Community"}</h1>
+            <h2>{community_info.as_ref().name.as_ref()}</h2>
+            {
+                display_error.map(|msg| {
+                    render::rsx! {
+                        <div class={"errorBox"}>{msg}</div>
+                    }
+                })
+            }
+            <form method={"POST"} action={format!("/communities/{}/edit/submit", community_id)}>
+                <label>
+                    {"Description:"}<br />
+                    <MaybeFillTextArea values={&prev_values} name={"description"} default_value={Some(community_info.description.as_ref())} />
+                </label>
+                <div>
+                    <button r#type={"submit"}>{"Submit"}</button>
+                </div>
+            </form>
+        </HTPage>
+    }))
+}
+
+async fn handler_communities_edit_submit(
+    params: (i64,),
+    ctx: Arc<crate::RouteContext>,
+    req: hyper::Request<hyper::Body>,
+) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+    let (community_id,) = params;
+
+    let (req_parts, body) = req.into_parts();
+
+    let cookies = get_cookie_map_for_headers(&req_parts.headers)?;
+
+    let body = hyper::body::to_bytes(body).await?;
+    let body: HashMap<&str, serde_json::Value> = serde_urlencoded::from_bytes(&body)?;
+
+    let api_res = res_to_error(
+        ctx.http_client
+            .request(with_auth(
+                hyper::Request::patch(format!(
+                    "{}/api/unstable/communities/{}",
+                    ctx.backend_host, community_id
+                ))
+                .body(serde_json::to_vec(&body)?.into())?,
+                &cookies,
+            )?)
+            .await?,
+    )
+    .await;
+
+    match api_res {
+        Err(crate::Error::RemoteError((_, message))) => {
+            page_community_edit_inner(community_id, &cookies, ctx, Some(message), Some(&body)).await
+        }
+        Err(other) => Err(other),
+        Ok(_) => Ok(hyper::Response::builder()
+            .status(hyper::StatusCode::SEE_OTHER)
+            .header(
+                hyper::header::LOCATION,
+                format!("/communities/{}", community_id),
+            )
+            .body("Successfully edited.".into())?),
+    }
 }
 
 async fn handler_community_follow(
@@ -310,7 +427,7 @@ async fn page_community_new_post_inner(
                     <label>
                         {"Text:"}
                         <br />
-                        <MaybeFillTextArea values={&prev_values} name={"content_text"} />
+                        <MaybeFillTextArea values={&prev_values} name={"content_text"} default_value={None} />
                     </label>
                 </div>
                 <div>
@@ -388,6 +505,16 @@ pub fn route_communities() -> crate::RouteNode<()> {
         .with_child_parse::<i64, _>(
             crate::RouteNode::new()
                 .with_handler_async("GET", page_community)
+                .with_child(
+                    "edit",
+                    crate::RouteNode::new()
+                        .with_handler_async("GET", page_community_edit)
+                        .with_child(
+                            "submit",
+                            crate::RouteNode::new()
+                                .with_handler_async("POST", handler_communities_edit_submit),
+                        ),
+                )
                 .with_child(
                     "follow",
                     crate::RouteNode::new().with_handler_async("POST", handler_community_follow),
