@@ -83,6 +83,10 @@ pub struct RespYourFollow {
 pub struct RespCommunityInfoMaybeYour<'a> {
     #[serde(flatten)]
     pub base: RespMinimalCommunityInfo<'a>,
+
+    pub description: Cow<'a, str>,
+
+    pub you_are_moderator: Option<bool>,
     pub your_follow: Option<RespYourFollow>,
 }
 

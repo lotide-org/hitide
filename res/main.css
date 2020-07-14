@@ -36,3 +36,18 @@ body {
 	margin-top: .5em;
 	margin-bottom: .5em;
 }
+
+.communitySidebar {
+	float: right;
+	width: 300px;
+}
+
+.communitySidebar > h2 {
+	margin-bottom: 0;
+}
+
+@media (max-width: 768px) {
+	.communitySidebar {
+		display: none; /* TODO still show this somewhere */
+	}
+}

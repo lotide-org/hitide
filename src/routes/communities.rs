@@ -142,42 +142,52 @@ async fn page_community(
 
     Ok(html_response(render::html! {
         <HTPage base_data={&base_data} title>
-            <h1 style={"margin-bottom: 0"}>{title}</h1>
-            <em>{format!("@{}@{}", community_info.as_ref().name, community_info.as_ref().host)}</em>
-            <p>
-                {
-                    if base_data.login.is_some() {
-                        Some(match community_info.your_follow {
-                            Some(RespYourFollow { accepted: true }) => {
-                                render::rsx! {
-                                    <form method={"POST"} action={format!("/communities/{}/unfollow", community_id)}>
-                                        <button type={"submit"}>{"Unfollow"}</button>
-                                    </form>
+            <div class={"communitySidebar"}>
+                <h2>{title}</h2>
+                <em>{format!("@{}@{}", community_info.as_ref().name, community_info.as_ref().host)}</em>
+                <p>
+                    {
+                        if base_data.login.is_some() {
+                            Some(match community_info.your_follow {
+                                Some(RespYourFollow { accepted: true }) => {
+                                    render::rsx! {
+                                        <form method={"POST"} action={format!("/communities/{}/unfollow", community_id)}>
+                                            <button type={"submit"}>{"Unfollow"}</button>
+                                        </form>
+                                    }
+                                },
+                                Some(RespYourFollow { accepted: false }) => {
+                                    render::rsx! {
+                                        <form>
+                                            <button disabled={""}>{"Follow request sent!"}</button>
+                                        </form>
+                                    }
+                                },
+                                None => {
+                                    render::rsx! {
+                                        <form method={"POST"} action={format!("/communities/{}/follow", community_id)}>
+                                            <button type={"submit"}>{"Follow"}</button>
+                                        </form>
+                                    }
                                 }
-                            },
-                            Some(RespYourFollow { accepted: false }) => {
-                                render::rsx! {
-                                    <form>
-                                        <button disabled={""}>{"Follow request sent!"}</button>
-                                    </form>
-                                }
-                            },
-                            None => {
-                                render::rsx! {
-                                    <form method={"POST"} action={format!("/communities/{}/follow", community_id)}>
-                                        <button type={"submit"}>{"Follow"}</button>
-                                    </form>
-                                }
-                            }
-                        })
-                    } else {
-                        None
+                            })
+                        } else {
+                            None
+                        }
                     }
+                </p>
+                <p>
+                    <a href={&new_post_url}>{"New Post"}</a>
+                </p>
+                <p>{community_info.description.as_ref()}</p>
+            </div>
+            {
+                if posts.is_empty() {
+                    Some(render::rsx! { <p>{"Looks like there's nothing here."}</p> })
+                } else {
+                    None
                 }
-            </p>
-            <p>
-                <a href={&new_post_url}>{"New Post"}</a>
-            </p>
+            }
             <ul>
                 {posts.iter().map(|post| {
                     PostItem { post, in_community: true }
