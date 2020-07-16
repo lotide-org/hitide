@@ -3,9 +3,11 @@ use std::borrow::Cow;
 use std::sync::Arc;
 
 use crate::components::{
-    Comment, Content, HTPage, MaybeFillInput, MaybeFillTextArea, PostItem, UserLink,
+    Comment, Content, HTPage, MaybeFillInput, MaybeFillTextArea, PostItem, ThingItem, UserLink,
 };
-use crate::resp_types::{RespMinimalAuthorInfo, RespPostCommentInfo, RespPostListPost};
+use crate::resp_types::{
+    RespMinimalAuthorInfo, RespPostCommentInfo, RespPostListPost, RespThingInfo,
+};
 use crate::util::author_is_me;
 use crate::PageBaseData;
 
@@ -884,7 +886,7 @@ async fn page_user(
 
     let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, &cookies).await?;
 
-    let api_res = res_to_error(
+    let user = res_to_error(
         ctx.http_client
             .request(
                 hyper::Request::get(format!(
@@ -896,18 +898,44 @@ async fn page_user(
             .await?,
     )
     .await?;
+    let user = hyper::body::to_bytes(user.into_body()).await?;
+    let user: RespMinimalAuthorInfo<'_> = serde_json::from_slice(&user)?;
 
-    let api_res = hyper::body::to_bytes(api_res.into_body()).await?;
-    let user: RespMinimalAuthorInfo<'_> = serde_json::from_slice(&api_res)?;
+    let things = res_to_error(
+        ctx.http_client
+            .request(
+                hyper::Request::get(format!(
+                    "{}/api/unstable/users/{}/things",
+                    ctx.backend_host, user_id,
+                ))
+                .body(Default::default())?,
+            )
+            .await?,
+    )
+    .await?;
+    let things = hyper::body::to_bytes(things.into_body()).await?;
+    let things: Vec<RespThingInfo> = serde_json::from_slice(&things)?;
 
     let title = user.username.as_ref();
 
     Ok(html_response(render::html! {
         <HTPage base_data={&base_data} title>
             <h1>{title}</h1>
-            <p>
-                <em>{"User post listing is not currently implemented."}</em>
-            </p>
+            {
+                if things.is_empty() {
+                    Some(render::rsx! { <p>{"Looks like there's nothing here."}</p> })
+                } else {
+                    None
+                }
+            }
+            <ul>
+                {
+                    things.iter().map(|thing| {
+                        ThingItem { thing }
+                    })
+                    .collect::<Vec<_>>()
+                }
+            </ul>
         </HTPage>
     }))
 }
@@ -959,7 +987,7 @@ async fn page_home(
             }
             <ul>
                 {api_res.iter().map(|post| {
-                    PostItem { post, in_community: false }
+                    PostItem { post, in_community: false, no_user: false }
                 }).collect::<Vec<_>>()}
             </ul>
         </HTPage>
@@ -1013,7 +1041,7 @@ async fn page_all_inner(
             }
             <ul>
                 {api_res.iter().map(|post| {
-                    PostItem { post, in_community: false }
+                    PostItem { post, in_community: false, no_user: false }
                 }).collect::<Vec<_>>()}
             </ul>
         </HTPage>

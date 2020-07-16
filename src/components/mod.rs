@@ -2,7 +2,8 @@ use std::borrow::{Borrow, Cow};
 use std::collections::HashMap;
 
 use crate::resp_types::{
-    RespMinimalAuthorInfo, RespMinimalCommunityInfo, RespPostCommentInfo, RespPostListPost,
+    RespMinimalAuthorInfo, RespMinimalCommunityInfo, RespPostCommentInfo, RespPostInfo,
+    RespPostListPost, RespThingComment, RespThingInfo,
 };
 use crate::util::{abbreviate_link, author_is_me};
 use crate::PageBaseData;
@@ -122,7 +123,16 @@ impl<'a> HavingContent for RespPostCommentInfo<'a> {
     }
 }
 
-impl<'a> HavingContent for RespPostListPost<'a> {
+impl<'a> HavingContent for RespThingComment<'a> {
+    fn content_text(&self) -> Option<&str> {
+        self.content_text.as_deref()
+    }
+    fn content_html(&self) -> Option<&str> {
+        self.content_html.as_deref()
+    }
+}
+
+impl<'a> HavingContent for RespPostInfo<'a> {
     fn content_text(&self) -> Option<&str> {
         self.content_text.as_deref()
     }
@@ -202,11 +212,11 @@ pub fn HTPage<'a, Children: render::Render>(
 }
 
 #[render::component]
-pub fn PostItem<'post>(post: &'post RespPostListPost<'post>, in_community: bool) {
+pub fn PostItem<'post>(post: &'post RespPostListPost<'post>, in_community: bool, no_user: bool) {
     render::rsx! {
         <li>
-            <a href={format!("/posts/{}", post.id)}>
-                {post.title.as_ref()}
+            <a href={format!("/posts/{}", post.as_ref().id)}>
+                {post.as_ref().title.as_ref()}
             </a>
             {
                 if let Some(href) = &post.href {
@@ -221,7 +231,18 @@ pub fn PostItem<'post>(post: &'post RespPostListPost<'post>, in_community: bool)
                 }
             }
             <br />
-            {"Submitted by "}<UserLink user={post.author.as_ref()} />
+            {"Submitted"}
+            {
+                if no_user {
+                    None
+                } else {
+                    Some(render::rsx! {
+                        <>
+                            {" by "}<UserLink user={post.author.as_ref()} />
+                        </>
+                    })
+                }
+            }
             {
                 if !in_community {
                     Some(render::rsx! {
@@ -232,6 +253,31 @@ pub fn PostItem<'post>(post: &'post RespPostListPost<'post>, in_community: bool)
                 }
             }
         </li>
+    }
+}
+
+pub struct ThingItem<'a> {
+    pub thing: &'a RespThingInfo<'a>,
+}
+
+impl<'a> render::Render for ThingItem<'a> {
+    fn render_into<W: std::fmt::Write>(self, writer: &mut W) -> std::fmt::Result {
+        match self.thing {
+            RespThingInfo::Post(post) => {
+                (PostItem { post, in_community: false, no_user: true }).render_into(writer)
+            },
+            RespThingInfo::Comment(comment) => {
+                (render::rsx! {
+                    <li>
+                        <small>
+                            <a href={format!("/comments/{}", comment.id)}>{"Comment"}</a>
+                            {" on "}<a href={format!("/posts/{}", comment.post.id)}>{comment.post.title.as_ref()}</a>{":"}
+                        </small>
+                        <Content src={comment} />
+                    </li>
+                }).render_into(writer)
+            }
+        }
     }
 }
 

@@ -41,7 +41,7 @@ async fn page_post(
 
     let post: RespPostInfo = serde_json::from_slice(&api_res)?;
 
-    let title = post.as_ref().title.as_ref();
+    let title = post.as_ref().as_ref().title.as_ref();
 
     Ok(html_response(render::html! {
         <HTPage base_data={&base_data} title={title}>
@@ -83,7 +83,7 @@ async fn page_post(
                     }
                 }
             }
-            <Content src={post.as_ref()} />
+            <Content src={&post} />
             {
                 if author_is_me(&post.as_ref().author, &base_data.login) {
                     Some(render::rsx! {
@@ -100,7 +100,7 @@ async fn page_post(
                 {
                     if base_data.login.is_some() {
                         Some(render::rsx! {
-                            <form method={"POST"} action={format!("/posts/{}/submit_reply", post.as_ref().id)}>
+                            <form method={"POST"} action={format!("/posts/{}/submit_reply", post.as_ref().as_ref().id)}>
                                 <div>
                                     <textarea name={"content_text"}>{()}</textarea>
                                 </div>
@@ -155,10 +155,10 @@ async fn page_post_delete(
 
     Ok(html_response(render::html! {
         <HTPage base_data={&base_data} title={"Delete Post"}>
-            <h1>{post.as_ref().title.as_ref()}</h1>
+            <h1>{post.as_ref().as_ref().title.as_ref()}</h1>
             <h2>{"Delete this post?"}</h2>
-            <form method={"POST"} action={format!("/posts/{}/delete/confirm", post.as_ref().id)}>
-                <a href={format!("/posts/{}/", post.as_ref().id)}>{"No, cancel"}</a>
+            <form method={"POST"} action={format!("/posts/{}/delete/confirm", post.as_ref().as_ref().id)}>
+                <a href={format!("/posts/{}/", post.as_ref().as_ref().id)}>{"No, cancel"}</a>
                 {" "}
                 <button r#type={"submit"}>{"Yes, delete"}</button>
             </form>

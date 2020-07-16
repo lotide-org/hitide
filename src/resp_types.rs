@@ -10,17 +10,47 @@ pub struct RespMinimalAuthorInfo<'a> {
 }
 
 #[derive(Deserialize, Debug)]
-pub struct RespPostListPost<'a> {
+pub struct RespMinimalPostInfo<'a> {
     pub id: i64,
     pub title: Cow<'a, str>,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct RespPostListPost<'a> {
+    #[serde(flatten)]
+    pub base: RespMinimalPostInfo<'a>,
     pub href: Option<Cow<'a, str>>,
-    pub content_text: Option<Cow<'a, str>>,
-    pub content_html: Option<Cow<'a, str>>,
     #[serde(borrow)]
     pub author: Option<RespMinimalAuthorInfo<'a>>,
     pub created: Cow<'a, str>,
     #[serde(borrow)]
     pub community: RespMinimalCommunityInfo<'a>,
+}
+
+impl<'a> AsRef<RespMinimalPostInfo<'a>> for RespPostListPost<'a> {
+    fn as_ref(&self) -> &RespMinimalPostInfo<'a> {
+        &self.base
+    }
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(tag = "type")]
+pub enum RespThingInfo<'a> {
+    #[serde(rename = "post")]
+    Post(RespPostListPost<'a>),
+    #[serde(rename = "comment")]
+    #[serde(borrow)]
+    Comment(RespThingComment<'a>),
+}
+
+#[derive(Deserialize, Debug)]
+pub struct RespThingComment<'a> {
+    pub id: i64,
+    pub created: Cow<'a, str>,
+    pub content_text: Option<Cow<'a, str>>,
+    pub content_html: Option<Cow<'a, str>>,
+    #[serde(borrow)]
+    pub post: RespMinimalPostInfo<'a>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -41,6 +71,9 @@ pub struct RespPostCommentInfo<'a> {
 pub struct RespPostInfo<'a> {
     #[serde(flatten, borrow)]
     pub base: RespPostListPost<'a>,
+
+    pub content_text: Option<Cow<'a, str>>,
+    pub content_html: Option<Cow<'a, str>>,
     pub score: i64,
     #[serde(borrow)]
     pub comments: Vec<RespPostCommentInfo<'a>>,

@@ -201,7 +201,7 @@ async fn page_community(
             }
             <ul>
                 {posts.iter().map(|post| {
-                    PostItem { post, in_community: true }
+                    PostItem { post, in_community: true, no_user: false }
                 }).collect::<Vec<_>>()}
             </ul>
         </HTPage>
