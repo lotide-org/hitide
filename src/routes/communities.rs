@@ -427,7 +427,7 @@ async fn page_community_new_post_inner(
                     <label>
                         {"Text:"}
                         <br />
-                        <MaybeFillTextArea values={&prev_values} name={"content_text"} default_value={None} />
+                        <MaybeFillTextArea values={&prev_values} name={"content_markdown"} default_value={None} />
                     </label>
                 </div>
                 <div>
@@ -458,8 +458,8 @@ async fn handler_communities_new_post_submit(
     let body = hyper::body::to_bytes(req.into_body()).await?;
     let mut body: HashMap<&str, serde_json::Value> = serde_urlencoded::from_bytes(&body)?;
     body.insert("community", community_id.into());
-    if body.get("content_text").and_then(|x| x.as_str()) == Some("") {
-        body.remove("content_text");
+    if body.get("content_markdown").and_then(|x| x.as_str()) == Some("") {
+        body.remove("content_markdown");
     }
     if body.get("href").and_then(|x| x.as_str()) == Some("") {
         body.remove("href");
