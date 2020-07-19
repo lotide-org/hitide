@@ -232,7 +232,7 @@ dependencies = [
 
 [[package]]
 name = "hitide"
-version = "0.3.0-pre"
+version = "0.3.0"
 dependencies = [
  "ammonia",
  "chrono",
