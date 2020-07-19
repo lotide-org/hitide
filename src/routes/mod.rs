@@ -5,9 +5,7 @@ use std::sync::Arc;
 use crate::components::{
     Comment, Content, HTPage, MaybeFillInput, MaybeFillTextArea, PostItem, ThingItem, UserLink,
 };
-use crate::resp_types::{
-    RespMinimalAuthorInfo, RespPostCommentInfo, RespPostListPost, RespThingInfo,
-};
+use crate::resp_types::{RespPostCommentInfo, RespPostListPost, RespThingInfo, RespUserInfo};
 use crate::util::author_is_me;
 use crate::PageBaseData;
 
@@ -899,7 +897,7 @@ async fn page_user(
     )
     .await?;
     let user = hyper::body::to_bytes(user.into_body()).await?;
-    let user: RespMinimalAuthorInfo<'_> = serde_json::from_slice(&user)?;
+    let user: RespUserInfo<'_> = serde_json::from_slice(&user)?;
 
     let things = res_to_error(
         ctx.http_client
@@ -916,11 +914,23 @@ async fn page_user(
     let things = hyper::body::to_bytes(things.into_body()).await?;
     let things: Vec<RespThingInfo> = serde_json::from_slice(&things)?;
 
-    let title = user.username.as_ref();
+    let title = user.as_ref().username.as_ref();
 
     Ok(html_response(render::html! {
         <HTPage base_data={&base_data} title>
             <h1>{title}</h1>
+            {
+                if let Some(login) = &base_data.login {
+                    if login.user.id == user_id {
+                        Some(render::rsx! { <a href={format!("/users/{}/edit", user_id)}>{"Edit"}</a> })
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            }
+            <p>{user.description.as_ref()}</p>
             {
                 if things.is_empty() {
                     Some(render::rsx! { <p>{"Looks like there's nothing here."}</p> })
@@ -938,6 +948,97 @@ async fn page_user(
             </ul>
         </HTPage>
     }))
+}
+
+async fn page_user_edit(
+    params: (i64,),
+    ctx: Arc<crate::RouteContext>,
+    req: hyper::Request<hyper::Body>,
+) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+    let (user_id,) = params;
+
+    let cookies = get_cookie_map_for_req(&req)?;
+
+    let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, &cookies).await?;
+
+    let is_me = match &base_data.login {
+        None => false,
+        Some(login) => login.user.id == user_id,
+    };
+
+    if !is_me {
+        let mut res = html_response(render::html! {
+            <HTPage base_data={&base_data} title={"Edit Profile"}>
+                <h1>{"Edit Profile"}</h1>
+                <div class={"errorBox"}>{"You can only edit your own profile."}</div>
+            </HTPage>
+        });
+
+        *res.status_mut() = hyper::StatusCode::FORBIDDEN;
+
+        return Ok(res);
+    }
+
+    let user = res_to_error(
+        ctx.http_client
+            .request(
+                hyper::Request::get(format!(
+                    "{}/api/unstable/users/{}",
+                    ctx.backend_host, user_id
+                ))
+                .body(Default::default())?,
+            )
+            .await?,
+    )
+    .await?;
+    let user = hyper::body::to_bytes(user.into_body()).await?;
+    let user: RespUserInfo<'_> = serde_json::from_slice(&user)?;
+
+    Ok(html_response(render::html! {
+        <HTPage base_data={&base_data} title={"Edit Profile"}>
+            <h1>{"Edit Profile"}</h1>
+            <form method={"POST"} action={format!("/users/{}/edit/submit", user_id)}>
+                <div>
+                    <label>
+                        {"Profile Description:"}<br />
+                        <textarea name={"description"}>{user.description.as_ref()}</textarea>
+                    </label>
+                </div>
+                <button type={"submit"}>{"Save"}</button>
+            </form>
+        </HTPage>
+    }))
+}
+
+async fn handler_user_edit_submit(
+    params: (i64,),
+    ctx: Arc<crate::RouteContext>,
+    req: hyper::Request<hyper::Body>,
+) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+    let (user_id,) = params;
+
+    let (req_parts, body) = req.into_parts();
+
+    let cookies = get_cookie_map_for_headers(&req_parts.headers)?;
+
+    let body = hyper::body::to_bytes(body).await?;
+    let body: serde_json::Value = serde_urlencoded::from_bytes(&body)?;
+
+    res_to_error(
+        ctx.http_client
+            .request(with_auth(
+                hyper::Request::patch(format!("{}/api/unstable/users/me", ctx.backend_host))
+                    .body(serde_json::to_vec(&body)?.into())?,
+                &cookies,
+            )?)
+            .await?,
+    )
+    .await?;
+
+    Ok(hyper::Response::builder()
+        .status(hyper::StatusCode::SEE_OTHER)
+        .header(hyper::header::LOCATION, format!("/users/{}", user_id))
+        .body("Successfully created.".into())?)
 }
 
 async fn page_home(
@@ -1127,7 +1228,18 @@ pub fn route_root() -> crate::RouteNode<()> {
         .with_child(
             "users",
             crate::RouteNode::new().with_child_parse::<i64, _>(
-                crate::RouteNode::new().with_handler_async("GET", page_user),
+                crate::RouteNode::new()
+                    .with_handler_async("GET", page_user)
+                    .with_child(
+                        "edit",
+                        crate::RouteNode::new()
+                            .with_handler_async("GET", page_user_edit)
+                            .with_child(
+                                "submit",
+                                crate::RouteNode::new()
+                                    .with_handler_async("POST", handler_user_edit_submit),
+                            ),
+                    ),
             ),
         )
 }

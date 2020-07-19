@@ -95,6 +95,19 @@ pub struct RespMinimalCommunityInfo<'a> {
 }
 
 #[derive(Deserialize, Debug)]
+pub struct RespUserInfo<'a> {
+    #[serde(flatten)]
+    pub base: RespMinimalAuthorInfo<'a>,
+    pub description: Cow<'a, str>,
+}
+
+impl<'a> AsRef<RespMinimalAuthorInfo<'a>> for RespUserInfo<'a> {
+    fn as_ref(&self) -> &RespMinimalAuthorInfo<'a> {
+        &self.base
+    }
+}
+
+#[derive(Deserialize, Debug)]
 pub struct RespLoginInfoUser {
     pub id: i64,
 }
