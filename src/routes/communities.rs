@@ -432,7 +432,7 @@ async fn page_community_new_post_inner(
                     </tr>
                 </table>
                 <label>
-                    {"Text:"}
+                    {"Text (markdown supported):"}
                     <br />
                     <MaybeFillTextArea values={&prev_values} name={"content_markdown"} default_value={None} />
                 </label>
