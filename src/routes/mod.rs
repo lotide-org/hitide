@@ -5,7 +5,9 @@ use std::sync::Arc;
 use crate::components::{
     Comment, Content, HTPage, MaybeFillInput, MaybeFillTextArea, PostItem, ThingItem, UserLink,
 };
-use crate::resp_types::{RespPostCommentInfo, RespPostListPost, RespThingInfo, RespUserInfo};
+use crate::resp_types::{
+    RespInstanceInfo, RespPostCommentInfo, RespPostListPost, RespThingInfo, RespUserInfo,
+};
 use crate::util::author_is_me;
 use crate::PageBaseData;
 
@@ -107,12 +109,29 @@ async fn page_about(
     ctx: Arc<crate::RouteContext>,
     req: hyper::Request<hyper::Body>,
 ) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+    use std::convert::TryInto;
+
     let cookies = get_cookie_map_for_req(&req)?;
 
     let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, &cookies).await?;
 
+    let api_res = res_to_error(
+        ctx.http_client
+            .get(
+                format!("{}/api/unstable/instance", ctx.backend_host)
+                    .try_into()
+                    .unwrap(),
+            )
+            .await?,
+    )
+    .await?;
+    let api_res = hyper::body::to_bytes(api_res.into_body()).await?;
+    let api_res: RespInstanceInfo = serde_json::from_slice(&api_res)?;
+
     Ok(html_response(render::html! {
-        <HTPage base_data={&base_data} title={"About lotide"}>
+        <HTPage base_data={&base_data} title={"About"}>
+            <h1>{"About this instance"}</h1>
+            {"This instance is running hitide "}{env!("CARGO_PKG_VERSION")}{" on "}{api_res.software.name}{" "}{api_res.software.version}{"."}
             <h2>{"What is lotide?"}</h2>
             <p>
                 {"lotide is an attempt to build a federated forum. "}

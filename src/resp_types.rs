@@ -143,3 +143,14 @@ impl<'a> AsRef<RespMinimalCommunityInfo<'a>> for RespCommunityInfoMaybeYour<'a> 
         &self.base
     }
 }
+
+#[derive(Deserialize, Debug)]
+pub struct RespInstanceSoftwareInfo<'a> {
+    pub name: Cow<'a, str>,
+    pub version: Cow<'a, str>,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct RespInstanceInfo<'a> {
+    pub software: RespInstanceSoftwareInfo<'a>,
+}
