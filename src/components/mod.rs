@@ -396,3 +396,12 @@ pub fn BoolSubmitButton<'a>(value: bool, do_text: &'a str, done_text: &'a str) {
         }
     }
 }
+
+#[render::component]
+pub fn TimeAgo(since: chrono::DateTime<chrono::offset::FixedOffset>) {
+    let since_str = since.to_rfc3339();
+    let text = timeago::Formatter::new().convert_chrono(since, chrono::offset::Utc::now());
+    render::rsx! {
+        <span title={since_str}>{text}</span>
+    }
+}

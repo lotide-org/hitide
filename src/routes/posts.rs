@@ -2,7 +2,7 @@ use super::{
     fetch_base_data, get_cookie_map_for_headers, get_cookie_map_for_req, html_response,
     res_to_error, with_auth,
 };
-use crate::components::{Comment, CommunityLink, Content, HTPage, UserLink};
+use crate::components::{Comment, CommunityLink, Content, HTPage, TimeAgo, UserLink};
 use crate::resp_types::RespPostInfo;
 use crate::util::author_is_me;
 use std::sync::Arc;
@@ -70,7 +70,8 @@ async fn page_post(
                 }
             </p>
             <p>
-                {"Submitted by "}<UserLink user={post.as_ref().author.as_ref()} />
+                {"Submitted "}<TimeAgo since={chrono::DateTime::parse_from_rfc3339(&post.as_ref().created)?} />
+                {" by "}<UserLink user={post.as_ref().author.as_ref()} />
                 {" to "}<CommunityLink community={&post.as_ref().community} />
             </p>
             {
