@@ -427,7 +427,7 @@ async fn page_community_new_post_inner(
                             <label for={"input_url"}>{"URL:"}</label>
                         </td>
                         <td>
-                            <MaybeFillInput values={&prev_values} r#type={"text"} name={"href"} required={true} id={"input_url"} />
+                            <MaybeFillInput values={&prev_values} r#type={"text"} name={"href"} required={false} id={"input_url"} />
                         </td>
                     </tr>
                 </table>
