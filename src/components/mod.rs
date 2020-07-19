@@ -154,14 +154,13 @@ impl<'a, T: HavingContent + 'a> render::Render for Content<'a, T> {
                 render::raw!(cleaned.as_ref()).render_into(writer)?;
                 writer.write_str("</p>")?;
             }
-            None => match self.src.content_text() {
-                Some(text) => {
+            None => {
+                if let Some(text) = self.src.content_text() {
                     writer.write_str("<p>")?;
                     text.render_into(writer)?;
                     writer.write_str("</p>")?;
                 }
-                None => {}
-            },
+            }
         }
 
         Ok(())
@@ -311,7 +310,7 @@ impl<'user> render::Render for UserLink<'user> {
 }
 
 pub trait GetIndex<K, V> {
-    fn get<'a>(&'a self, key: K) -> Option<&'a V>;
+    fn get(&self, key: K) -> Option<&V>;
 }
 
 impl<K: Borrow<Q> + Eq + std::hash::Hash, V, Q: ?Sized + Eq + std::hash::Hash> GetIndex<&Q, V>
@@ -323,7 +322,7 @@ impl<K: Borrow<Q> + Eq + std::hash::Hash, V, Q: ?Sized + Eq + std::hash::Hash> G
 }
 
 impl<I: serde_json::value::Index> GetIndex<I, serde_json::Value> for serde_json::Value {
-    fn get<'a>(&'a self, key: I) -> Option<&'a serde_json::Value> {
+    fn get(&self, key: I) -> Option<&serde_json::Value> {
         self.get(key)
     }
 }

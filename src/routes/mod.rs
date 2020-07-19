@@ -22,7 +22,7 @@ struct ReturnToParams<'a> {
 
 type CookieMap<'a> = std::collections::HashMap<&'a str, ginger::Cookie<'a>>;
 
-fn get_cookie_map<'a>(src: Option<&'a str>) -> Result<CookieMap<'a>, ginger::ParseError> {
+fn get_cookie_map(src: Option<&str>) -> Result<CookieMap, ginger::ParseError> {
     match src {
         None => Ok(Default::default()),
         Some(src) => {
@@ -41,13 +41,11 @@ fn get_cookie_map_for_req<'a>(
     get_cookie_map_for_headers(req.headers())
 }
 
-fn get_cookie_map_for_headers<'a>(
-    headers: &'a hyper::HeaderMap,
-) -> Result<CookieMap<'a>, crate::Error> {
+fn get_cookie_map_for_headers(headers: &hyper::HeaderMap) -> Result<CookieMap, crate::Error> {
     get_cookie_map(get_cookies_string(headers)?).map_err(Into::into)
 }
 
-fn get_cookies_string<'a>(headers: &'a hyper::HeaderMap) -> Result<Option<&'a str>, crate::Error> {
+fn get_cookies_string(headers: &hyper::HeaderMap) -> Result<Option<&str>, crate::Error> {
     Ok(headers
         .get(hyper::header::COOKIE)
         .map(|x| x.to_str())
