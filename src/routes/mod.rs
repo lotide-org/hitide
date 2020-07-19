@@ -228,7 +228,7 @@ async fn page_comment_inner(
                     Some(render::rsx! {
                         <form method={"POST"} action={format!("/comments/{}/submit_reply", comment.id)}>
                             <div>
-                                <MaybeFillTextArea values={&prev_values} name={"content_text"} default_value={None} />
+                                <MaybeFillTextArea values={&prev_values} name={"content_markdown"} default_value={None} />
                             </div>
                             <button r#type={"submit"}>{"Reply"}</button>
                         </form>

@@ -102,7 +102,7 @@ async fn page_post(
                         Some(render::rsx! {
                             <form method={"POST"} action={format!("/posts/{}/submit_reply", post.as_ref().as_ref().id)}>
                                 <div>
-                                    <textarea name={"content_text"}>{()}</textarea>
+                                    <textarea name={"content_markdown"}>{()}</textarea>
                                 </div>
                                 <button r#type={"submit"}>{"Post Comment"}</button>
                             </form>
