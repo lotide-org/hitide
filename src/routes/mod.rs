@@ -524,12 +524,20 @@ async fn page_login_inner(
                 })
             }
             <form method={"POST"} action={"/login/submit"}>
-                <p>
-                    <MaybeFillInput values={&prev_values} r#type={"text"} name={"username"} required={true} />
-                </p>
-                <p>
-                    <MaybeFillInput values={&prev_values} r#type={"password"} name={"password"} required={true} />
-                </p>
+                <table>
+                    <tr>
+                        <td><label for={"input_username"}>{"Username:"}</label></td>
+                        <td>
+                            <MaybeFillInput values={&prev_values} r#type={"text"} name={"username"} required={true} id={"input_username"} />
+                        </td>
+                    </tr>
+                    <tr>
+                        <td><label for={"input_password"}>{"Password:"}</label></td>
+                        <td>
+                            <MaybeFillInput values={&prev_values} r#type={"password"} name={"password"} required={true} id={"input_password"} />
+                        </td>
+                    </tr>
+                </table>
                 <button r#type={"submit"}>{"Login"}</button>
             </form>
             <p>
@@ -718,7 +726,7 @@ async fn page_new_community_inner(
             <form method={"POST"} action={"/new_community/submit"}>
                 <div>
                     <label>
-                        {"Name: "}<MaybeFillInput values={&prev_values} r#type={"text"} name={"name"} required={true} />
+                        {"Name: "}<MaybeFillInput values={&prev_values} r#type={"text"} name={"name"} required={true} id={"input_name"} />
                     </label>
                 </div>
                 <div>
@@ -812,12 +820,20 @@ async fn page_signup_inner(
                 })
             }
             <form method={"POST"} action={"/signup/submit"}>
-                <p>
-                    <MaybeFillInput values={&prev_values} r#type={"text"} name={"username"} required={true} />
-                </p>
-                <p>
-                    <MaybeFillInput values={&prev_values} r#type={"password"} name={"password"} required={true} />
-                </p>
+                <table>
+                    <tr>
+                        <td><label for={"input_username"}>{"Username:"}</label></td>
+                        <td>
+                            <MaybeFillInput values={&prev_values} r#type={"text"} name={"username"} required={true} id={"input_username"} />
+                        </td>
+                    </tr>
+                    <tr>
+                        <td><label for={"input_password"}>{"Password:"}</label></td>
+                        <td>
+                            <MaybeFillInput values={&prev_values} r#type={"password"} name={"password"} required={true} id={"input_password"} />
+                        </td>
+                    </tr>
+                </table>
                 <button r#type={"submit"}>{"Register"}</button>
             </form>
         </HTPage>

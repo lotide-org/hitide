@@ -413,23 +413,29 @@ async fn page_community_new_post_inner(
                 })
             }
             <form method={"POST"} action={&submit_url}>
-                <div>
-                    <label>
-                        {"Title: "}<MaybeFillInput values={&prev_values} r#type={"text"} name={"title"} required={true} />
-                    </label>
-                </div>
-                <div>
-                    <label>
-                        {"URL: "}<MaybeFillInput values={&prev_values} r#type={"text"} name={"href"} required={false} />
-                    </label>
-                </div>
-                <div>
-                    <label>
-                        {"Text:"}
-                        <br />
-                        <MaybeFillTextArea values={&prev_values} name={"content_markdown"} default_value={None} />
-                    </label>
-                </div>
+                <table>
+                    <tr>
+                        <td>
+                            <label for={"input_title"}>{"Title:"}</label>
+                        </td>
+                        <td>
+                            <MaybeFillInput values={&prev_values} r#type={"text"} name={"title"} required={true} id={"input_title"} />
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <label for={"input_url"}>{"URL:"}</label>
+                        </td>
+                        <td>
+                            <MaybeFillInput values={&prev_values} r#type={"text"} name={"href"} required={true} id={"input_url"} />
+                        </td>
+                    </tr>
+                </table>
+                <label>
+                    {"Text:"}
+                    <br />
+                    <MaybeFillTextArea values={&prev_values} name={"content_markdown"} default_value={None} />
+                </label>
                 <div>
                     <button r#type={"submit"}>{"Submit"}</button>
                 </div>

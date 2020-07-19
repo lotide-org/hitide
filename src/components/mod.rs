@@ -346,6 +346,7 @@ pub fn MaybeFillInput<'a, M: GetIndex<&'a str, serde_json::Value>>(
     r#type: &'a str,
     name: &'a str,
     required: bool,
+    id: &'a str,
 ) {
     let value = maybe_fill_value(values, name, None);
     if required {
@@ -354,6 +355,7 @@ pub fn MaybeFillInput<'a, M: GetIndex<&'a str, serde_json::Value>>(
                 r#type
                 name
                 value
+                id
                 required={""}
             />
         }
@@ -363,6 +365,7 @@ pub fn MaybeFillInput<'a, M: GetIndex<&'a str, serde_json::Value>>(
                 r#type
                 name
                 value
+                id
             />
         }
     }
