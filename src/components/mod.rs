@@ -193,8 +193,10 @@ pub fn HTPage<'a, Children: render::Render>(
                         </div>
                         <div class={"right actionList"}>
                             {
-                                match base_data.login {
-                                    Some(_) => None,
+                                match &base_data.login {
+                                    Some(login) => Some(render::rsx! {
+                                        <a href={format!("/users/{}", login.user.id)}>{"👤︎"}</a>
+                                    }),
                                     None => {
                                         Some(render::rsx! {
                                             <a href={"/login"}>{"Login"}</a>
