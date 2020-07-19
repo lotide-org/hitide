@@ -1,4 +1,3 @@
-#![feature(proc_macro_hygiene)]
 #![allow(unused_braces)]
 
 use crate::resp_types::RespLoginInfo;
