@@ -29,12 +29,19 @@ body {
 	margin-right: 1em;
 }
 
-.errorBox {
-	background-color: #FF6D00;
+.errorBox, .infoBox {
 	padding: .5em;
 	display: inline-block;
 	margin-top: .5em;
 	margin-bottom: .5em;
+}
+
+.errorBox {
+	background-color: #FF6D00;
+}
+
+.infoBox {
+	background-color: #80D8FF;
 }
 
 .communitySidebar {

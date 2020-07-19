@@ -144,7 +144,21 @@ async fn page_community(
         <HTPage base_data={&base_data} title>
             <div class={"communitySidebar"}>
                 <h2>{title}</h2>
-                <em>{format!("@{}@{}", community_info.as_ref().name, community_info.as_ref().host)}</em>
+                <div><em>{format!("@{}@{}", community_info.as_ref().name, community_info.as_ref().host)}</em></div>
+                {
+                    if community_info.as_ref().local {
+                        None
+                    } else if let Some(remote_url) = &community_info.as_ref().remote_url {
+                        Some(render::rsx! {
+                            <div class={"infoBox"}>
+                                {"This is a remote community, information on this page may be incomplete. "}
+                                <a href={remote_url.as_ref()}>{"View at Source ↗"}</a>
+                            </div>
+                        })
+                    } else {
+                        None // shouldn't ever happen
+                    }
+                }
                 <p>
                     {
                         if base_data.login.is_some() {

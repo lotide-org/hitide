@@ -7,6 +7,7 @@ pub struct RespMinimalAuthorInfo<'a> {
     pub username: Cow<'a, str>,
     pub local: bool,
     pub host: Cow<'a, str>,
+    pub remote_url: Option<Cow<'a, str>>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -92,6 +93,7 @@ pub struct RespMinimalCommunityInfo<'a> {
     pub name: Cow<'a, str>,
     pub local: bool,
     pub host: Cow<'a, str>,
+    pub remote_url: Option<Cow<'a, str>>,
 }
 
 #[derive(Deserialize, Debug)]

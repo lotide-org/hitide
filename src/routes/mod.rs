@@ -933,6 +933,21 @@ async fn page_user(
     Ok(html_response(render::html! {
         <HTPage base_data={&base_data} title>
             <h1>{title}</h1>
+            <div><em>{format!("@{}@{}", user.as_ref().username, user.as_ref().host)}</em></div>
+            {
+                if user.as_ref().local {
+                    None
+                } else if let Some(remote_url) = &user.as_ref().remote_url {
+                    Some(render::rsx! {
+                        <div class={"infoBox"}>
+                            {"This is a remote user, information on this page may be incomplete. "}
+                            <a href={remote_url.as_ref()}>{"View at Source ↗"}</a>
+                        </div>
+                    })
+                } else {
+                    None // shouldn't ever happen
+                }
+            }
             {
                 if let Some(login) = &base_data.login {
                     if login.user.id == user_id {
