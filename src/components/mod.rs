@@ -15,7 +15,11 @@ pub fn Comment<'comment, 'base_data>(
 ) {
     render::rsx! {
         <li>
-            <small><cite><UserLink user={comment.author.as_ref()} /></cite>{":"}</small>
+            <small>
+                <cite><UserLink user={comment.author.as_ref()} /></cite>
+                {" "}
+                <TimeAgo since={chrono::DateTime::parse_from_rfc3339(&comment.created).unwrap()} />
+            </small>
             <Content src={comment} />
             <div class={"actionList"}>
                 {
