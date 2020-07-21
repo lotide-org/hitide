@@ -1,6 +1,6 @@
 use super::{
-    fetch_base_data, get_cookie_map_for_headers, get_cookie_map_for_req, html_response,
-    res_to_error, with_auth,
+    fetch_base_data, for_client, get_cookie_map_for_headers, get_cookie_map_for_req, html_response,
+    res_to_error,
 };
 use crate::components::{Comment, CommunityLink, Content, HTPage, TimeAgo, UserLink};
 use crate::resp_types::RespPostInfo;
@@ -14,13 +14,15 @@ async fn page_post(
 ) -> Result<hyper::Response<hyper::Body>, crate::Error> {
     let (post_id,) = params;
 
+    let lang = crate::get_lang_for_req(&req);
     let cookies = get_cookie_map_for_req(&req)?;
 
-    let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, &cookies).await?;
+    let base_data =
+        fetch_base_data(&ctx.backend_host, &ctx.http_client, req.headers(), &cookies).await?;
 
     let api_res = res_to_error(
         ctx.http_client
-            .request(with_auth(
+            .request(for_client(
                 hyper::Request::get(format!(
                     "{}/api/unstable/posts/{}{}",
                     ctx.backend_host,
@@ -32,6 +34,7 @@ async fn page_post(
                     },
                 ))
                 .body(Default::default())?,
+                req.headers(),
                 &cookies,
             )?)
             .await?,
@@ -44,7 +47,7 @@ async fn page_post(
     let title = post.as_ref().as_ref().title.as_ref();
 
     Ok(html_response(render::html! {
-        <HTPage base_data={&base_data} title={title}>
+        <HTPage base_data={&base_data} lang={&lang} title={title}>
             <h1>{title}</h1>
             <p>
                 <em>{post.score.to_string()}{" points"}</em>
@@ -54,13 +57,13 @@ async fn page_post(
                         Some(if post.your_vote.is_some() {
                             render::rsx! {
                                 <form method={"POST"} action={format!("/posts/{}/unlike", post_id)}>
-                                    <button type={"submit"}>{"Unlike"}</button>
+                                    <button type={"submit"}>{lang.tr("like_undo", None)}</button>
                                 </form>
                             }
                         } else {
                             render::rsx! {
                                 <form method={"POST"} action={format!("/posts/{}/like", post_id)}>
-                                    <button type={"submit"}>{"Like"}</button>
+                                    <button type={"submit"}>{lang.tr("like", None)}</button>
                                 </form>
                             }
                         })
@@ -70,9 +73,10 @@ async fn page_post(
                 }
             </p>
             <p>
-                {"Submitted "}<TimeAgo since={chrono::DateTime::parse_from_rfc3339(&post.as_ref().created)?} />
-                {" by "}<UserLink user={post.as_ref().author.as_ref()} />
-                {" to "}<CommunityLink community={&post.as_ref().community} />
+                {lang.tr("submitted", None)}
+                {" "}<TimeAgo since={chrono::DateTime::parse_from_rfc3339(&post.as_ref().created)?} />
+                {" "}{lang.tr("by", None)}{" "}<UserLink user={post.as_ref().author.as_ref()} />
+                {" "}{lang.tr("to", None)}{" "}<CommunityLink community={&post.as_ref().community} />
             </p>
             {
                 match &post.as_ref().href {
@@ -89,7 +93,7 @@ async fn page_post(
                 if author_is_me(&post.as_ref().author, &base_data.login) {
                     Some(render::rsx! {
                         <p>
-                            <a href={format!("/posts/{}/delete", post_id)}>{"delete"}</a>
+                            <a href={format!("/posts/{}/delete", post_id)}>{lang.tr("delete", None)}</a>
                         </p>
                     })
                 } else {
@@ -105,7 +109,7 @@ async fn page_post(
                                 <div>
                                     <textarea name={"content_markdown"}>{()}</textarea>
                                 </div>
-                                <button r#type={"submit"}>{"Post Comment"}</button>
+                                <button r#type={"submit"}>{lang.tr("comment_submit", None)}</button>
                             </form>
                         })
                     } else {
@@ -116,7 +120,7 @@ async fn page_post(
                     {
                         post.comments.iter().map(|comment| {
                             render::rsx! {
-                                <Comment comment={comment} base_data={&base_data} />
+                                <Comment comment={comment} base_data={&base_data} lang={&lang} />
                             }
                         }).collect::<Vec<_>>()
                     }
@@ -133,18 +137,21 @@ async fn page_post_delete(
 ) -> Result<hyper::Response<hyper::Body>, crate::Error> {
     let (post_id,) = params;
 
+    let lang = crate::get_lang_for_req(&req);
     let cookies = get_cookie_map_for_req(&req)?;
 
-    let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, &cookies).await?;
+    let base_data =
+        fetch_base_data(&ctx.backend_host, &ctx.http_client, req.headers(), &cookies).await?;
 
     let api_res = res_to_error(
         ctx.http_client
-            .request(with_auth(
+            .request(for_client(
                 hyper::Request::get(format!(
                     "{}/api/unstable/posts/{}",
                     ctx.backend_host, post_id
                 ))
                 .body(Default::default())?,
+                req.headers(),
                 &cookies,
             )?)
             .await?,
@@ -155,13 +162,13 @@ async fn page_post_delete(
     let post: RespPostInfo = serde_json::from_slice(&api_res)?;
 
     Ok(html_response(render::html! {
-        <HTPage base_data={&base_data} title={"Delete Post"}>
+        <HTPage base_data={&base_data} lang={&lang} title={&lang.tr("post_delete_title", None)}>
             <h1>{post.as_ref().as_ref().title.as_ref()}</h1>
-            <h2>{"Delete this post?"}</h2>
+            <h2>{lang.tr("post_delete_question", None)}</h2>
             <form method={"POST"} action={format!("/posts/{}/delete/confirm", post.as_ref().as_ref().id)}>
-                <a href={format!("/posts/{}/", post.as_ref().as_ref().id)}>{"No, cancel"}</a>
+                <a href={format!("/posts/{}/", post.as_ref().as_ref().id)}>{lang.tr("no_cancel", None)}</a>
                 {" "}
-                <button r#type={"submit"}>{"Yes, delete"}</button>
+                <button r#type={"submit"}>{lang.tr("delete_yes", None)}</button>
             </form>
         </HTPage>
     }))
@@ -178,12 +185,13 @@ async fn handler_post_delete_confirm(
 
     res_to_error(
         ctx.http_client
-            .request(with_auth(
+            .request(for_client(
                 hyper::Request::delete(format!(
                     "{}/api/unstable/posts/{}",
                     ctx.backend_host, post_id,
                 ))
                 .body("".into())?,
+                req.headers(),
                 &cookies,
             )?)
             .await?,
@@ -207,12 +215,13 @@ async fn handler_post_like(
 
     res_to_error(
         ctx.http_client
-            .request(with_auth(
+            .request(for_client(
                 hyper::Request::post(format!(
                     "{}/api/unstable/posts/{}/like",
                     ctx.backend_host, post_id
                 ))
                 .body(Default::default())?,
+                req.headers(),
                 &cookies,
             )?)
             .await?,
@@ -236,12 +245,13 @@ async fn handler_post_unlike(
 
     res_to_error(
         ctx.http_client
-            .request(with_auth(
+            .request(for_client(
                 hyper::Request::post(format!(
                     "{}/api/unstable/posts/{}/unlike",
                     ctx.backend_host, post_id
                 ))
                 .body(Default::default())?,
+                req.headers(),
                 &cookies,
             )?)
             .await?,
@@ -270,12 +280,13 @@ async fn handler_post_submit_reply(
 
     res_to_error(
         ctx.http_client
-            .request(with_auth(
+            .request(for_client(
                 hyper::Request::post(format!(
                     "{}/api/unstable/posts/{}/replies",
                     ctx.backend_host, post_id
                 ))
                 .body(body.into())?,
+                &req_parts.headers,
                 &cookies,
             )?)
             .await?,
