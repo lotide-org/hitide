@@ -53,6 +53,43 @@ reply_submit = Respondi
 submit = Sendi
 submitted = Afiŝita
 text_with_markdown = Teksto (markdown estas permesita)
+timeago_years =
+    antaŭ { $years } { $years ->
+        [one] jaro
+        *[other] jaroj
+    }
+timeago_months =
+    antaŭ { $months } { $months ->
+        [one] monato
+        *[other] monatoj
+    }
+timeago_weeks =
+    antaŭ{ $weeks } { $weeks ->
+        [one] semajno
+        *[other] semajnoj
+    }
+timeago_days =
+    antaŭ { $days } { $days ->
+        [one] tago
+        *[other] tagoj
+    }
+timeago_hours =
+    antaŭ { $hours } { $hours ->
+        [one] horo
+        *[other] horoj
+    }
+timeago_minutes =
+    antaŭ { $minutes } { $minutes ->
+        [one] minuto
+        *[other] minutoj
+    }
+timeago_seconds =
+    antaŭ { $seconds } { $seconds ->
+        [one] sekundo
+        *[other] sekundoj
+    }
+timeago_now = nune
+timeago_future = estontece
 title = Titolo
 to = al
 url = URL

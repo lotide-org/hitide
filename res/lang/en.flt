@@ -53,6 +53,43 @@ reply_submit = Reply
 submit = Submit
 submitted = Submitted
 text_with_markdown = Text (markdown supported)
+timeago_years =
+    { $years } { $years ->
+        [one] year
+        *[other] years
+    } ago
+timeago_months =
+    { $months } { $months ->
+        [one] month
+        *[other] months
+    } ago
+timeago_weeks =
+    { $weeks } { $weeks ->
+        [one] week
+        *[other] weeks
+    } ago
+timeago_days =
+    { $days } { $days ->
+        [one] day
+        *[other] days
+    } ago
+timeago_hours =
+    { $hours } { $hours ->
+        [one] hour
+        *[other] hours
+    } ago
+timeago_minutes =
+    { $minutes } { $minutes ->
+        [one] minute
+        *[other] minutes
+    } ago
+timeago_seconds =
+    { $seconds } { $seconds ->
+        [one] second
+        *[other] seconds
+    } ago
+timeago_now = now
+timeago_future = in the future
 title = Title
 to = to
 url = URL

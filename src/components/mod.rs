@@ -1,3 +1,5 @@
+pub mod timeago;
+
 use std::borrow::{Borrow, Cow};
 use std::collections::HashMap;
 
@@ -7,6 +9,8 @@ use crate::resp_types::{
 };
 use crate::util::{abbreviate_link, author_is_me};
 use crate::PageBaseData;
+
+pub use timeago::TimeAgo;
 
 #[render::component]
 pub fn Comment<'a>(
@@ -19,7 +23,7 @@ pub fn Comment<'a>(
             <small>
                 <cite><UserLink user={comment.author.as_ref()} /></cite>
                 {" "}
-                <TimeAgo since={chrono::DateTime::parse_from_rfc3339(&comment.created).unwrap()} />
+                <TimeAgo since={chrono::DateTime::parse_from_rfc3339(&comment.created).unwrap()} lang />
             </small>
             <Content src={comment} />
             <div class={"actionList"}>
@@ -407,14 +411,5 @@ pub fn BoolSubmitButton<'a>(value: bool, do_text: &'a str, done_text: &'a str) {
         render::rsx! {
             <button type={"submit"}>{do_text}</button>
         }
-    }
-}
-
-#[render::component]
-pub fn TimeAgo(since: chrono::DateTime<chrono::offset::FixedOffset>) {
-    let since_str = since.to_rfc3339();
-    let text = timeago::Formatter::new().convert_chrono(since, chrono::offset::Utc::now());
-    render::rsx! {
-        <span title={since_str}>{text}</span>
     }
 }

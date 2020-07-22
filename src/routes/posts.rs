@@ -74,7 +74,7 @@ async fn page_post(
             </p>
             <p>
                 {lang.tr("submitted", None)}
-                {" "}<TimeAgo since={chrono::DateTime::parse_from_rfc3339(&post.as_ref().created)?} />
+                {" "}<TimeAgo since={chrono::DateTime::parse_from_rfc3339(&post.as_ref().created)?} lang={&lang} />
                 {" "}{lang.tr("by", None)}{" "}<UserLink user={post.as_ref().author.as_ref()} />
                 {" "}{lang.tr("to", None)}{" "}<CommunityLink community={&post.as_ref().community} />
             </p>
