@@ -3,8 +3,8 @@ use crate::resp_types::{
     RespCommunityInfoMaybeYour, RespMinimalCommunityInfo, RespPostListPost, RespYourFollow,
 };
 use crate::routes::{
-    fetch_base_data, get_cookie_map, get_cookie_map_for_headers, get_cookie_map_for_req,
-    html_response, res_to_error, with_auth, CookieMap,
+    fetch_base_data, for_client, get_cookie_map_for_headers, get_cookie_map_for_req, html_response,
+    res_to_error, CookieMap,
 };
 use serde_derive::Deserialize;
 use std::collections::HashMap;
@@ -15,8 +15,10 @@ async fn page_communities(
     ctx: Arc<crate::RouteContext>,
     req: hyper::Request<hyper::Body>,
 ) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+    let lang = crate::get_lang_for_req(&req);
     let cookies = get_cookie_map_for_req(&req)?;
-    let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, &cookies).await?;
+    let base_data =
+        fetch_base_data(&ctx.backend_host, &ctx.http_client, req.headers(), &cookies).await?;
 
     let api_res = res_to_error(
         ctx.http_client
@@ -30,14 +32,16 @@ async fn page_communities(
     let api_res = hyper::body::to_bytes(api_res.into_body()).await?;
     let communities: Vec<RespMinimalCommunityInfo> = serde_json::from_slice(&api_res)?;
 
+    let title = lang.tr("communities", None);
+
     Ok(html_response(render::html! {
-        <HTPage base_data={&base_data} title={"Communities"}>
-            <h1>{"Communities"}</h1>
+        <HTPage base_data={&base_data} lang={&lang} title={&title}>
+            <h1>{title.as_ref()}</h1>
             <div>
-                <h2>{"Local"}</h2>
+                <h2>{lang.tr("local", None)}</h2>
                 {
                     if base_data.login.is_some() {
-                        Some(render::rsx! { <a href={"/new_community"}>{"Create Community"}</a> })
+                        Some(render::rsx! { <a href={"/new_community"}>{lang.tr("community_create", None)}</a> })
                     } else {
                         None
                     }
@@ -56,14 +60,14 @@ async fn page_communities(
                 </ul>
             </div>
             <div>
-                <h2>{"Remote"}</h2>
+                <h2>{lang.tr("remote", None)}</h2>
                 <form method={"GET"} action={"/lookup"}>
                     <label>
-                        {"Add by ID: "}
+                        {lang.tr("add_by_remote_id", None)}{" "}
                         <input r#type={"text"} name={"query"} placeholder={"group@example.com"} />
                     </label>
                     {" "}
-                    <button r#type={"submit"}>{"Fetch"}</button>
+                    <button r#type={"submit"}>{lang.tr("fetch", None)}</button>
                 </form>
                 <ul>
                     {
@@ -89,15 +93,17 @@ async fn page_community(
 ) -> Result<hyper::Response<hyper::Body>, crate::Error> {
     let (community_id,) = params;
 
+    let lang = crate::get_lang_for_req(&req);
     let cookies = get_cookie_map_for_req(&req)?;
 
     // TODO parallelize requests
 
-    let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, &cookies).await?;
+    let base_data =
+        fetch_base_data(&ctx.backend_host, &ctx.http_client, req.headers(), &cookies).await?;
 
     let community_info_api_res = res_to_error(
         ctx.http_client
-            .request(with_auth(
+            .request(for_client(
                 hyper::Request::get(format!(
                     "{}/api/unstable/communities/{}{}",
                     ctx.backend_host,
@@ -109,6 +115,7 @@ async fn page_community(
                     },
                 ))
                 .body(Default::default())?,
+                req.headers(),
                 &cookies,
             )?)
             .await?,
@@ -121,12 +128,13 @@ async fn page_community(
 
     let posts_api_res = res_to_error(
         ctx.http_client
-            .request(with_auth(
+            .request(for_client(
                 hyper::Request::get(format!(
                     "{}/api/unstable/communities/{}/posts",
                     ctx.backend_host, community_id
                 ))
                 .body(Default::default())?,
+                req.headers(),
                 &cookies,
             )?)
             .await?,
@@ -141,7 +149,7 @@ async fn page_community(
     let title = community_info.as_ref().name.as_ref();
 
     Ok(html_response(render::html! {
-        <HTPage base_data={&base_data} title>
+        <HTPage base_data={&base_data} lang={&lang} title>
             <div class={"communitySidebar"}>
                 <h2>{title}</h2>
                 <div><em>{format!("@{}@{}", community_info.as_ref().name, community_info.as_ref().host)}</em></div>
@@ -151,8 +159,9 @@ async fn page_community(
                     } else if let Some(remote_url) = &community_info.as_ref().remote_url {
                         Some(render::rsx! {
                             <div class={"infoBox"}>
-                                {"This is a remote community, information on this page may be incomplete. "}
-                                <a href={remote_url.as_ref()}>{"View at Source ↗"}</a>
+                                {lang.tr("community_remote_note", None)}
+                                {" "}
+                                <a href={remote_url.as_ref()}>{lang.tr("view_at_source", None)}{" ↗"}</a>
                             </div>
                         })
                     } else {
@@ -166,21 +175,21 @@ async fn page_community(
                                 Some(RespYourFollow { accepted: true }) => {
                                     render::rsx! {
                                         <form method={"POST"} action={format!("/communities/{}/unfollow", community_id)}>
-                                            <button type={"submit"}>{"Unfollow"}</button>
+                                            <button type={"submit"}>{lang.tr("follow_undo", None)}</button>
                                         </form>
                                     }
                                 },
                                 Some(RespYourFollow { accepted: false }) => {
                                     render::rsx! {
                                         <form>
-                                            <button disabled={""}>{"Follow request sent!"}</button>
+                                            <button disabled={""}>{lang.tr("follow_request_sent", None)}</button>
                                         </form>
                                     }
                                 },
                                 None => {
                                     render::rsx! {
                                         <form method={"POST"} action={format!("/communities/{}/follow", community_id)}>
-                                            <button type={"submit"}>{"Follow"}</button>
+                                            <button type={"submit"}>{lang.tr("follow", None)}</button>
                                         </form>
                                     }
                                 }
@@ -191,13 +200,13 @@ async fn page_community(
                     }
                 </p>
                 <p>
-                    <a href={&new_post_url}>{"New Post"}</a>
+                    <a href={&new_post_url}>{lang.tr("post_new", None)}</a>
                 </p>
                 {
                     if community_info.you_are_moderator == Some(true) {
                         Some(render::rsx! {
                             <p>
-                                <a href={format!("/communities/{}/edit", community_id)}>{"Customize"}</a>
+                                <a href={format!("/communities/{}/edit", community_id)}>{lang.tr("community_edit_link", None)}</a>
                             </p>
                         })
                     } else {
@@ -208,14 +217,14 @@ async fn page_community(
             </div>
             {
                 if posts.is_empty() {
-                    Some(render::rsx! { <p>{"Looks like there's nothing here."}</p> })
+                    Some(render::rsx! { <p>{lang.tr("nothing", None)}</p> })
                 } else {
                     None
                 }
             }
             <ul>
                 {posts.iter().map(|post| {
-                    PostItem { post, in_community: true, no_user: false }
+                    PostItem { post, in_community: true, no_user: false, lang: &lang }
                 }).collect::<Vec<_>>()}
             </ul>
         </HTPage>
@@ -231,26 +240,29 @@ async fn page_community_edit(
 
     let cookies = get_cookie_map_for_req(&req)?;
 
-    page_community_edit_inner(community_id, &cookies, ctx, None, None).await
+    page_community_edit_inner(community_id, req.headers(), &cookies, ctx, None, None).await
 }
 
 async fn page_community_edit_inner(
     community_id: i64,
+    headers: &hyper::header::HeaderMap,
     cookies: &CookieMap<'_>,
     ctx: Arc<crate::RouteContext>,
     display_error: Option<String>,
     prev_values: Option<&HashMap<&str, serde_json::Value>>,
 ) -> Result<hyper::Response<hyper::Body>, crate::Error> {
-    let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, &cookies).await?;
+    let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, headers, &cookies).await?;
+    let lang = crate::get_lang_for_headers(headers);
 
     let community_info_api_res = res_to_error(
         ctx.http_client
-            .request(with_auth(
+            .request(for_client(
                 hyper::Request::get(format!(
                     "{}/api/unstable/communities/{}",
                     ctx.backend_host, community_id,
                 ))
                 .body(Default::default())?,
+                headers,
                 &cookies,
             )?)
             .await?,
@@ -261,9 +273,11 @@ async fn page_community_edit_inner(
     let community_info: RespCommunityInfoMaybeYour =
         { serde_json::from_slice(&community_info_api_res)? };
 
+    let title = lang.tr("community_edit", None);
+
     Ok(html_response(render::html! {
-        <HTPage base_data={&base_data} title={"Edit Community"}>
-            <h1>{"Edit Community"}</h1>
+        <HTPage base_data={&base_data} lang={&lang} title={&title}>
+            <h1>{title.as_ref()}</h1>
             <h2>{community_info.as_ref().name.as_ref()}</h2>
             {
                 display_error.map(|msg| {
@@ -274,11 +288,11 @@ async fn page_community_edit_inner(
             }
             <form method={"POST"} action={format!("/communities/{}/edit/submit", community_id)}>
                 <label>
-                    {"Description:"}<br />
+                    {lang.tr("description", None)}{":"}<br />
                     <MaybeFillTextArea values={&prev_values} name={"description"} default_value={Some(community_info.description.as_ref())} />
                 </label>
                 <div>
-                    <button r#type={"submit"}>{"Submit"}</button>
+                    <button r#type={"submit"}>{lang.tr("submit", None)}</button>
                 </div>
             </form>
         </HTPage>
@@ -301,12 +315,13 @@ async fn handler_communities_edit_submit(
 
     let api_res = res_to_error(
         ctx.http_client
-            .request(with_auth(
+            .request(for_client(
                 hyper::Request::patch(format!(
                     "{}/api/unstable/communities/{}",
                     ctx.backend_host, community_id
                 ))
                 .body(serde_json::to_vec(&body)?.into())?,
+                &req_parts.headers,
                 &cookies,
             )?)
             .await?,
@@ -315,7 +330,15 @@ async fn handler_communities_edit_submit(
 
     match api_res {
         Err(crate::Error::RemoteError((_, message))) => {
-            page_community_edit_inner(community_id, &cookies, ctx, Some(message), Some(&body)).await
+            page_community_edit_inner(
+                community_id,
+                &req_parts.headers,
+                &cookies,
+                ctx,
+                Some(message),
+                Some(&body),
+            )
+            .await
         }
         Err(other) => Err(other),
         Ok(_) => Ok(hyper::Response::builder()
@@ -339,13 +362,14 @@ async fn handler_community_follow(
 
     res_to_error(
         ctx.http_client
-            .request(with_auth(
+            .request(for_client(
                 hyper::Request::post(format!(
                     "{}/api/unstable/communities/{}/follow",
                     ctx.backend_host, community_id
                 ))
                 .header(hyper::header::CONTENT_TYPE, "application/json")
                 .body("{\"try_wait_for_accept\":true}".into())?,
+                req.headers(),
                 &cookies,
             )?)
             .await?,
@@ -372,12 +396,13 @@ async fn handler_community_unfollow(
 
     res_to_error(
         ctx.http_client
-            .request(with_auth(
+            .request(for_client(
                 hyper::Request::post(format!(
                     "{}/api/unstable/communities/{}/unfollow",
                     ctx.backend_host, community_id
                 ))
                 .body(Default::default())?,
+                req.headers(),
                 &cookies,
             )?)
             .await?,
@@ -402,23 +427,27 @@ async fn page_community_new_post(
 
     let cookies = get_cookie_map_for_req(&req)?;
 
-    page_community_new_post_inner(community_id, &cookies, ctx, None, None).await
+    page_community_new_post_inner(community_id, req.headers(), &cookies, ctx, None, None).await
 }
 
 async fn page_community_new_post_inner(
     community_id: i64,
+    headers: &hyper::header::HeaderMap,
     cookies: &CookieMap<'_>,
     ctx: Arc<crate::RouteContext>,
     display_error: Option<String>,
     prev_values: Option<&HashMap<&str, serde_json::Value>>,
 ) -> Result<hyper::Response<hyper::Body>, crate::Error> {
-    let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, &cookies).await?;
+    let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, headers, &cookies).await?;
+    let lang = crate::get_lang_for_headers(headers);
 
     let submit_url = format!("/communities/{}/new_post/submit", community_id);
 
+    let title = lang.tr("post_new", None);
+
     Ok(html_response(render::html! {
-        <HTPage base_data={&base_data} title={"New Post"}>
-            <h1>{"New Post"}</h1>
+        <HTPage base_data={&base_data} lang={&lang} title={&title}>
+            <h1>{title.as_ref()}</h1>
             {
                 display_error.map(|msg| {
                     render::rsx! {
@@ -430,7 +459,7 @@ async fn page_community_new_post_inner(
                 <table>
                     <tr>
                         <td>
-                            <label for={"input_title"}>{"Title:"}</label>
+                            <label for={"input_title"}>{lang.tr("title", None)}{":"}</label>
                         </td>
                         <td>
                             <MaybeFillInput values={&prev_values} r#type={"text"} name={"title"} required={true} id={"input_title"} />
@@ -438,7 +467,7 @@ async fn page_community_new_post_inner(
                     </tr>
                     <tr>
                         <td>
-                            <label for={"input_url"}>{"URL:"}</label>
+                            <label for={"input_url"}>{lang.tr("url", None)}{":"}</label>
                         </td>
                         <td>
                             <MaybeFillInput values={&prev_values} r#type={"text"} name={"href"} required={false} id={"input_url"} />
@@ -446,12 +475,12 @@ async fn page_community_new_post_inner(
                     </tr>
                 </table>
                 <label>
-                    {"Text (markdown supported):"}
+                    {lang.tr("text_with_markdown", None)}{":"}
                     <br />
                     <MaybeFillTextArea values={&prev_values} name={"content_markdown"} default_value={None} />
                 </label>
                 <div>
-                    <button r#type={"submit"}>{"Submit"}</button>
+                    <button r#type={"submit"}>{lang.tr("submit", None)}</button>
                 </div>
             </form>
         </HTPage>
@@ -465,17 +494,10 @@ async fn handler_communities_new_post_submit(
 ) -> Result<hyper::Response<hyper::Body>, crate::Error> {
     let (community_id,) = params;
 
-    let cookies_string = req
-        .headers()
-        .get(hyper::header::COOKIE)
-        .map(|x| x.to_str())
-        .transpose()?
-        .map(|x| x.to_owned());
-    let cookies_string = cookies_string.as_deref();
+    let (req_parts, body) = req.into_parts();
+    let cookies = get_cookie_map_for_headers(&req_parts.headers)?;
 
-    let cookies = get_cookie_map(cookies_string)?;
-
-    let body = hyper::body::to_bytes(req.into_body()).await?;
+    let body = hyper::body::to_bytes(body).await?;
     let mut body: HashMap<&str, serde_json::Value> = serde_urlencoded::from_bytes(&body)?;
     body.insert("community", community_id.into());
     if body.get("content_markdown").and_then(|x| x.as_str()) == Some("") {
@@ -487,9 +509,10 @@ async fn handler_communities_new_post_submit(
 
     let api_res = res_to_error(
         ctx.http_client
-            .request(with_auth(
+            .request(for_client(
                 hyper::Request::post(format!("{}/api/unstable/posts", ctx.backend_host))
                     .body(serde_json::to_vec(&body)?.into())?,
+                &req_parts.headers,
                 &cookies,
             )?)
             .await?,
@@ -512,8 +535,15 @@ async fn handler_communities_new_post_submit(
                 .body("Successfully posted.".into())?)
         }
         Err(crate::Error::RemoteError((_, message))) => {
-            page_community_new_post_inner(community_id, &cookies, ctx, Some(message), Some(&body))
-                .await
+            page_community_new_post_inner(
+                community_id,
+                &req_parts.headers,
+                &cookies,
+                ctx,
+                Some(message),
+                Some(&body),
+            )
+            .await
         }
         Err(other) => Err(other),
     }

@@ -1,3 +1,5 @@
+pub mod timeago;
+
 use std::borrow::{Borrow, Cow};
 use std::collections::HashMap;
 
@@ -8,17 +10,20 @@ use crate::resp_types::{
 use crate::util::{abbreviate_link, author_is_me};
 use crate::PageBaseData;
 
+pub use timeago::TimeAgo;
+
 #[render::component]
-pub fn Comment<'comment, 'base_data>(
-    comment: &'comment RespPostCommentInfo<'comment>,
-    base_data: &'base_data PageBaseData,
+pub fn Comment<'a>(
+    comment: &'a RespPostCommentInfo<'a>,
+    base_data: &'a PageBaseData,
+    lang: &'a crate::Translator,
 ) {
     render::rsx! {
         <li>
             <small>
                 <cite><UserLink user={comment.author.as_ref()} /></cite>
                 {" "}
-                <TimeAgo since={chrono::DateTime::parse_from_rfc3339(&comment.created).unwrap()} />
+                <TimeAgo since={chrono::DateTime::parse_from_rfc3339(&comment.created).unwrap()} lang />
             </small>
             <Content src={comment} />
             <div class={"actionList"}>
@@ -30,18 +35,18 @@ pub fn Comment<'comment, 'base_data>(
                                     if comment.your_vote.is_some() {
                                         render::rsx! {
                                             <form method={"POST"} action={format!("/comments/{}/unlike", comment.id)}>
-                                                <button type={"submit"}>{"Unlike"}</button>
+                                                <button type={"submit"}>{lang.tr("like_undo", None)}</button>
                                             </form>
                                         }
                                     } else {
                                         render::rsx! {
                                             <form method={"POST"} action={format!("/comments/{}/like", comment.id)}>
-                                                <button type={"submit"}>{"Like"}</button>
+                                                <button type={"submit"}>{lang.tr("like", None)}</button>
                                             </form>
                                         }
                                     }
                                 }
-                                <a href={format!("/comments/{}", comment.id)}>{"reply"}</a>
+                                <a href={format!("/comments/{}", comment.id)}>{lang.tr("reply", None)}</a>
                             </>
                         })
                     } else {
@@ -51,7 +56,7 @@ pub fn Comment<'comment, 'base_data>(
                 {
                     if author_is_me(&comment.author, &base_data.login) {
                         Some(render::rsx! {
-                            <a href={format!("/comments/{}/delete", comment.id)}>{"delete"}</a>
+                            <a href={format!("/comments/{}/delete", comment.id)}>{lang.tr("delete", None)}</a>
                         })
                     } else {
                         None
@@ -66,7 +71,7 @@ pub fn Comment<'comment, 'base_data>(
                                 {
                                     replies.iter().map(|reply| {
                                         render::rsx! {
-                                            <Comment comment={reply} base_data />
+                                            <Comment comment={reply} base_data lang />
                                         }
                                     })
                                     .collect::<Vec<_>>()
@@ -80,7 +85,7 @@ pub fn Comment<'comment, 'base_data>(
             {
                 if comment.replies.is_none() && comment.has_replies {
                     Some(render::rsx! {
-                        <ul><li><a href={format!("/comments/{}", comment.id)}>{"-> View More Comments"}</a></li></ul>
+                        <ul><li><a href={format!("/comments/{}", comment.id)}>{"-> "}{lang.tr("view_more_comments", None)}</a></li></ul>
                     })
                 } else {
                     None
@@ -174,6 +179,7 @@ impl<'a, T: HavingContent + 'a> render::Render for Content<'a, T> {
 #[render::component]
 pub fn HTPage<'a, Children: render::Render>(
     base_data: &'a PageBaseData,
+    lang: &'a crate::Translator,
     title: &'a str,
     children: Children,
 ) {
@@ -190,19 +196,19 @@ pub fn HTPage<'a, Children: render::Render>(
                     <header class={"mainHeader"}>
                         <div class={"left actionList"}>
                             <a href={"/"} class={"siteName"}>{"lotide"}</a>
-                            <a href={"/all"}>{"All"}</a>
-                            <a href={"/communities"}>{"Communities"}</a>
-                            <a href={"/about"}>{"About"}</a>
+                            <a href={"/all"}>{lang.tr("all", None)}</a>
+                            <a href={"/communities"}>{lang.tr("communities", None)}</a>
+                            <a href={"/about"}>{lang.tr("about", None)}</a>
                         </div>
                         <div class={"right actionList"}>
                             {
                                 match &base_data.login {
                                     Some(login) => Some(render::rsx! {
-                                        <a href={format!("/users/{}", login.user.id)}>{"👤︎"}</a>
+                                        <a href={format!("/users/{}", login.user.id)}>{Cow::Borrowed("👤︎")}</a>
                                     }),
                                     None => {
                                         Some(render::rsx! {
-                                            <a href={"/login"}>{"Login"}</a>
+                                            <a href={"/login"}>{lang.tr("login", None)}</a>
                                         })
                                     }
                                 }
@@ -217,7 +223,12 @@ pub fn HTPage<'a, Children: render::Render>(
 }
 
 #[render::component]
-pub fn PostItem<'post>(post: &'post RespPostListPost<'post>, in_community: bool, no_user: bool) {
+pub fn PostItem<'a>(
+    post: &'a RespPostListPost<'a>,
+    in_community: bool,
+    no_user: bool,
+    lang: &'a crate::Translator,
+) {
     render::rsx! {
         <li>
             <a href={format!("/posts/{}", post.as_ref().id)}>
@@ -236,14 +247,14 @@ pub fn PostItem<'post>(post: &'post RespPostListPost<'post>, in_community: bool,
                 }
             }
             <br />
-            {"Submitted"}
+            {lang.tr("submitted", None)}
             {
                 if no_user {
                     None
                 } else {
                     Some(render::rsx! {
                         <>
-                            {" by "}<UserLink user={post.author.as_ref()} />
+                            {" "}{lang.tr("by", None)}{" "}<UserLink user={post.author.as_ref()} />
                         </>
                     })
                 }
@@ -251,7 +262,7 @@ pub fn PostItem<'post>(post: &'post RespPostListPost<'post>, in_community: bool,
             {
                 if !in_community {
                     Some(render::rsx! {
-                        <>{" to "}<CommunityLink community={&post.community} /></>
+                        <>{" "}{lang.tr("to", None)}{" "}<CommunityLink community={&post.community} /></>
                     })
                 } else {
                     None
@@ -262,21 +273,24 @@ pub fn PostItem<'post>(post: &'post RespPostListPost<'post>, in_community: bool,
 }
 
 pub struct ThingItem<'a> {
+    pub lang: &'a crate::Translator,
     pub thing: &'a RespThingInfo<'a>,
 }
 
 impl<'a> render::Render for ThingItem<'a> {
     fn render_into<W: std::fmt::Write>(self, writer: &mut W) -> std::fmt::Result {
+        let lang = self.lang;
+
         match self.thing {
             RespThingInfo::Post(post) => {
-                (PostItem { post, in_community: false, no_user: true }).render_into(writer)
+                (PostItem { post, in_community: false, no_user: true, lang: self.lang }).render_into(writer)
             },
             RespThingInfo::Comment(comment) => {
                 (render::rsx! {
                     <li>
                         <small>
-                            <a href={format!("/comments/{}", comment.id)}>{"Comment"}</a>
-                            {" on "}<a href={format!("/posts/{}", comment.post.id)}>{comment.post.title.as_ref()}</a>{":"}
+                            <a href={format!("/comments/{}", comment.id)}>{lang.tr("comment", None)}</a>
+                            {" "}{lang.tr("on", None)}{" "}<a href={format!("/posts/{}", comment.post.id)}>{comment.post.title.as_ref()}</a>{":"}
                         </small>
                         <Content src={comment} />
                     </li>
@@ -397,14 +411,5 @@ pub fn BoolSubmitButton<'a>(value: bool, do_text: &'a str, done_text: &'a str) {
         render::rsx! {
             <button type={"submit"}>{do_text}</button>
         }
-    }
-}
-
-#[render::component]
-pub fn TimeAgo(since: chrono::DateTime<chrono::offset::FixedOffset>) {
-    let since_str = since.to_rfc3339();
-    let text = timeago::Formatter::new().convert_chrono(since, chrono::offset::Utc::now());
-    render::rsx! {
-        <span title={since_str}>{text}</span>
     }
 }

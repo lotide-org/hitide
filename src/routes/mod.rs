@@ -54,8 +54,9 @@ fn get_cookies_string(headers: &hyper::HeaderMap) -> Result<Option<&str>, crate:
         .transpose()?)
 }
 
-fn with_auth(
+fn for_client(
     mut new_req: hyper::Request<hyper::Body>,
+    src_headers: &hyper::header::HeaderMap,
     cookies: &CookieMap<'_>,
 ) -> Result<hyper::Request<hyper::Body>, hyper::header::InvalidHeaderValue> {
     let token = cookies.get("hitideToken").map(|c| c.value);
@@ -65,6 +66,11 @@ fn with_auth(
             hyper::header::HeaderValue::from_str(&format!("Bearer {}", token))?,
         );
     }
+    if let Some(value) = src_headers.get(hyper::header::ACCEPT_LANGUAGE) {
+        new_req
+            .headers_mut()
+            .insert(hyper::header::ACCEPT_LANGUAGE, value.clone());
+    }
 
     Ok(new_req)
 }
@@ -72,13 +78,15 @@ fn with_auth(
 async fn fetch_base_data(
     backend_host: &str,
     http_client: &crate::HttpClient,
+    headers: &hyper::header::HeaderMap,
     cookies: &CookieMap<'_>,
 ) -> Result<PageBaseData, crate::Error> {
     let login = {
         let api_res = http_client
-            .request(with_auth(
+            .request(for_client(
                 hyper::Request::get(format!("{}/api/unstable/logins/~current", backend_host))
                     .body(Default::default())?,
+                headers,
                 &cookies,
             )?)
             .await?;
@@ -111,9 +119,11 @@ async fn page_about(
 ) -> Result<hyper::Response<hyper::Body>, crate::Error> {
     use std::convert::TryInto;
 
+    let lang = crate::get_lang_for_req(&req);
     let cookies = get_cookie_map_for_req(&req)?;
 
-    let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, &cookies).await?;
+    let base_data =
+        fetch_base_data(&ctx.backend_host, &ctx.http_client, req.headers(), &cookies).await?;
 
     let api_res = res_to_error(
         ctx.http_client
@@ -128,19 +138,30 @@ async fn page_about(
     let api_res = hyper::body::to_bytes(api_res.into_body()).await?;
     let api_res: RespInstanceInfo = serde_json::from_slice(&api_res)?;
 
+    let title = lang.tr("about_title", None);
+
     Ok(html_response(render::html! {
-        <HTPage base_data={&base_data} title={"About"}>
-            <h1>{"About this instance"}</h1>
-            {"This instance is running hitide "}{env!("CARGO_PKG_VERSION")}{" on "}{api_res.software.name}{" "}{api_res.software.version}{"."}
-            <h2>{"What is lotide?"}</h2>
+        <HTPage base_data={&base_data} lang={&lang} title={&title}>
+            <h1>{title.as_ref()}</h1>
+            {
+                lang.tr(
+                    "about_versions",
+                    Some(&fluent::fluent_args![
+                        "hitide_version" => env!("CARGO_PKG_VERSION"),
+                        "backend_name" => api_res.software.name,
+                        "backend_version" => api_res.software.version
+                    ])
+                )
+            }
+            <h2>{lang.tr("about_what_is", None)}</h2>
             <p>
-                {"lotide is an attempt to build a federated forum. "}
-                {"Users can create communities to share links and text posts and discuss them with other users, including those registered on other servers through "}
-                <a href={"https://activitypub.rocks"}>{"ActivityPub"}</a>{"."}
+                {lang.tr("about_text1", None)}
+                {" "}<a href={"https://activitypub.rocks"}>{"ActivityPub"}</a>{"."}
             </p>
             <p>
-                {"For more information or to view the source code, check out the "}
-                <a href={"https://sr.ht/~vpzom/lotide/"}>{"SourceHut page"}</a>{"."}
+                {lang.tr("about_text2", None)}
+                {" "}
+                <a href={"https://sr.ht/~vpzom/lotide/"}>{lang.tr("about_sourcehut", None)}</a>{"."}
             </p>
         </HTPage>
     }))
@@ -155,21 +176,23 @@ async fn page_comment(
 
     let cookies = get_cookie_map_for_req(&req)?;
 
-    page_comment_inner(comment_id, &cookies, ctx, None, None).await
+    page_comment_inner(comment_id, req.headers(), &cookies, ctx, None, None).await
 }
 
 async fn page_comment_inner(
     comment_id: i64,
+    headers: &hyper::header::HeaderMap,
     cookies: &CookieMap<'_>,
     ctx: Arc<crate::RouteContext>,
     display_error: Option<String>,
     prev_values: Option<&serde_json::Value>,
 ) -> Result<hyper::Response<hyper::Body>, crate::Error> {
-    let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, &cookies).await?;
+    let lang = crate::get_lang_for_headers(headers);
+    let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, headers, &cookies).await?;
 
     let api_res = res_to_error(
         ctx.http_client
-            .request(with_auth(
+            .request(for_client(
                 hyper::Request::get(format!(
                     "{}/api/unstable/comments/{}{}",
                     ctx.backend_host,
@@ -181,6 +204,7 @@ async fn page_comment_inner(
                     },
                 ))
                 .body(Default::default())?,
+                headers,
                 &cookies,
             )?)
             .await?,
@@ -189,8 +213,10 @@ async fn page_comment_inner(
     let api_res = hyper::body::to_bytes(api_res.into_body()).await?;
     let comment: RespPostCommentInfo<'_> = serde_json::from_slice(&api_res)?;
 
+    let title = lang.tr("comment", None);
+
     Ok(html_response(render::html! {
-        <HTPage base_data={&base_data} title={"Comment"}>
+        <HTPage base_data={&base_data} lang={&lang} title={&title}>
             <p>
                 <small><cite><UserLink user={comment.author.as_ref()} /></cite>{":"}</small>
                 <Content src={&comment} />
@@ -204,13 +230,13 @@ async fn page_comment_inner(
                                     if comment.your_vote.is_some() {
                                         render::rsx! {
                                             <form method={"POST"} action={format!("/comments/{}/unlike", comment.id)}>
-                                                <button type={"submit"}>{"Unlike"}</button>
+                                                <button type={"submit"}>{lang.tr("like_undo", None)}</button>
                                             </form>
                                         }
                                     } else {
                                         render::rsx! {
                                             <form method={"POST"} action={format!("/comments/{}/like", comment.id)}>
-                                                <button type={"submit"}>{"Like"}</button>
+                                                <button type={"submit"}>{lang.tr("like", None)}</button>
                                             </form>
                                         }
                                     }
@@ -224,7 +250,7 @@ async fn page_comment_inner(
                 {
                     if author_is_me(&comment.author, &base_data.login) {
                         Some(render::rsx! {
-                            <a href={format!("/comments/{}/delete", comment.id)}>{"delete"}</a>
+                            <a href={format!("/comments/{}/delete", comment.id)}>{lang.tr("delete", None)}</a>
                         })
                     } else {
                         None
@@ -245,7 +271,7 @@ async fn page_comment_inner(
                             <div>
                                 <MaybeFillTextArea values={&prev_values} name={"content_markdown"} default_value={None} />
                             </div>
-                            <button r#type={"submit"}>{"Reply"}</button>
+                            <button r#type={"submit"}>{lang.tr("reply_submit", None)}</button>
                         </form>
                     })
                 } else {
@@ -256,7 +282,7 @@ async fn page_comment_inner(
                 {
                     comment.replies.as_ref().unwrap().iter().map(|reply| {
                         render::rsx! {
-                            <Comment comment={reply} base_data={&base_data} />
+                            <Comment comment={reply} base_data={&base_data} lang={&lang} />
                         }
                     }).collect::<Vec<_>>()
                 }
@@ -284,7 +310,8 @@ async fn page_comment_delete_inner(
     cookies: &CookieMap<'_>,
     display_error: Option<String>,
 ) -> Result<hyper::Response<hyper::Body>, crate::Error> {
-    let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, &cookies).await?;
+    let lang = crate::get_lang_for_headers(headers);
+    let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, headers, &cookies).await?;
 
     let referer = headers
         .get(hyper::header::REFERER)
@@ -292,12 +319,13 @@ async fn page_comment_delete_inner(
 
     let api_res = res_to_error(
         ctx.http_client
-            .request(with_auth(
+            .request(for_client(
                 hyper::Request::get(format!(
                     "{}/api/unstable/comments/{}",
                     ctx.backend_host, comment_id
                 ))
                 .body(Default::default())?,
+                headers,
                 &cookies,
             )?)
             .await?,
@@ -306,15 +334,17 @@ async fn page_comment_delete_inner(
     let api_res = hyper::body::to_bytes(api_res.into_body()).await?;
     let comment: RespPostCommentInfo<'_> = serde_json::from_slice(&api_res)?;
 
+    let title = lang.tr("comment_delete_title", None);
+
     Ok(html_response(render::html! {
-        <HTPage base_data={&base_data} title={"Delete Comment"}>
+        <HTPage base_data={&base_data} lang={&lang} title={&title}>
             <p>
                 <small><cite><UserLink user={comment.author.as_ref()} /></cite>{":"}</small>
                 <br />
                 <Content src={&comment} />
             </p>
             <div id={"delete"}>
-                <h2>{"Delete this comment?"}</h2>
+                <h2>{lang.tr("comment_delete_question", None)}</h2>
                 {
                     display_error.map(|msg| {
                         render::rsx! {
@@ -332,9 +362,9 @@ async fn page_comment_delete_inner(
                             None
                         }
                     }
-                    <a href={format!("/comments/{}/", comment.id)}>{"No, cancel"}</a>
+                    <a href={format!("/comments/{}/", comment.id)}>{lang.tr("no_cancel", None)}</a>
                     {" "}
-                    <button r#type={"submit"}>{"Yes, delete"}</button>
+                    <button r#type={"submit"}>{lang.tr("delete_yes", None)}</button>
                 </form>
             </div>
         </HTPage>
@@ -357,12 +387,13 @@ async fn handler_comment_delete_confirm(
 
     let api_res = res_to_error(
         ctx.http_client
-            .request(with_auth(
+            .request(for_client(
                 hyper::Request::delete(format!(
                     "{}/api/unstable/comments/{}",
                     ctx.backend_host, comment_id,
                 ))
                 .body("".into())?,
+                &req_parts.headers,
                 &cookies,
             )?)
             .await?,
@@ -405,12 +436,13 @@ async fn handler_comment_like(
 
     res_to_error(
         ctx.http_client
-            .request(with_auth(
+            .request(for_client(
                 hyper::Request::post(format!(
                     "{}/api/unstable/comments/{}/like",
                     ctx.backend_host, comment_id
                 ))
                 .body(Default::default())?,
+                req.headers(),
                 &cookies,
             )?)
             .await?,
@@ -447,12 +479,13 @@ async fn handler_comment_unlike(
 
     res_to_error(
         ctx.http_client
-            .request(with_auth(
+            .request(for_client(
                 hyper::Request::post(format!(
                     "{}/api/unstable/comments/{}/unlike",
                     ctx.backend_host, comment_id
                 ))
                 .body(Default::default())?,
+                req.headers(),
                 &cookies,
             )?)
             .await?,
@@ -489,12 +522,13 @@ async fn handler_comment_submit_reply(
 
     let api_res = res_to_error(
         ctx.http_client
-            .request(with_auth(
+            .request(for_client(
                 hyper::Request::post(format!(
                     "{}/api/unstable/comments/{}/replies",
                     ctx.backend_host, comment_id
                 ))
                 .body(serde_json::to_vec(&body)?.into())?,
+                &req_parts.headers,
                 &cookies,
             )?)
             .await?,
@@ -507,7 +541,15 @@ async fn handler_comment_submit_reply(
             .header(hyper::header::LOCATION, format!("/comments/{}", comment_id))
             .body("Successfully posted.".into())?),
         Err(crate::Error::RemoteError((status, message))) if status.is_client_error() => {
-            page_comment_inner(comment_id, &cookies, ctx, Some(message), Some(&body)).await
+            page_comment_inner(
+                comment_id,
+                &req_parts.headers,
+                &cookies,
+                ctx,
+                Some(message),
+                Some(&body),
+            )
+            .await
         }
         Err(other) => Err(other),
     }
@@ -527,12 +569,21 @@ async fn page_login_inner(
     display_error: Option<String>,
     prev_values: Option<&serde_json::Value>,
 ) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+    let lang = crate::get_lang_for_headers(&req_parts.headers);
     let cookies = get_cookie_map_for_headers(&req_parts.headers)?;
 
-    let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, &cookies).await?;
+    let base_data = fetch_base_data(
+        &ctx.backend_host,
+        &ctx.http_client,
+        &req_parts.headers,
+        &cookies,
+    )
+    .await?;
+
+    let title = lang.tr("login", None);
 
     Ok(html_response(render::html! {
-        <HTPage base_data={&base_data} title={"Login"}>
+        <HTPage base_data={&base_data} lang={&lang} title={&title}>
             {
                 display_error.map(|msg| {
                     render::rsx! {
@@ -543,22 +594,22 @@ async fn page_login_inner(
             <form method={"POST"} action={"/login/submit"}>
                 <table>
                     <tr>
-                        <td><label for={"input_username"}>{"Username:"}</label></td>
+                        <td><label for={"input_username"}>{lang.tr("username_prompt", None)}</label></td>
                         <td>
                             <MaybeFillInput values={&prev_values} r#type={"text"} name={"username"} required={true} id={"input_username"} />
                         </td>
                     </tr>
                     <tr>
-                        <td><label for={"input_password"}>{"Password:"}</label></td>
+                        <td><label for={"input_password"}>{lang.tr("password_prompt", None)}</label></td>
                         <td>
                             <MaybeFillInput values={&prev_values} r#type={"password"} name={"password"} required={true} id={"input_password"} />
                         </td>
                     </tr>
                 </table>
-                <button r#type={"submit"}>{"Login"}</button>
+                <button r#type={"submit"}>{lang.tr("login", None)}</button>
             </form>
             <p>
-                {"Or "}<a href={"/signup"}>{"create a new account"}</a>
+                {lang.tr("or_start", None)}{" "}<a href={"/signup"}>{lang.tr("login_signup_link", None)}</a>
             </p>
         </HTPage>
     }))
@@ -632,8 +683,10 @@ async fn page_lookup(
     ctx: Arc<crate::RouteContext>,
     req: hyper::Request<hyper::Body>,
 ) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+    let lang = crate::get_lang_for_req(&req);
     let cookies = get_cookie_map_for_req(&req)?;
-    let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, &cookies).await?;
+    let base_data =
+        fetch_base_data(&ctx.backend_host, &ctx.http_client, req.headers(), &cookies).await?;
 
     #[derive(Deserialize)]
     struct LookupQuery<'a> {
@@ -686,9 +739,10 @@ async fn page_lookup(
             )
             .body("Redirecting…".into())?),
         api_res => {
+            let title = lang.tr("lookup_title", None);
             Ok(html_response(render::html! {
-                <HTPage base_data={&base_data} title={"Lookup"}>
-                    <h1>{"Lookup"}</h1>
+                <HTPage base_data={&base_data} lang={&lang} title={&title}>
+                    <h1>{title.as_ref()}</h1>
                     <form method={"GET"} action={"/lookup"}>
                         <input r#type={"text"} name={"query"} value={query.as_deref().unwrap_or("")} />
                     </form>
@@ -697,7 +751,7 @@ async fn page_lookup(
                             None => None,
                             Some(Ok(_)) => {
                                 // non-empty case is handled above
-                                Some(render::rsx! { <p>{Cow::Borrowed("Nothing found.")}</p> })
+                                Some(render::rsx! { <p>{lang.tr("lookup_nothing", None)}</p> })
                             },
                             Some(Err(display_error)) => {
                                 Some(render::rsx! {
@@ -719,20 +773,24 @@ async fn page_new_community(
 ) -> Result<hyper::Response<hyper::Body>, crate::Error> {
     let cookies = get_cookie_map_for_req(&req)?;
 
-    page_new_community_inner(ctx, &cookies, None, None).await
+    page_new_community_inner(ctx, req.headers(), &cookies, None, None).await
 }
 
 async fn page_new_community_inner(
     ctx: Arc<crate::RouteContext>,
+    headers: &hyper::header::HeaderMap,
     cookies: &CookieMap<'_>,
     display_error: Option<String>,
     prev_values: Option<&serde_json::Value>,
 ) -> Result<hyper::Response<hyper::Body>, crate::Error> {
-    let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, &cookies).await?;
+    let lang = crate::get_lang_for_headers(headers);
+    let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, headers, &cookies).await?;
+
+    let title = lang.tr("community_create", None);
 
     Ok(html_response(render::html! {
-        <HTPage base_data={&base_data} title={"New Community"}>
-            <h1>{"New Community"}</h1>
+        <HTPage base_data={&base_data} lang={&lang} title={&title}>
+            <h1>{title.as_ref()}</h1>
             {
                 display_error.map(|msg| {
                     render::rsx! {
@@ -743,11 +801,11 @@ async fn page_new_community_inner(
             <form method={"POST"} action={"/new_community/submit"}>
                 <div>
                     <label>
-                        {"Name: "}<MaybeFillInput values={&prev_values} r#type={"text"} name={"name"} required={true} id={"input_name"} />
+                        {lang.tr("name_prompt", None)}{" "}<MaybeFillInput values={&prev_values} r#type={"text"} name={"name"} required={true} id={"input_name"} />
                     </label>
                 </div>
                 <div>
-                    <button r#type={"submit"}>{"Create"}</button>
+                    <button r#type={"submit"}>{lang.tr("community_create_submit", None)}</button>
                 </div>
             </form>
         </HTPage>
@@ -778,9 +836,10 @@ async fn handler_new_community_submit(
 
     let api_res = res_to_error(
         ctx.http_client
-            .request(with_auth(
+            .request(for_client(
                 hyper::Request::post(format!("{}/api/unstable/communities", ctx.backend_host))
                     .body(serde_json::to_vec(&body)?.into())?,
+                &req_parts.headers,
                 &cookies,
             )?)
             .await?,
@@ -803,7 +862,14 @@ async fn handler_new_community_submit(
                 .body("Successfully created.".into())?)
         }
         Err(crate::Error::RemoteError((status, message))) if status.is_client_error() => {
-            page_new_community_inner(ctx, &cookies, Some(message), Some(&body)).await
+            page_new_community_inner(
+                ctx,
+                &req_parts.headers,
+                &cookies,
+                Some(message),
+                Some(&body),
+            )
+            .await
         }
         Err(other) => Err(other),
     }
@@ -823,12 +889,15 @@ async fn page_signup_inner(
     display_error: Option<String>,
     prev_values: Option<&serde_json::Value>,
 ) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+    let lang = crate::get_lang_for_headers(&headers);
     let cookies = get_cookie_map_for_headers(&headers)?;
 
-    let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, &cookies).await?;
+    let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, headers, &cookies).await?;
+
+    let title = lang.tr("register", None);
 
     Ok(html_response(render::html! {
-        <HTPage base_data={&base_data} title={"Register"}>
+        <HTPage base_data={&base_data} lang={&lang} title={&title}>
             {
                 display_error.map(|msg| {
                     render::rsx! {
@@ -839,19 +908,19 @@ async fn page_signup_inner(
             <form method={"POST"} action={"/signup/submit"}>
                 <table>
                     <tr>
-                        <td><label for={"input_username"}>{"Username:"}</label></td>
+                        <td><label for={"input_username"}>{lang.tr("username_prompt", None)}</label></td>
                         <td>
                             <MaybeFillInput values={&prev_values} r#type={"text"} name={"username"} required={true} id={"input_username"} />
                         </td>
                     </tr>
                     <tr>
-                        <td><label for={"input_password"}>{"Password:"}</label></td>
+                        <td><label for={"input_password"}>{lang.tr("password_prompt", None)}</label></td>
                         <td>
                             <MaybeFillInput values={&prev_values} r#type={"password"} name={"password"} required={true} id={"input_password"} />
                         </td>
                     </tr>
                 </table>
-                <button r#type={"submit"}>{"Register"}</button>
+                <button r#type={"submit"}>{lang.tr("register", None)}</button>
             </form>
         </HTPage>
     }))
@@ -913,9 +982,11 @@ async fn page_user(
 ) -> Result<hyper::Response<hyper::Body>, crate::Error> {
     let (user_id,) = params;
 
+    let lang = crate::get_lang_for_req(&req);
     let cookies = get_cookie_map_for_req(&req)?;
 
-    let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, &cookies).await?;
+    let base_data =
+        fetch_base_data(&ctx.backend_host, &ctx.http_client, req.headers(), &cookies).await?;
 
     let user = res_to_error(
         ctx.http_client
@@ -950,7 +1021,7 @@ async fn page_user(
     let title = user.as_ref().username.as_ref();
 
     Ok(html_response(render::html! {
-        <HTPage base_data={&base_data} title>
+        <HTPage base_data={&base_data} lang={&lang} title>
             <h1>{title}</h1>
             <div><em>{format!("@{}@{}", user.as_ref().username, user.as_ref().host)}</em></div>
             {
@@ -959,8 +1030,8 @@ async fn page_user(
                 } else if let Some(remote_url) = &user.as_ref().remote_url {
                     Some(render::rsx! {
                         <div class={"infoBox"}>
-                            {"This is a remote user, information on this page may be incomplete. "}
-                            <a href={remote_url.as_ref()}>{"View at Source ↗"}</a>
+                            {lang.tr("user_remote_note", None)}
+                            <a href={remote_url.as_ref()}>{lang.tr("view_at_source", None)}{" ↗"}</a>
                         </div>
                     })
                 } else {
@@ -970,7 +1041,7 @@ async fn page_user(
             {
                 if let Some(login) = &base_data.login {
                     if login.user.id == user_id {
-                        Some(render::rsx! { <a href={format!("/users/{}/edit", user_id)}>{"Edit"}</a> })
+                        Some(render::rsx! { <a href={format!("/users/{}/edit", user_id)}>{lang.tr("edit", None)}</a> })
                     } else {
                         None
                     }
@@ -981,7 +1052,7 @@ async fn page_user(
             <p>{user.description.as_ref()}</p>
             {
                 if things.is_empty() {
-                    Some(render::rsx! { <p>{"Looks like there's nothing here."}</p> })
+                    Some(render::rsx! { <p>{lang.tr("nothing", None)}</p> })
                 } else {
                     None
                 }
@@ -989,7 +1060,7 @@ async fn page_user(
             <ul>
                 {
                     things.iter().map(|thing| {
-                        ThingItem { thing }
+                        ThingItem { thing, lang: &lang }
                     })
                     .collect::<Vec<_>>()
                 }
@@ -1005,9 +1076,13 @@ async fn page_user_edit(
 ) -> Result<hyper::Response<hyper::Body>, crate::Error> {
     let (user_id,) = params;
 
+    let lang = crate::get_lang_for_req(&req);
     let cookies = get_cookie_map_for_req(&req)?;
 
-    let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, &cookies).await?;
+    let base_data =
+        fetch_base_data(&ctx.backend_host, &ctx.http_client, req.headers(), &cookies).await?;
+
+    let title = lang.tr("user_edit_title", None);
 
     let is_me = match &base_data.login {
         None => false,
@@ -1016,9 +1091,9 @@ async fn page_user_edit(
 
     if !is_me {
         let mut res = html_response(render::html! {
-            <HTPage base_data={&base_data} title={"Edit Profile"}>
-                <h1>{"Edit Profile"}</h1>
-                <div class={"errorBox"}>{"You can only edit your own profile."}</div>
+            <HTPage base_data={&base_data} lang={&lang} title={&title}>
+                <h1>{title.as_ref()}</h1>
+                <div class={"errorBox"}>{lang.tr("user_edit_not_you", None)}</div>
             </HTPage>
         });
 
@@ -1043,16 +1118,16 @@ async fn page_user_edit(
     let user: RespUserInfo<'_> = serde_json::from_slice(&user)?;
 
     Ok(html_response(render::html! {
-        <HTPage base_data={&base_data} title={"Edit Profile"}>
-            <h1>{"Edit Profile"}</h1>
+        <HTPage base_data={&base_data} lang={&lang} title={&title}>
+            <h1>{title.as_ref()}</h1>
             <form method={"POST"} action={format!("/users/{}/edit/submit", user_id)}>
                 <div>
                     <label>
-                        {"Profile Description:"}<br />
+                        {lang.tr("user_edit_description_prompt", None)}<br />
                         <textarea name={"description"}>{user.description.as_ref()}</textarea>
                     </label>
                 </div>
-                <button type={"submit"}>{"Save"}</button>
+                <button type={"submit"}>{lang.tr("user_edit_submit", None)}</button>
             </form>
         </HTPage>
     }))
@@ -1074,9 +1149,10 @@ async fn handler_user_edit_submit(
 
     res_to_error(
         ctx.http_client
-            .request(with_auth(
+            .request(for_client(
                 hyper::Request::patch(format!("{}/api/unstable/users/me", ctx.backend_host))
                     .body(serde_json::to_vec(&body)?.into())?,
+                &req_parts.headers,
                 &cookies,
             )?)
             .await?,
@@ -1094,22 +1170,25 @@ async fn page_home(
     ctx: Arc<crate::RouteContext>,
     req: hyper::Request<hyper::Body>,
 ) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+    let lang = crate::get_lang_for_req(&req);
     let cookies = get_cookie_map_for_req(&req)?;
 
-    let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, &cookies).await?;
+    let base_data =
+        fetch_base_data(&ctx.backend_host, &ctx.http_client, req.headers(), &cookies).await?;
 
     if base_data.login.is_none() {
-        return page_all_inner(&cookies, &base_data, ctx).await;
+        return page_all_inner(req.headers(), &cookies, &base_data, ctx).await;
     }
 
     let api_res = res_to_error(
         ctx.http_client
-            .request(with_auth(
+            .request(for_client(
                 hyper::Request::get(format!(
                     "{}/api/unstable/users/me/following:posts",
                     ctx.backend_host
                 ))
                 .body(Default::default())?,
+                req.headers(),
                 &cookies,
             )?)
             .await?,
@@ -1120,13 +1199,16 @@ async fn page_home(
     let api_res: Vec<RespPostListPost<'_>> = serde_json::from_slice(&api_res)?;
 
     Ok(html_response(render::html! {
-        <HTPage base_data={&base_data} title={"lotide"}>
+        <HTPage base_data={&base_data} lang={&lang} title={"lotide"}>
             {
                 if api_res.is_empty() {
                     Some(render::rsx! {
                         <p>
-                            {"Looks like there's nothing here. Why not "}
-                            <a href={"/communities"}>{"follow some communities"}</a>
+                            {lang.tr("nothing", None)}
+                            {" "}
+                            {lang.tr("home_follow_prompt1", None)}
+                            {" "}
+                            <a href={"/communities"}>{lang.tr("home_follow_prompt2", None)}</a>
                             {"?"}
                         </p>
                     })
@@ -1136,7 +1218,7 @@ async fn page_home(
             }
             <ul>
                 {api_res.iter().map(|post| {
-                    PostItem { post, in_community: false, no_user: false }
+                    PostItem { post, in_community: false, no_user: false, lang: &lang }
                 }).collect::<Vec<_>>()}
             </ul>
         </HTPage>
@@ -1150,21 +1232,26 @@ async fn page_all(
 ) -> Result<hyper::Response<hyper::Body>, crate::Error> {
     let cookies = get_cookie_map_for_req(&req)?;
 
-    let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, &cookies).await?;
+    let base_data =
+        fetch_base_data(&ctx.backend_host, &ctx.http_client, req.headers(), &cookies).await?;
 
-    page_all_inner(&cookies, &base_data, ctx).await
+    page_all_inner(req.headers(), &cookies, &base_data, ctx).await
 }
 
 async fn page_all_inner(
+    headers: &hyper::header::HeaderMap,
     cookies: &CookieMap<'_>,
     base_data: &crate::PageBaseData,
     ctx: Arc<crate::RouteContext>,
 ) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+    let lang = crate::get_lang_for_headers(headers);
+
     let api_res = res_to_error(
         ctx.http_client
-            .request(with_auth(
+            .request(for_client(
                 hyper::Request::get(format!("{}/api/unstable/posts", ctx.backend_host))
                     .body(Default::default())?,
+                headers,
                 &cookies,
             )?)
             .await?,
@@ -1175,13 +1262,13 @@ async fn page_all_inner(
     let api_res: Vec<RespPostListPost<'_>> = serde_json::from_slice(&api_res)?;
 
     Ok(html_response(render::html! {
-        <HTPage base_data={&base_data} title={"lotide"}>
-            <h1>{"The Whole Known Network"}</h1>
+        <HTPage base_data={&base_data} lang={&lang} title={"lotide"}>
+            <h1>{lang.tr("all_title", None)}</h1>
             {
                 if api_res.is_empty() {
                     Some(render::rsx! {
                         <p>
-                        {"Looks like there's nothing here (yet!)."}
+                            {lang.tr("nothing_yet", None)}
                         </p>
                     })
                 } else {
@@ -1190,7 +1277,7 @@ async fn page_all_inner(
             }
             <ul>
                 {api_res.iter().map(|post| {
-                    PostItem { post, in_community: false, no_user: false }
+                    PostItem { post, in_community: false, no_user: false, lang: &lang }
                 }).collect::<Vec<_>>()}
             </ul>
         </HTPage>
