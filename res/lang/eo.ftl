@@ -67,7 +67,7 @@ timeago_months =
         *[other] monatoj
     }
 timeago_weeks =
-    antaŭ{ $weeks } { $weeks ->
+    antaŭ { $weeks } { $weeks ->
         [one] semajno
         *[other] semajnoj
     }
