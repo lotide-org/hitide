@@ -1277,7 +1277,6 @@ async fn page_home(
                             {lang.tr("home_follow_prompt1", None)}
                             {" "}
                             <a href={"/communities"}>{lang.tr("home_follow_prompt2", None)}</a>
-                            {"?"}
                         </p>
                     })
                 } else {
