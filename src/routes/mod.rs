@@ -3,10 +3,12 @@ use std::borrow::Cow;
 use std::sync::Arc;
 
 use crate::components::{
-    Comment, Content, HTPage, MaybeFillInput, MaybeFillTextArea, PostItem, ThingItem, UserLink,
+    Comment, Content, HTPage, MaybeFillInput, MaybeFillTextArea, NotificationItem, PostItem,
+    ThingItem, UserLink,
 };
 use crate::resp_types::{
-    RespInstanceInfo, RespPostCommentInfo, RespPostListPost, RespThingInfo, RespUserInfo,
+    RespInstanceInfo, RespNotification, RespPostCommentInfo, RespPostListPost, RespThingInfo,
+    RespUserInfo,
 };
 use crate::util::author_is_me;
 use crate::PageBaseData;
@@ -229,13 +231,13 @@ async fn page_comment_inner(
                                 {
                                     if comment.your_vote.is_some() {
                                         render::rsx! {
-                                            <form method={"POST"} action={format!("/comments/{}/unlike", comment.id)}>
+                                            <form method={"POST"} action={format!("/comments/{}/unlike", comment.as_ref().id)}>
                                                 <button type={"submit"}>{lang.tr("like_undo", None)}</button>
                                             </form>
                                         }
                                     } else {
                                         render::rsx! {
-                                            <form method={"POST"} action={format!("/comments/{}/like", comment.id)}>
+                                            <form method={"POST"} action={format!("/comments/{}/like", comment.as_ref().id)}>
                                                 <button type={"submit"}>{lang.tr("like", None)}</button>
                                             </form>
                                         }
@@ -250,7 +252,7 @@ async fn page_comment_inner(
                 {
                     if author_is_me(&comment.author, &base_data.login) {
                         Some(render::rsx! {
-                            <a href={format!("/comments/{}/delete", comment.id)}>{lang.tr("delete", None)}</a>
+                            <a href={format!("/comments/{}/delete", comment.as_ref().id)}>{lang.tr("delete", None)}</a>
                         })
                     } else {
                         None
@@ -267,7 +269,7 @@ async fn page_comment_inner(
             {
                 if base_data.login.is_some() {
                     Some(render::rsx! {
-                        <form method={"POST"} action={format!("/comments/{}/submit_reply", comment.id)}>
+                        <form method={"POST"} action={format!("/comments/{}/submit_reply", comment.as_ref().id)}>
                             <div>
                                 <MaybeFillTextArea values={&prev_values} name={"content_markdown"} default_value={None} />
                             </div>
@@ -352,7 +354,7 @@ async fn page_comment_delete_inner(
                         }
                     })
                 }
-                <form method={"POST"} action={format!("/comments/{}/delete/confirm", comment.id)}>
+                <form method={"POST"} action={format!("/comments/{}/delete/confirm", comment.as_ref().id)}>
                     {
                         if let Some(referer) = referer {
                             Some(render::rsx! {
@@ -362,7 +364,7 @@ async fn page_comment_delete_inner(
                             None
                         }
                     }
-                    <a href={format!("/comments/{}/", comment.id)}>{lang.tr("no_cancel", None)}</a>
+                    <a href={format!("/comments/{}/", comment.as_ref().id)}>{lang.tr("no_cancel", None)}</a>
                     {" "}
                     <button r#type={"submit"}>{lang.tr("delete_yes", None)}</button>
                 </form>
@@ -875,6 +877,72 @@ async fn handler_new_community_submit(
     }
 }
 
+async fn page_notifications(
+    _: (),
+    ctx: Arc<crate::RouteContext>,
+    req: hyper::Request<hyper::Body>,
+) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+    use futures_util::future::TryFutureExt;
+
+    let lang = crate::get_lang_for_req(&req);
+    let cookies = get_cookie_map_for_req(&req)?;
+
+    let api_res: Result<Result<Vec<RespNotification>, _>, _> = res_to_error(
+        ctx.http_client
+            .request(for_client(
+                hyper::Request::get(format!(
+                    "{}/api/unstable/users/me/notifications",
+                    ctx.backend_host
+                ))
+                .body(Default::default())?,
+                req.headers(),
+                &cookies,
+            )?)
+            .await?,
+    )
+    .map_err(crate::Error::from)
+    .and_then(|body| hyper::body::to_bytes(body).map_err(crate::Error::from))
+    .await
+    .map(|body| serde_json::from_slice(&body));
+
+    let base_data =
+        fetch_base_data(&ctx.backend_host, &ctx.http_client, req.headers(), &cookies).await?;
+
+    let title = lang.tr("notifications", None);
+
+    match api_res {
+        Err(crate::Error::RemoteError((_, message))) => {
+            let mut res = html_response(render::html! {
+                <HTPage base_data={&base_data} lang={&lang} title={&title}>
+                    <h1>{title.as_ref()}</h1>
+                    <div class={"errorBox"}>{message}</div>
+                </HTPage>
+            });
+
+            *res.status_mut() = hyper::StatusCode::FORBIDDEN;
+
+            Ok(res)
+        }
+        Err(other) => Err(other),
+        Ok(api_res) => {
+            let notifications = api_res?;
+
+            Ok(html_response(render::html! {
+                <HTPage base_data={&base_data} lang={&lang} title={&title}>
+                    <h1>{title.as_ref()}</h1>
+                    <ul>
+                        {
+                            notifications.iter()
+                                .map(|item| render::rsx! { <NotificationItem notification={item} lang={&lang} /> })
+                                .collect::<Vec<_>>()
+                        }
+                    </ul>
+                </HTPage>
+            }))
+        }
+    }
+}
+
 async fn page_signup(
     _: (),
     ctx: Arc<crate::RouteContext>,
@@ -1348,6 +1416,10 @@ pub fn route_root() -> crate::RouteNode<()> {
                     crate::RouteNode::new()
                         .with_handler_async("POST", handler_new_community_submit),
                 ),
+        )
+        .with_child(
+            "notifications",
+            crate::RouteNode::new().with_handler_async("GET", page_notifications),
         )
         .with_child("posts", posts::route_posts())
         .with_child(

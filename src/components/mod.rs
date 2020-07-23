@@ -4,8 +4,9 @@ use std::borrow::{Borrow, Cow};
 use std::collections::HashMap;
 
 use crate::resp_types::{
-    RespMinimalAuthorInfo, RespMinimalCommunityInfo, RespPostCommentInfo, RespPostInfo,
-    RespPostListPost, RespThingComment, RespThingInfo,
+    RespMinimalAuthorInfo, RespMinimalCommentInfo, RespMinimalCommunityInfo, RespNotification,
+    RespNotificationInfo, RespPostCommentInfo, RespPostInfo, RespPostListPost, RespThingComment,
+    RespThingInfo,
 };
 use crate::util::{abbreviate_link, author_is_me};
 use crate::PageBaseData;
@@ -34,19 +35,19 @@ pub fn Comment<'a>(
                                 {
                                     if comment.your_vote.is_some() {
                                         render::rsx! {
-                                            <form method={"POST"} action={format!("/comments/{}/unlike", comment.id)}>
+                                            <form method={"POST"} action={format!("/comments/{}/unlike", comment.as_ref().id)}>
                                                 <button type={"submit"}>{lang.tr("like_undo", None)}</button>
                                             </form>
                                         }
                                     } else {
                                         render::rsx! {
-                                            <form method={"POST"} action={format!("/comments/{}/like", comment.id)}>
+                                            <form method={"POST"} action={format!("/comments/{}/like", comment.as_ref().id)}>
                                                 <button type={"submit"}>{lang.tr("like", None)}</button>
                                             </form>
                                         }
                                     }
                                 }
-                                <a href={format!("/comments/{}", comment.id)}>{lang.tr("reply", None)}</a>
+                                <a href={format!("/comments/{}", comment.as_ref().id)}>{lang.tr("reply", None)}</a>
                             </>
                         })
                     } else {
@@ -56,7 +57,7 @@ pub fn Comment<'a>(
                 {
                     if author_is_me(&comment.author, &base_data.login) {
                         Some(render::rsx! {
-                            <a href={format!("/comments/{}/delete", comment.id)}>{lang.tr("delete", None)}</a>
+                            <a href={format!("/comments/{}/delete", comment.as_ref().id)}>{lang.tr("delete", None)}</a>
                         })
                     } else {
                         None
@@ -85,7 +86,7 @@ pub fn Comment<'a>(
             {
                 if comment.replies.is_none() && comment.has_replies {
                     Some(render::rsx! {
-                        <ul><li><a href={format!("/comments/{}", comment.id)}>{"-> "}{lang.tr("view_more_comments", None)}</a></li></ul>
+                        <ul><li><a href={format!("/comments/{}", comment.as_ref().id)}>{"-> "}{lang.tr("view_more_comments", None)}</a></li></ul>
                     })
                 } else {
                     None
@@ -123,7 +124,7 @@ pub trait HavingContent {
     fn content_html(&self) -> Option<&str>;
 }
 
-impl<'a> HavingContent for RespPostCommentInfo<'a> {
+impl<'a> HavingContent for RespMinimalCommentInfo<'a> {
     fn content_text(&self) -> Option<&str> {
         self.content_text.as_deref()
     }
@@ -134,10 +135,19 @@ impl<'a> HavingContent for RespPostCommentInfo<'a> {
 
 impl<'a> HavingContent for RespThingComment<'a> {
     fn content_text(&self) -> Option<&str> {
-        self.content_text.as_deref()
+        self.base.content_text()
     }
     fn content_html(&self) -> Option<&str> {
-        self.content_html.as_deref()
+        self.base.content_html()
+    }
+}
+
+impl<'a> HavingContent for RespPostCommentInfo<'a> {
+    fn content_text(&self) -> Option<&str> {
+        self.base.content_text()
+    }
+    fn content_html(&self) -> Option<&str> {
+        self.base.content_html()
     }
 }
 
@@ -202,15 +212,29 @@ pub fn HTPage<'a, Children: render::Render>(
                         </div>
                         <div class={"right actionList"}>
                             {
-                                match &base_data.login {
-                                    Some(login) => Some(render::rsx! {
-                                        <a href={format!("/users/{}", login.user.id)}>{Cow::Borrowed("👤︎")}</a>
-                                    }),
-                                    None => {
-                                        Some(render::rsx! {
-                                            <a href={"/login"}>{lang.tr("login", None)}</a>
-                                        })
-                                    }
+                                if let Some(login) =  &base_data.login {
+                                    Some(render::rsx! {
+                                        <>
+                                            <a
+                                                href={"/notifications"}
+                                                class={if login.user.has_unread_notifications { "notification-indicator unread" } else { "notification-indicator" }}
+                                            >
+                                                {"🔔︎"}
+                                            </a>
+                                            <a href={format!("/users/{}", login.user.id)}>{"👤︎"}</a>
+                                        </>
+                                    })
+                                } else {
+                                    None
+                                }
+                            }
+                            {
+                                if base_data.login.is_none() {
+                                    Some(render::rsx! {
+                                        <a href={"/login"}>{lang.tr("login", None)}</a>
+                                    })
+                                } else {
+                                    None
                                 }
                             }
                         </div>
@@ -289,7 +313,7 @@ impl<'a> render::Render for ThingItem<'a> {
                 (render::rsx! {
                     <li>
                         <small>
-                            <a href={format!("/comments/{}", comment.id)}>{lang.tr("comment", None)}</a>
+                            <a href={format!("/comments/{}", comment.as_ref().id)}>{lang.tr("comment", None)}</a>
                             {" "}{lang.tr("on", None)}{" "}<a href={format!("/posts/{}", comment.post.id)}>{comment.post.title.as_ref()}</a>{":"}
                         </small>
                         <Content src={comment} />
@@ -411,5 +435,60 @@ pub fn BoolSubmitButton<'a>(value: bool, do_text: &'a str, done_text: &'a str) {
         render::rsx! {
             <button type={"submit"}>{do_text}</button>
         }
+    }
+}
+
+pub struct NotificationItem<'a> {
+    pub notification: &'a RespNotification<'a>,
+    pub lang: &'a crate::Translator,
+}
+
+impl<'a> render::Render for NotificationItem<'a> {
+    fn render_into<W: std::fmt::Write>(self, writer: &mut W) -> std::fmt::Result {
+        let lang = self.lang;
+
+        write!(writer, "<li class=\"notification-item")?;
+        if self.notification.unseen {
+            write!(writer, " unread")?;
+        }
+        write!(writer, "\">")?;
+        match &self.notification.info {
+            RespNotificationInfo::Unknown => {
+                "[unknown notification type]".render_into(writer)?;
+            }
+            RespNotificationInfo::PostReply { reply, post } => {
+                (render::rsx! {
+                    <>
+                        <a href={format!("/comments/{}", reply.id)}>{lang.tr("comment", None)}</a>
+                        {" "}{lang.tr("on_your_post", None)}{" "}<a href={format!("/posts/{}", post.id)}>{post.title.as_ref()}</a>{":"}
+                        <Content src={reply} />
+                    </>
+                }).render_into(writer)?;
+            }
+            RespNotificationInfo::CommentReply {
+                reply,
+                comment,
+                post,
+            } => {
+                (render::rsx! {
+                    <>
+                        {lang.tr("reply_to", None)}
+                        {" "}
+                        <a href={format!("/comments/{}", comment)}>{lang.tr("your_comment", None)}</a>
+                        {
+                            if let Some(post) = post {
+                                Some(render::rsx! { <>{" "}{lang.tr("on", None)}{" "}<a href={format!("/posts/{}", post.id)}>{post.title.as_ref()}</a></> })
+                            } else {
+                                None
+                            }
+                        }
+                        {":"}
+                        <Content src={reply} />
+                    </>
+                }).render_into(writer)?;
+            }
+        }
+
+        write!(writer, "</li>")
     }
 }

@@ -45,27 +45,46 @@ pub enum RespThingInfo<'a> {
 }
 
 #[derive(Deserialize, Debug)]
-pub struct RespThingComment<'a> {
+pub struct RespMinimalCommentInfo<'a> {
     pub id: i64,
-    pub created: Cow<'a, str>,
     pub content_text: Option<Cow<'a, str>>,
     pub content_html: Option<Cow<'a, str>>,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct RespThingComment<'a> {
+    #[serde(flatten)]
+    pub base: RespMinimalCommentInfo<'a>,
+
+    pub created: Cow<'a, str>,
     #[serde(borrow)]
     pub post: RespMinimalPostInfo<'a>,
 }
 
+impl<'a> AsRef<RespMinimalCommentInfo<'a>> for RespThingComment<'a> {
+    fn as_ref(&self) -> &RespMinimalCommentInfo<'a> {
+        &self.base
+    }
+}
+
 #[derive(Deserialize, Debug)]
 pub struct RespPostCommentInfo<'a> {
-    pub id: i64,
+    #[serde(flatten)]
+    pub base: RespMinimalCommentInfo<'a>,
+
     #[serde(borrow)]
     pub author: Option<RespMinimalAuthorInfo<'a>>,
     pub created: Cow<'a, str>,
-    pub content_text: Option<Cow<'a, str>>,
-    pub content_html: Option<Cow<'a, str>>,
     pub your_vote: Option<Empty>,
     #[serde(borrow)]
     pub replies: Option<Vec<RespPostCommentInfo<'a>>>,
     pub has_replies: bool,
+}
+
+impl<'a> AsRef<RespMinimalCommentInfo<'a>> for RespPostCommentInfo<'a> {
+    fn as_ref(&self) -> &RespMinimalCommentInfo<'a> {
+        &self.base
+    }
 }
 
 #[derive(Deserialize, Debug)]
@@ -112,6 +131,7 @@ impl<'a> AsRef<RespMinimalAuthorInfo<'a>> for RespUserInfo<'a> {
 #[derive(Deserialize, Debug)]
 pub struct RespLoginInfoUser {
     pub id: i64,
+    pub has_unread_notifications: bool,
 }
 
 #[derive(Deserialize, Debug)]
@@ -153,4 +173,29 @@ pub struct RespInstanceSoftwareInfo<'a> {
 #[derive(Deserialize, Debug)]
 pub struct RespInstanceInfo<'a> {
     pub software: RespInstanceSoftwareInfo<'a>,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(tag = "type")]
+#[serde(rename_all = "snake_case")]
+pub enum RespNotificationInfo<'a> {
+    PostReply {
+        reply: RespMinimalCommentInfo<'a>,
+        post: RespMinimalPostInfo<'a>,
+    },
+    CommentReply {
+        reply: RespMinimalCommentInfo<'a>,
+        comment: i64,
+        post: Option<RespMinimalPostInfo<'a>>,
+    },
+    #[serde(other)]
+    Unknown,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct RespNotification<'a> {
+    #[serde(flatten)]
+    pub info: RespNotificationInfo<'a>,
+
+    pub unseen: bool,
 }

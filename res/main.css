@@ -53,6 +53,15 @@ body {
 	margin-bottom: 0;
 }
 
+.notification-indicator.unread {
+	color: #FF8F00;
+}
+
+.notification-item.unread {
+	border-left: 5px solid #FDD835;
+	padding-left: 5px;
+}
+
 @media (max-width: 768px) {
 	.communitySidebar {
 		display: none; /* TODO still show this somewhere */
