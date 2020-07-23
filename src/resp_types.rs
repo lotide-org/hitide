@@ -88,6 +88,22 @@ impl<'a> AsRef<RespMinimalCommentInfo<'a>> for RespPostCommentInfo<'a> {
 }
 
 #[derive(Deserialize, Debug)]
+pub struct RespCommentInfo<'a> {
+    #[serde(flatten)]
+    pub base: RespPostCommentInfo<'a>,
+
+    pub parent: Option<JustID>,
+    #[serde(borrow)]
+    pub post: Option<RespMinimalPostInfo<'a>>,
+}
+
+impl<'a> AsRef<RespPostCommentInfo<'a>> for RespCommentInfo<'a> {
+    fn as_ref(&self) -> &RespPostCommentInfo<'a> {
+        &self.base
+    }
+}
+
+#[derive(Deserialize, Debug)]
 pub struct RespPostInfo<'a> {
     #[serde(flatten, borrow)]
     pub base: RespPostListPost<'a>,
@@ -141,6 +157,11 @@ pub struct RespLoginInfo {
 
 #[derive(Deserialize, Debug)]
 pub struct Empty {}
+
+#[derive(Deserialize, Debug)]
+pub struct JustID {
+    pub id: i64,
+}
 
 #[derive(Deserialize, Debug)]
 pub struct RespYourFollow {

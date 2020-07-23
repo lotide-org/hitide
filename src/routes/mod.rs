@@ -7,8 +7,8 @@ use crate::components::{
     ThingItem, UserLink,
 };
 use crate::resp_types::{
-    RespInstanceInfo, RespNotification, RespPostCommentInfo, RespPostListPost, RespThingInfo,
-    RespUserInfo,
+    RespCommentInfo, RespInstanceInfo, RespNotification, RespPostCommentInfo, RespPostListPost,
+    RespThingInfo, RespUserInfo,
 };
 use crate::util::author_is_me;
 use crate::PageBaseData;
@@ -213,14 +213,36 @@ async fn page_comment_inner(
     )
     .await?;
     let api_res = hyper::body::to_bytes(api_res.into_body()).await?;
-    let comment: RespPostCommentInfo<'_> = serde_json::from_slice(&api_res)?;
+    let comment: RespCommentInfo<'_> = serde_json::from_slice(&api_res)?;
 
     let title = lang.tr("comment", None);
 
     Ok(html_response(render::html! {
         <HTPage base_data={&base_data} lang={&lang} title={&title}>
+            {
+                if let Some(post) = &comment.post {
+                    Some(render::rsx! {
+                        <p>
+                            {lang.tr("to_post", None)}{" "}<a href={format!("/posts/{}", post.id)}>{post.title.as_ref()}</a>
+                        </p>
+                    })
+                } else {
+                    None
+                }
+            }
             <p>
-                <small><cite><UserLink user={comment.author.as_ref()} /></cite>{":"}</small>
+                {
+                    if let Some(parent) = &comment.parent {
+                        Some(render::rsx! {
+                            <div>
+                                <small><a href={format!("/comments/{}", parent.id)}>{"<- "}{lang.tr("to_parent", None)}</a></small>
+                            </div>
+                        })
+                    } else {
+                        None
+                    }
+                }
+                <small><cite><UserLink user={comment.as_ref().author.as_ref()} /></cite>{":"}</small>
                 <Content src={&comment} />
             </p>
             <div class={"actionList"}>
@@ -229,15 +251,15 @@ async fn page_comment_inner(
                         Some(render::rsx! {
                             <>
                                 {
-                                    if comment.your_vote.is_some() {
+                                    if comment.as_ref().your_vote.is_some() {
                                         render::rsx! {
-                                            <form method={"POST"} action={format!("/comments/{}/unlike", comment.as_ref().id)}>
+                                            <form method={"POST"} action={format!("/comments/{}/unlike", comment.as_ref().as_ref().id)}>
                                                 <button type={"submit"}>{lang.tr("like_undo", None)}</button>
                                             </form>
                                         }
                                     } else {
                                         render::rsx! {
-                                            <form method={"POST"} action={format!("/comments/{}/like", comment.as_ref().id)}>
+                                            <form method={"POST"} action={format!("/comments/{}/like", comment.as_ref().as_ref().id)}>
                                                 <button type={"submit"}>{lang.tr("like", None)}</button>
                                             </form>
                                         }
@@ -250,9 +272,9 @@ async fn page_comment_inner(
                     }
                 }
                 {
-                    if author_is_me(&comment.author, &base_data.login) {
+                    if author_is_me(&comment.as_ref().author, &base_data.login) {
                         Some(render::rsx! {
-                            <a href={format!("/comments/{}/delete", comment.as_ref().id)}>{lang.tr("delete", None)}</a>
+                            <a href={format!("/comments/{}/delete", comment.as_ref().as_ref().id)}>{lang.tr("delete", None)}</a>
                         })
                     } else {
                         None
@@ -269,7 +291,7 @@ async fn page_comment_inner(
             {
                 if base_data.login.is_some() {
                     Some(render::rsx! {
-                        <form method={"POST"} action={format!("/comments/{}/submit_reply", comment.as_ref().id)}>
+                        <form method={"POST"} action={format!("/comments/{}/submit_reply", comment.as_ref().as_ref().id)}>
                             <div>
                                 <MaybeFillTextArea values={&prev_values} name={"content_markdown"} default_value={None} />
                             </div>
@@ -282,7 +304,7 @@ async fn page_comment_inner(
             }
             <ul>
                 {
-                    comment.replies.as_ref().unwrap().iter().map(|reply| {
+                    comment.as_ref().replies.as_ref().unwrap().iter().map(|reply| {
                         render::rsx! {
                             <Comment comment={reply} base_data={&base_data} lang={&lang} />
                         }

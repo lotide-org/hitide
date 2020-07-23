@@ -4,9 +4,9 @@ use std::borrow::{Borrow, Cow};
 use std::collections::HashMap;
 
 use crate::resp_types::{
-    RespMinimalAuthorInfo, RespMinimalCommentInfo, RespMinimalCommunityInfo, RespNotification,
-    RespNotificationInfo, RespPostCommentInfo, RespPostInfo, RespPostListPost, RespThingComment,
-    RespThingInfo,
+    RespCommentInfo, RespMinimalAuthorInfo, RespMinimalCommentInfo, RespMinimalCommunityInfo,
+    RespNotification, RespNotificationInfo, RespPostCommentInfo, RespPostInfo, RespPostListPost,
+    RespThingComment, RespThingInfo,
 };
 use crate::util::{abbreviate_link, author_is_me};
 use crate::PageBaseData;
@@ -143,6 +143,15 @@ impl<'a> HavingContent for RespThingComment<'a> {
 }
 
 impl<'a> HavingContent for RespPostCommentInfo<'a> {
+    fn content_text(&self) -> Option<&str> {
+        self.base.content_text()
+    }
+    fn content_html(&self) -> Option<&str> {
+        self.base.content_html()
+    }
+}
+
+impl<'a> HavingContent for RespCommentInfo<'a> {
     fn content_text(&self) -> Option<&str> {
         self.base.content_text()
     }
