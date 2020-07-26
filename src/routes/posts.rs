@@ -3,7 +3,7 @@ use super::{
     res_to_error,
 };
 use crate::components::{Comment, CommunityLink, Content, HTPage, TimeAgo, UserLink};
-use crate::resp_types::RespPostInfo;
+use crate::resp_types::{JustUser, RespList, RespPostInfo};
 use crate::util::author_is_me;
 use std::sync::Arc;
 
@@ -50,7 +50,9 @@ async fn page_post(
         <HTPage base_data={&base_data} lang={&lang} title={title}>
             <h1>{title}</h1>
             <p>
-                <em>{post.score.to_string()}{" points"}</em>
+                <a href={format!("/posts/{}/likes", post_id)}>
+                    <em>{lang.tr("score", Some(&fluent::fluent_args!["score" => post.score]))}</em>
+                </a>
                 {" "}
                 {
                     if base_data.login.is_some() {
@@ -234,6 +236,75 @@ async fn handler_post_like(
         .body("Successfully liked.".into())?)
 }
 
+async fn page_post_likes(
+    params: (i64,),
+    ctx: Arc<crate::RouteContext>,
+    req: hyper::Request<hyper::Body>,
+) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+    let (post_id,) = params;
+
+    let lang = crate::get_lang_for_req(&req);
+    let cookies = get_cookie_map_for_req(&req)?;
+
+    let base_data =
+        fetch_base_data(&ctx.backend_host, &ctx.http_client, req.headers(), &cookies).await?;
+
+    let api_res = res_to_error(
+        ctx.http_client
+            .request(for_client(
+                hyper::Request::get(format!(
+                    "{}/api/unstable/posts/{}/likes",
+                    ctx.backend_host, post_id,
+                ))
+                .body(Default::default())?,
+                req.headers(),
+                &cookies,
+            )?)
+            .await?,
+    )
+    .await?;
+    let api_res = hyper::body::to_bytes(api_res.into_body()).await?;
+    let api_res: RespList<JustUser> = serde_json::from_slice(&api_res)?;
+
+    Ok(html_response(render::html! {
+        <HTPage base_data={&base_data} lang={&lang} title={&lang.tr("likes", None)}>
+        {
+            if api_res.items.is_empty() {
+                Some(render::rsx! { <p>{lang.tr("post_likes_nothing", None)}</p> })
+            } else {
+                None
+            }
+        }
+        {
+            if api_res.items.is_empty() {
+                None
+            } else {
+                Some(render::rsx! {
+                    <>
+                        <p>{lang.tr("liked_by", None)}</p>
+                        <ul>
+                            {
+                                api_res.items.iter().map(|like| {
+                                    render::rsx! { <li><UserLink user={Some(&like.user)} /></li> }
+                                })
+                                .collect::<Vec<_>>()
+                            }
+                            {
+                                if api_res.next_page.is_some() {
+                                    Some(render::rsx! { <li>{lang.tr("and_more", None)}</li> })
+                                } else {
+                                    None
+                                }
+                            }
+                        </ul>
+                    </>
+                })
+            }
+        }
+        </HTPage>
+    }))
+}
+
 async fn handler_post_unlike(
     params: (i64,),
     ctx: Arc<crate::RouteContext>,
@@ -316,6 +387,10 @@ pub fn route_posts() -> crate::RouteNode<()> {
             .with_child(
                 "like",
                 crate::RouteNode::new().with_handler_async("POST", handler_post_like),
+            )
+            .with_child(
+                "likes",
+                crate::RouteNode::new().with_handler_async("GET", page_post_likes),
             )
             .with_child(
                 "unlike",

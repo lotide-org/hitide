@@ -220,3 +220,14 @@ pub struct RespNotification<'a> {
 
     pub unseen: bool,
 }
+
+#[derive(Deserialize, Debug)]
+pub struct JustUser<'a> {
+    pub user: RespMinimalAuthorInfo<'a>,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct RespList<'a, T: std::fmt::Debug + 'a> {
+    pub items: Vec<T>,
+    pub next_page: Option<Cow<'a, str>>,
+}
