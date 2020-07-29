@@ -952,6 +952,13 @@ async fn page_notifications(
             Ok(html_response(render::html! {
                 <HTPage base_data={&base_data} lang={&lang} title={&title}>
                     <h1>{title.as_ref()}</h1>
+                    {
+                        if notifications.is_empty() {
+                            Some(render::rsx! { <p>{lang.tr("nothing", None)}</p> })
+                        } else {
+                            None
+                        }
+                    }
                     <ul>
                         {
                             notifications.iter()
