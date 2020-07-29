@@ -1,6 +1,7 @@
 #![allow(unused_braces)]
 
 use crate::resp_types::RespLoginInfo;
+use serde_derive::Deserialize;
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -10,6 +11,31 @@ mod components;
 mod resp_types;
 mod routes;
 mod util;
+
+#[derive(Deserialize, PartialEq, Clone, Copy)]
+#[serde(rename_all = "snake_case")]
+pub enum SortType {
+    Hot,
+    New,
+}
+
+impl SortType {
+    pub const VALUES: &'static [SortType] = &[SortType::Hot, SortType::New];
+
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            SortType::Hot => "hot",
+            SortType::New => "new",
+        }
+    }
+
+    pub fn lang_key(&self) -> &'static str {
+        match self {
+            SortType::Hot => "sort_hot",
+            SortType::New => "sort_new",
+        }
+    }
+}
 
 pub type HttpClient = hyper::Client<hyper_tls::HttpsConnector<hyper::client::HttpConnector>>;
 

@@ -93,6 +93,18 @@ async fn page_community(
 ) -> Result<hyper::Response<hyper::Body>, crate::Error> {
     let (community_id,) = params;
 
+    fn default_sort() -> crate::SortType {
+        crate::SortType::Hot
+    }
+
+    #[derive(Deserialize)]
+    struct Query {
+        #[serde(default = "default_sort")]
+        sort: crate::SortType,
+    }
+
+    let query: Query = serde_urlencoded::from_str(req.uri().query().unwrap_or(""))?;
+
     let lang = crate::get_lang_for_req(&req);
     let cookies = get_cookie_map_for_req(&req)?;
 
@@ -130,8 +142,10 @@ async fn page_community(
         ctx.http_client
             .request(for_client(
                 hyper::Request::get(format!(
-                    "{}/api/unstable/communities/{}/posts",
-                    ctx.backend_host, community_id
+                    "{}/api/unstable/communities/{}/posts?sort={}",
+                    ctx.backend_host,
+                    community_id,
+                    query.sort.as_str(),
                 ))
                 .body(Default::default())?,
                 req.headers(),
@@ -214,6 +228,21 @@ async fn page_community(
                     }
                 }
                 <p>{community_info.description.as_ref()}</p>
+            </div>
+            <div class={"sortOptions"}>
+                <span>{lang.tr("sort", None)}</span>
+                {
+                    crate::SortType::VALUES.iter()
+                        .map(|value| {
+                            let name = lang.tr(value.lang_key(), None);
+                            if query.sort == *value {
+                                render::rsx! { <span>{name}</span> }
+                            } else {
+                                render::rsx! { <a href={format!("/communities/{}?sort={}", community_id, value.as_str())}>{name}</a> }
+                            }
+                        })
+                        .collect::<Vec<_>>()
+                }
             </div>
             {
                 if posts.is_empty() {
