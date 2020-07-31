@@ -48,6 +48,13 @@ async fn page_post(
 
     Ok(html_response(render::html! {
         <HTPage base_data={&base_data} lang={&lang} title={title}>
+            {
+                if post.approved {
+                    None
+                } else {
+                    Some(render::rsx! { <div class={"infoBox"}>{lang.tr("post_not_approved", None)}</div> })
+                }
+            }
             <h1>{title}</h1>
             <p>
                 <a href={format!("/posts/{}/likes", post_id)}>

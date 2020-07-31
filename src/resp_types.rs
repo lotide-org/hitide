@@ -110,6 +110,7 @@ pub struct RespPostInfo<'a> {
 
     pub content_text: Option<Cow<'a, str>>,
     pub content_html: Option<Cow<'a, str>>,
+    pub approved: bool,
     pub score: i64,
     #[serde(borrow)]
     pub comments: Vec<RespPostCommentInfo<'a>>,
