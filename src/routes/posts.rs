@@ -3,7 +3,7 @@ use super::{
     res_to_error,
 };
 use crate::components::{Comment, CommunityLink, Content, HTPage, TimeAgo, UserLink};
-use crate::resp_types::{JustUser, RespList, RespPostInfo};
+use crate::resp_types::{JustUser, RespCommunityInfoMaybeYour, RespList, RespPostInfo};
 use crate::util::author_is_me;
 use std::sync::Arc;
 
@@ -41,8 +41,31 @@ async fn page_post(
     )
     .await?;
     let api_res = hyper::body::to_bytes(api_res.into_body()).await?;
-
     let post: RespPostInfo = serde_json::from_slice(&api_res)?;
+
+    let is_community_moderator = if base_data.login.is_some() {
+        let api_res = res_to_error(
+            ctx.http_client
+                .request(for_client(
+                    hyper::Request::get(format!(
+                        "{}/api/unstable/communities/{}?include_your=true",
+                        ctx.backend_host,
+                        post.as_ref().community.id,
+                    ))
+                    .body(Default::default())?,
+                    req.headers(),
+                    &cookies,
+                )?)
+                .await?,
+        )
+        .await?;
+        let api_res = hyper::body::to_bytes(api_res.into_body()).await?;
+
+        let info: RespCommunityInfoMaybeYour = serde_json::from_slice(&api_res)?;
+        info.you_are_moderator.unwrap()
+    } else {
+        false
+    };
 
     let title = post.as_ref().as_ref().title.as_ref();
 
@@ -73,6 +96,25 @@ async fn page_post(
                             render::rsx! {
                                 <form method={"POST"} action={format!("/posts/{}/like", post_id)}>
                                     <button type={"submit"}>{lang.tr("like", None)}</button>
+                                </form>
+                            }
+                        })
+                    } else {
+                        None
+                    }
+                }
+                {
+                    if is_community_moderator {
+                        Some(if post.approved {
+                            render::rsx! {
+                                <form method={"POST"} action={format!("/communities/{}/posts/{}/unapprove", post.as_ref().community.id, post_id)}>
+                                    <button type={"submit"}>{lang.tr("post_approve_undo", None)}</button>
+                                </form>
+                            }
+                        } else {
+                            render::rsx! {
+                                <form method={"POST"} action={format!("/communities/{}/posts/{}/approve", post.as_ref().community.id, post_id)}>
+                                    <button type={"submit"}>{lang.tr("post_approve", None)}</button>
                                 </form>
                             }
                         })

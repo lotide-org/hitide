@@ -414,6 +414,66 @@ async fn handler_community_follow(
         .body("Successfully followed".into())?)
 }
 
+async fn handler_community_post_approve(
+    params: (i64, i64),
+    ctx: Arc<crate::RouteContext>,
+    req: hyper::Request<hyper::Body>,
+) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+    let (community_id, post_id) = params;
+
+    let cookies = get_cookie_map_for_req(&req)?;
+
+    res_to_error(
+        ctx.http_client
+            .request(for_client(
+                hyper::Request::patch(format!(
+                    "{}/api/unstable/communities/{}/posts/{}",
+                    ctx.backend_host, community_id, post_id
+                ))
+                .body("{\"approved\": true}".into())?,
+                req.headers(),
+                &cookies,
+            )?)
+            .await?,
+    )
+    .await?;
+
+    Ok(hyper::Response::builder()
+        .status(hyper::StatusCode::SEE_OTHER)
+        .header(hyper::header::LOCATION, format!("/posts/{}", post_id))
+        .body("Successfully approved.".into())?)
+}
+
+async fn handler_community_post_unapprove(
+    params: (i64, i64),
+    ctx: Arc<crate::RouteContext>,
+    req: hyper::Request<hyper::Body>,
+) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+    let (community_id, post_id) = params;
+
+    let cookies = get_cookie_map_for_req(&req)?;
+
+    res_to_error(
+        ctx.http_client
+            .request(for_client(
+                hyper::Request::patch(format!(
+                    "{}/api/unstable/communities/{}/posts/{}",
+                    ctx.backend_host, community_id, post_id
+                ))
+                .body("{\"approved\": false}".into())?,
+                req.headers(),
+                &cookies,
+            )?)
+            .await?,
+    )
+    .await?;
+
+    Ok(hyper::Response::builder()
+        .status(hyper::StatusCode::SEE_OTHER)
+        .header(hyper::header::LOCATION, format!("/posts/{}", post_id))
+        .body("Successfully unapproved.".into())?)
+}
+
 async fn handler_community_unfollow(
     params: (i64,),
     ctx: Arc<crate::RouteContext>,
@@ -597,6 +657,22 @@ pub fn route_communities() -> crate::RouteNode<()> {
                 .with_child(
                     "follow",
                     crate::RouteNode::new().with_handler_async("POST", handler_community_follow),
+                )
+                .with_child(
+                    "posts",
+                    crate::RouteNode::new().with_child_parse::<i64, _>(
+                        crate::RouteNode::new()
+                            .with_child(
+                                "approve",
+                                crate::RouteNode::new()
+                                    .with_handler_async("POST", handler_community_post_approve),
+                            )
+                            .with_child(
+                                "unapprove",
+                                crate::RouteNode::new()
+                                    .with_handler_async("POST", handler_community_post_unapprove),
+                            ),
+                    ),
                 )
                 .with_child(
                     "unfollow",
