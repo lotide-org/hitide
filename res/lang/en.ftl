@@ -55,6 +55,7 @@ post_delete_title = Delete Post
 post_likes_nothing = Looks like nobody has liked this post yet.
 post_new = New Post
 post_not_approved = This post has not been approved by the community.
+preview = Preview
 register = Register
 remote = Remote
 reply = reply

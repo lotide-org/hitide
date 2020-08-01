@@ -55,6 +55,7 @@ post_delete_title = Forigi Poŝton
 post_likes_nothing = Ŝajnas, ke neniu ankoraŭ ŝatis ĉi tion poŝton.
 post_new = Nova Poŝto
 post_not_approved = Ĉi tiu poŝto ne estas aprobita per la komunumo.
+preview = Antaŭprezenti
 register = Registriĝi
 remote = Fora
 reply = respondi

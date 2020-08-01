@@ -228,6 +228,11 @@ pub struct JustUser<'a> {
 }
 
 #[derive(Deserialize, Debug)]
+pub struct JustContentHTML<'a> {
+    pub content_html: Cow<'a, str>,
+}
+
+#[derive(Deserialize, Debug)]
 pub struct RespList<'a, T: std::fmt::Debug + 'a> {
     pub items: Vec<T>,
     pub next_page: Option<Cow<'a, str>>,

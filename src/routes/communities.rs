@@ -1,6 +1,7 @@
 use crate::components::{CommunityLink, HTPage, MaybeFillInput, MaybeFillTextArea, PostItem};
 use crate::resp_types::{
-    RespCommunityInfoMaybeYour, RespMinimalCommunityInfo, RespPostListPost, RespYourFollow,
+    JustContentHTML, RespCommunityInfoMaybeYour, RespMinimalCommunityInfo, RespPostListPost,
+    RespYourFollow,
 };
 use crate::routes::{
     fetch_base_data, for_client, get_cookie_map_for_headers, get_cookie_map_for_req, html_response,
@@ -516,7 +517,8 @@ async fn page_community_new_post(
 
     let cookies = get_cookie_map_for_req(&req)?;
 
-    page_community_new_post_inner(community_id, req.headers(), &cookies, ctx, None, None).await
+    page_community_new_post_inner(community_id, req.headers(), &cookies, ctx, None, None, None)
+        .await
 }
 
 async fn page_community_new_post_inner(
@@ -526,6 +528,7 @@ async fn page_community_new_post_inner(
     ctx: Arc<crate::RouteContext>,
     display_error: Option<String>,
     prev_values: Option<&HashMap<&str, serde_json::Value>>,
+    display_preview: Option<&str>,
 ) -> Result<hyper::Response<hyper::Body>, crate::Error> {
     let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, headers, &cookies).await?;
     let lang = crate::get_lang_for_headers(headers);
@@ -533,6 +536,8 @@ async fn page_community_new_post_inner(
     let submit_url = format!("/communities/{}/new_post/submit", community_id);
 
     let title = lang.tr("post_new", None);
+
+    let display_preview = display_preview.map(|x| ammonia::clean(&x));
 
     Ok(html_response(render::html! {
         <HTPage base_data={&base_data} lang={&lang} title={&title}>
@@ -570,8 +575,16 @@ async fn page_community_new_post_inner(
                 </label>
                 <div>
                     <button r#type={"submit"}>{lang.tr("submit", None)}</button>
+                    <button r#type={"submit"} name={"preview"}>{lang.tr("preview", None)}</button>
                 </div>
             </form>
+            {
+                display_preview.as_deref().map(|html| {
+                    render::rsx! {
+                        <div class={"preview"}>{render::raw!(html)}</div>
+                    }
+                })
+            }
         </HTPage>
     }))
 }
@@ -588,6 +601,59 @@ async fn handler_communities_new_post_submit(
 
     let body = hyper::body::to_bytes(body).await?;
     let mut body: HashMap<&str, serde_json::Value> = serde_urlencoded::from_bytes(&body)?;
+    if body.contains_key("preview") {
+        let md = body
+            .get("content_markdown")
+            .and_then(|x| x.as_str())
+            .unwrap_or("");
+        let preview_res = res_to_error(
+            ctx.http_client
+                .request(for_client(
+                    hyper::Request::post(format!(
+                        "{}/api/unstable/misc/render_markdown",
+                        ctx.backend_host
+                    ))
+                    .body(
+                        serde_json::to_vec(&serde_json::json!({ "content_markdown": md }))?.into(),
+                    )?,
+                    &req_parts.headers,
+                    &cookies,
+                )?)
+                .await?,
+        )
+        .await;
+        return match preview_res {
+            Ok(preview_res) => {
+                let preview_res = hyper::body::to_bytes(preview_res.into_body()).await?;
+                let preview_res: JustContentHTML = serde_json::from_slice(&preview_res)?;
+
+                page_community_new_post_inner(
+                    community_id,
+                    &req_parts.headers,
+                    &cookies,
+                    ctx,
+                    None,
+                    Some(&body),
+                    Some(&preview_res.content_html),
+                )
+                .await
+            }
+            Err(crate::Error::RemoteError((_, message))) => {
+                page_community_new_post_inner(
+                    community_id,
+                    &req_parts.headers,
+                    &cookies,
+                    ctx,
+                    Some(message),
+                    Some(&body),
+                    None,
+                )
+                .await
+            }
+            Err(other) => Err(other),
+        };
+    }
+
     body.insert("community", community_id.into());
     if body.get("content_markdown").and_then(|x| x.as_str()) == Some("") {
         body.remove("content_markdown");
@@ -631,6 +697,7 @@ async fn handler_communities_new_post_submit(
                 ctx,
                 Some(message),
                 Some(&body),
+                None,
             )
             .await
         }
