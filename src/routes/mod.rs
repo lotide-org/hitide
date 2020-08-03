@@ -1087,13 +1087,21 @@ async fn page_user(
 
     let user = res_to_error(
         ctx.http_client
-            .request(
+            .request(for_client(
                 hyper::Request::get(format!(
-                    "{}/api/unstable/users/{}",
-                    ctx.backend_host, user_id
+                    "{}/api/unstable/users/{}{}",
+                    ctx.backend_host,
+                    user_id,
+                    if base_data.login.is_some() {
+                        "?include_your=true"
+                    } else {
+                        ""
+                    },
                 ))
                 .body(Default::default())?,
-            )
+                req.headers(),
+                &cookies,
+            )?)
             .await?,
     )
     .await?;
@@ -1120,7 +1128,7 @@ async fn page_user(
     Ok(html_response(render::html! {
         <HTPage base_data={&base_data} lang={&lang} title>
             <h1>{title}</h1>
-            <div><em>{format!("@{}@{}", user.as_ref().username, user.as_ref().host)}</em></div>
+            <p><em>{format!("@{}@{}", user.as_ref().username, user.as_ref().host)}</em></p>
             {
                 if user.as_ref().local {
                     None
@@ -1133,6 +1141,29 @@ async fn page_user(
                     })
                 } else {
                     None // shouldn't ever happen
+                }
+            }
+            {
+                if let Some(your_note) = &user.your_note {
+                    Some(render::rsx! {
+                        <div>
+                            {lang.tr("your_note", None)}{" ("}<a href={format!("/users/{}/your_note/edit", user_id)}>{lang.tr("edit", None)}</a>{"):"}
+                            <pre>{your_note.content_text.as_ref()}</pre>
+                        </div>
+                    })
+                } else {
+                    None
+                }
+            }
+            {
+                if user.your_note.is_none() && base_data.login.is_some() {
+                    Some(render::rsx! {
+                        <div>
+                            <a href={format!("/users/{}/your_note/edit", user_id)}>{lang.tr("your_note_add", None)}</a>
+                        </div>
+                    })
+                } else {
+                    None
                 }
             }
             {
@@ -1249,6 +1280,88 @@ async fn handler_user_edit_submit(
             .request(for_client(
                 hyper::Request::patch(format!("{}/api/unstable/users/me", ctx.backend_host))
                     .body(serde_json::to_vec(&body)?.into())?,
+                &req_parts.headers,
+                &cookies,
+            )?)
+            .await?,
+    )
+    .await?;
+
+    Ok(hyper::Response::builder()
+        .status(hyper::StatusCode::SEE_OTHER)
+        .header(hyper::header::LOCATION, format!("/users/{}", user_id))
+        .body("Successfully created.".into())?)
+}
+
+async fn page_user_your_note_edit(
+    params: (i64,),
+    ctx: Arc<crate::RouteContext>,
+    req: hyper::Request<hyper::Body>,
+) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+    let (user_id,) = params;
+
+    let lang = crate::get_lang_for_req(&req);
+    let cookies = get_cookie_map_for_req(&req)?;
+
+    let base_data =
+        fetch_base_data(&ctx.backend_host, &ctx.http_client, req.headers(), &cookies).await?;
+
+    let user = res_to_error(
+        ctx.http_client
+            .request(for_client(
+                hyper::Request::get(format!(
+                    "{}/api/unstable/users/{}?include_your=true",
+                    ctx.backend_host, user_id,
+                ))
+                .body(Default::default())?,
+                req.headers(),
+                &cookies,
+            )?)
+            .await?,
+    )
+    .await?;
+    let user = hyper::body::to_bytes(user.into_body()).await?;
+    let user: RespUserInfo<'_> = serde_json::from_slice(&user)?;
+
+    let title = lang.tr("your_note_edit", None);
+
+    Ok(html_response(render::html! {
+        <HTPage base_data={&base_data} lang={&lang} title={&title}>
+            <h1>{title.as_ref()}</h1>
+            <form method={"POST"} action={format!("/users/{}/your_note/edit/submit", user_id)}>
+                <div>
+                    <textarea name={"content_text"} autofocus={""}>
+                        {user.your_note.map(|x| x.content_text)}
+                    </textarea>
+                </div>
+                <button type={"submit"}>{lang.tr("save", None)}</button>
+            </form>
+        </HTPage>
+    }))
+}
+
+async fn handler_user_your_note_edit_submit(
+    params: (i64,),
+    ctx: Arc<crate::RouteContext>,
+    req: hyper::Request<hyper::Body>,
+) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+    let (user_id,) = params;
+
+    let (req_parts, body) = req.into_parts();
+
+    let cookies = get_cookie_map_for_headers(&req_parts.headers)?;
+
+    let body = hyper::body::to_bytes(body).await?;
+    let body: serde_json::Value = serde_urlencoded::from_bytes(&body)?;
+
+    res_to_error(
+        ctx.http_client
+            .request(for_client(
+                hyper::Request::put(format!(
+                    "{}/api/unstable/users/{}/your_note",
+                    ctx.backend_host, user_id
+                ))
+                .body(serde_json::to_vec(&body)?.into())?,
                 &req_parts.headers,
                 &cookies,
             )?)
@@ -1473,6 +1586,16 @@ pub fn route_root() -> crate::RouteNode<()> {
                                 "submit",
                                 crate::RouteNode::new()
                                     .with_handler_async("POST", handler_user_edit_submit),
+                            ),
+                    )
+                    .with_child(
+                        "your_note/edit",
+                        crate::RouteNode::new()
+                            .with_handler_async("GET", page_user_your_note_edit)
+                            .with_child(
+                                "submit",
+                                crate::RouteNode::new()
+                                    .with_handler_async("POST", handler_user_your_note_edit_submit),
                             ),
                     ),
             ),

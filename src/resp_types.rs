@@ -137,6 +137,7 @@ pub struct RespUserInfo<'a> {
     #[serde(flatten)]
     pub base: RespMinimalAuthorInfo<'a>,
     pub description: Cow<'a, str>,
+    pub your_note: Option<JustContentText<'a>>,
 }
 
 impl<'a> AsRef<RespMinimalAuthorInfo<'a>> for RespUserInfo<'a> {
@@ -225,6 +226,11 @@ pub struct RespNotification<'a> {
 #[derive(Deserialize, Debug)]
 pub struct JustUser<'a> {
     pub user: RespMinimalAuthorInfo<'a>,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct JustContentText<'a> {
+    pub content_text: Cow<'a, str>,
 }
 
 #[derive(Deserialize, Debug)]
