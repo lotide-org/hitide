@@ -913,7 +913,7 @@ async fn page_notifications(
         ctx.http_client
             .request(for_client(
                 hyper::Request::get(format!(
-                    "{}/api/unstable/users/me/notifications",
+                    "{}/api/unstable/users/~me/notifications",
                     ctx.backend_host
                 ))
                 .body(Default::default())?,
@@ -1278,7 +1278,7 @@ async fn handler_user_edit_submit(
     res_to_error(
         ctx.http_client
             .request(for_client(
-                hyper::Request::patch(format!("{}/api/unstable/users/me", ctx.backend_host))
+                hyper::Request::patch(format!("{}/api/unstable/users/~me", ctx.backend_host))
                     .body(serde_json::to_vec(&body)?.into())?,
                 &req_parts.headers,
                 &cookies,
@@ -1394,7 +1394,7 @@ async fn page_home(
         ctx.http_client
             .request(for_client(
                 hyper::Request::get(format!(
-                    "{}/api/unstable/users/me/following:posts",
+                    "{}/api/unstable/users/~me/following:posts",
                     ctx.backend_host
                 ))
                 .body(Default::default())?,
