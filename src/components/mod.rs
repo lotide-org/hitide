@@ -226,11 +226,18 @@ pub fn HTPage<'a, Children: render::Render>(
                                         <>
                                             <a
                                                 href={"/notifications"}
-                                                class={if login.user.has_unread_notifications { "notification-indicator unread" } else { "notification-indicator" }}
                                             >
-                                                {"🔔︎"}
+                                                {
+                                                    if login.user.has_unread_notifications {
+                                                        hitide_icons::NOTIFICATIONS_SOME.img()
+                                                    } else {
+                                                        hitide_icons::NOTIFICATIONS.img()
+                                                    }
+                                                }
                                             </a>
-                                            <a href={format!("/users/{}", login.user.id)}>{"👤︎"}</a>
+                                            <a href={format!("/users/{}", login.user.id)}>
+                                                {hitide_icons::PERSON.img()}
+                                            </a>
                                         </>
                                     })
                                 } else {
@@ -499,5 +506,15 @@ impl<'a> render::Render for NotificationItem<'a> {
         }
 
         write!(writer, "</li>")
+    }
+}
+
+trait IconExt {
+    fn img(&self) -> render::SimpleElement<()>;
+}
+
+impl IconExt for hitide_icons::Icon {
+    fn img(&self) -> render::SimpleElement<()> {
+        render::rsx! { <img src={format!("/static/{}", self.path)} class={"icon"} /> }
     }
 }

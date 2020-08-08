@@ -1,3 +1,4 @@
+use hitide_icons::ICONS_MAP;
 use std::sync::Arc;
 
 const FILE_MAIN_CSS: &[u8] = include_bytes!("../../res/main.css");
@@ -17,6 +18,14 @@ async fn handler_static_get(
         resp.headers_mut().insert(
             hyper::header::CONTENT_TYPE,
             hyper::header::HeaderValue::from_static("text/css"),
+        );
+
+        Ok(resp)
+    } else if let Some(icon) = ICONS_MAP.get(params.0.as_str()) {
+        let mut resp = hyper::Response::new(icon.content.into());
+        resp.headers_mut().insert(
+            hyper::header::CONTENT_TYPE,
+            hyper::header::HeaderValue::from_static("image/svg+xml"),
         );
 
         Ok(resp)
