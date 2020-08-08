@@ -461,8 +461,8 @@ async fn handler_comment_like(
     res_to_error(
         ctx.http_client
             .request(for_client(
-                hyper::Request::post(format!(
-                    "{}/api/unstable/comments/{}/like",
+                hyper::Request::put(format!(
+                    "{}/api/unstable/comments/{}/your_vote",
                     ctx.backend_host, comment_id
                 ))
                 .body(Default::default())?,
@@ -504,8 +504,8 @@ async fn handler_comment_unlike(
     res_to_error(
         ctx.http_client
             .request(for_client(
-                hyper::Request::post(format!(
-                    "{}/api/unstable/comments/{}/unlike",
+                hyper::Request::delete(format!(
+                    "{}/api/unstable/comments/{}/your_vote",
                     ctx.backend_host, comment_id
                 ))
                 .body(Default::default())?,
@@ -721,8 +721,19 @@ async fn page_lookup(
     let query = query.query;
 
     #[derive(Deserialize)]
+    #[serde(rename_all = "snake_case")]
+    enum ActorType {
+        Community,
+        User,
+        #[serde(other)]
+        Unknown,
+    }
+
+    #[derive(Deserialize)]
     struct LookupResult {
         id: i64,
+        #[serde(rename = "type")]
+        kind: ActorType,
     }
 
     let api_res: Option<Result<Vec<LookupResult>, String>> = if let Some(query) = &query {
@@ -755,13 +766,22 @@ async fn page_lookup(
     };
 
     match api_res {
-        Some(Ok(items)) if !items.is_empty() => Ok(hyper::Response::builder()
-            .status(hyper::StatusCode::FOUND)
-            .header(
-                hyper::header::LOCATION,
-                format!("/communities/{}", items[0].id),
-            )
-            .body("Redirecting…".into())?),
+        Some(Ok(items)) if !items.is_empty() => {
+            let item = &items[0];
+            let dest = match item.kind {
+                ActorType::Community => format!("/communities/{}", item.id),
+                ActorType::User => format!("/users/{}", item.id),
+                ActorType::Unknown => {
+                    return Err(crate::Error::InternalStr(
+                        "Unknown actor type received from lookup".to_owned(),
+                    ));
+                }
+            };
+            Ok(hyper::Response::builder()
+                .status(hyper::StatusCode::FOUND)
+                .header(hyper::header::LOCATION, dest)
+                .body("Redirecting…".into())?)
+        }
         api_res => {
             let title = lang.tr("lookup_title", None);
             Ok(html_response(render::html! {
@@ -913,7 +933,7 @@ async fn page_notifications(
         ctx.http_client
             .request(for_client(
                 hyper::Request::get(format!(
-                    "{}/api/unstable/users/me/notifications",
+                    "{}/api/unstable/users/~me/notifications",
                     ctx.backend_host
                 ))
                 .body(Default::default())?,
@@ -1278,7 +1298,7 @@ async fn handler_user_edit_submit(
     res_to_error(
         ctx.http_client
             .request(for_client(
-                hyper::Request::patch(format!("{}/api/unstable/users/me", ctx.backend_host))
+                hyper::Request::patch(format!("{}/api/unstable/users/~me", ctx.backend_host))
                     .body(serde_json::to_vec(&body)?.into())?,
                 &req_parts.headers,
                 &cookies,
@@ -1394,7 +1414,7 @@ async fn page_home(
         ctx.http_client
             .request(for_client(
                 hyper::Request::get(format!(
-                    "{}/api/unstable/users/me/following:posts",
+                    "{}/api/unstable/users/~me/following:posts",
                     ctx.backend_host
                 ))
                 .body(Default::default())?,
