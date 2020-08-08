@@ -461,8 +461,8 @@ async fn handler_comment_like(
     res_to_error(
         ctx.http_client
             .request(for_client(
-                hyper::Request::post(format!(
-                    "{}/api/unstable/comments/{}/like",
+                hyper::Request::put(format!(
+                    "{}/api/unstable/comments/{}/your_vote",
                     ctx.backend_host, comment_id
                 ))
                 .body(Default::default())?,
@@ -504,8 +504,8 @@ async fn handler_comment_unlike(
     res_to_error(
         ctx.http_client
             .request(for_client(
-                hyper::Request::post(format!(
-                    "{}/api/unstable/comments/{}/unlike",
+                hyper::Request::delete(format!(
+                    "{}/api/unstable/comments/{}/your_vote",
                     ctx.backend_host, comment_id
                 ))
                 .body(Default::default())?,

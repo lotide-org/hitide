@@ -267,11 +267,11 @@ async fn handler_post_like(
     res_to_error(
         ctx.http_client
             .request(for_client(
-                hyper::Request::post(format!(
-                    "{}/api/unstable/posts/{}/like",
+                hyper::Request::put(format!(
+                    "{}/api/unstable/posts/{}/your_vote",
                     ctx.backend_host, post_id
                 ))
-                .body(Default::default())?,
+                .body("{}".into())?,
                 req.headers(),
                 &cookies,
             )?)
@@ -302,7 +302,7 @@ async fn page_post_likes(
         ctx.http_client
             .request(for_client(
                 hyper::Request::get(format!(
-                    "{}/api/unstable/posts/{}/likes",
+                    "{}/api/unstable/posts/{}/votes",
                     ctx.backend_host, post_id,
                 ))
                 .body(Default::default())?,
@@ -366,8 +366,8 @@ async fn handler_post_unlike(
     res_to_error(
         ctx.http_client
             .request(for_client(
-                hyper::Request::post(format!(
-                    "{}/api/unstable/posts/{}/unlike",
+                hyper::Request::delete(format!(
+                    "{}/api/unstable/posts/{}/your_vote",
                     ctx.backend_host, post_id
                 ))
                 .body(Default::default())?,
