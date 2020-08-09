@@ -195,6 +195,8 @@ pub struct RespInstanceSoftwareInfo<'a> {
 
 #[derive(Deserialize, Debug)]
 pub struct RespInstanceInfo<'a> {
+    #[serde(default)]
+    pub description: Cow<'a, str>,
     pub software: RespInstanceSoftwareInfo<'a>,
 }
 

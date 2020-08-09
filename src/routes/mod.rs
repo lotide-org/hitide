@@ -146,15 +146,28 @@ async fn page_about(
         <HTPage base_data={&base_data} lang={&lang} title={&title}>
             <h1>{title.as_ref()}</h1>
             {
-                lang.tr(
-                    "about_versions",
-                    Some(&fluent::fluent_args![
-                        "hitide_version" => env!("CARGO_PKG_VERSION"),
-                        "backend_name" => api_res.software.name,
-                        "backend_version" => api_res.software.version
-                    ])
-                )
+                if api_res.description == "" {
+                    None
+                } else {
+                    Some(render::rsx! {
+                        <p>
+                            {Some(api_res.description)}
+                        </p>
+                    })
+                }
             }
+            <p>
+                {
+                    lang.tr(
+                        "about_versions",
+                        Some(&fluent::fluent_args![
+                            "hitide_version" => env!("CARGO_PKG_VERSION"),
+                            "backend_name" => api_res.software.name,
+                            "backend_version" => api_res.software.version
+                        ])
+                    )
+                }
+            </p>
             <h2>{lang.tr("about_what_is", None)}</h2>
             <p>
                 {lang.tr("about_text1", None)}
