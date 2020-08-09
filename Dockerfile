@@ -6,6 +6,7 @@ WORKDIR /usr/src/hitide
 COPY Cargo.* ./
 COPY src ./src
 COPY res ./res
+COPY icons ./icons
 RUN cargo build --release
 
 FROM debian:buster-slim
