@@ -60,7 +60,10 @@ reply = reply
 reply_submit = Reply
 reply_to = Reply to
 save = Save
-score = { $score } likes
+score = { $score } { $score ->
+    [one] like
+    *[other] likes
+}
 sort = Sort:
 sort_hot = hot
 sort_new = new

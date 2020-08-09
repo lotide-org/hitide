@@ -60,7 +60,10 @@ reply = respondi
 reply_submit = Respondi
 reply_to = Respondo al
 save = Konservi
-score = { $score } ŝatantoj
+score = { $score } { $score ->
+    [one] ŝatanto
+    *[other] ŝatantoj
+}
 sort = Ordigi:
 sort_hot = furora
 sort_new = nova
