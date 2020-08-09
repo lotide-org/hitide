@@ -302,7 +302,7 @@ async fn page_comment_inner(
                     None
                 }
             }
-            <ul>
+            <ul class={"commentList topLevel"}>
                 {
                     comment.as_ref().replies.as_ref().unwrap().iter().map(|reply| {
                         render::rsx! {
