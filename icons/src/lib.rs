@@ -43,7 +43,9 @@ macro_rules! icons {
 icons! {
     NOTIFICATIONS => "notifications.svg",
     NOTIFICATIONS_SOME => "notifications-some.svg",
-    PERSON => "person.svg"
+    PERSON => "person.svg",
+    UPVOTE => "upvote.svg",
+    UPVOTED => "upvoted.svg"
 }
 
 pub use icons::*;

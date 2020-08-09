@@ -3,8 +3,8 @@ use std::borrow::Cow;
 use std::sync::Arc;
 
 use crate::components::{
-    Comment, Content, HTPage, MaybeFillInput, MaybeFillTextArea, NotificationItem, PostItem,
-    ThingItem, UserLink,
+    Comment, Content, HTPage, IconExt, MaybeFillInput, MaybeFillTextArea, NotificationItem,
+    PostItem, ThingItem, UserLink,
 };
 use crate::resp_types::{
     RespCommentInfo, RespInstanceInfo, RespNotification, RespPostCommentInfo, RespPostListPost,
@@ -232,6 +232,31 @@ async fn page_comment_inner(
             }
             <p>
                 {
+                    if base_data.login.is_some() {
+                        Some(render::rsx! {
+                            <>
+                                {
+                                    if comment.as_ref().your_vote.is_some() {
+                                        render::rsx! {
+                                            <form method={"POST"} action={format!("/comments/{}/unlike", comment.as_ref().as_ref().id)}>
+                                                <button type={"submit"} class={"iconbutton"}>{hitide_icons::UPVOTED.img()}</button>
+                                            </form>
+                                        }
+                                    } else {
+                                        render::rsx! {
+                                            <form method={"POST"} action={format!("/comments/{}/like", comment.as_ref().as_ref().id)}>
+                                                <button type={"submit"} class={"iconbutton"}>{hitide_icons::UPVOTE.img()}</button>
+                                            </form>
+                                        }
+                                    }
+                                }
+                            </>
+                        })
+                    } else {
+                        None
+                    }
+                }
+                {
                     if let Some(parent) = &comment.parent {
                         Some(render::rsx! {
                             <div>
@@ -246,31 +271,6 @@ async fn page_comment_inner(
                 <Content src={&comment} />
             </p>
             <div class={"actionList"}>
-                {
-                    if base_data.login.is_some() {
-                        Some(render::rsx! {
-                            <>
-                                {
-                                    if comment.as_ref().your_vote.is_some() {
-                                        render::rsx! {
-                                            <form method={"POST"} action={format!("/comments/{}/unlike", comment.as_ref().as_ref().id)}>
-                                                <button type={"submit"}>{lang.tr("like_undo", None)}</button>
-                                            </form>
-                                        }
-                                    } else {
-                                        render::rsx! {
-                                            <form method={"POST"} action={format!("/comments/{}/like", comment.as_ref().as_ref().id)}>
-                                                <button type={"submit"}>{lang.tr("like", None)}</button>
-                                            </form>
-                                        }
-                                    }
-                                }
-                            </>
-                        })
-                    } else {
-                        None
-                    }
-                }
                 {
                     if author_is_me(&comment.as_ref().author, &base_data.login) {
                         Some(render::rsx! {

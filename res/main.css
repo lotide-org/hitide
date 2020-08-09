@@ -77,6 +77,37 @@ body {
 	vertical-align: text-bottom;
 }
 
+.iconbutton {
+	padding: 0;
+}
+
+.iconbutton > .icon {
+	margin-left: -1em;
+	margin-right: -1em;
+}
+
+.votebox {
+	float: left;
+	margin-right: .5em;
+}
+
+.comment > .content {
+	display: inline-block;
+}
+
+.commentList {
+	margin-top: .5em;
+	list-style-type: none;
+}
+
+.commentList.topLevel {
+	padding-left: 0;
+}
+
+form.inline {
+	display: inline-block;
+}
+
 @media (max-width: 768px) {
 	.communitySidebar {
 		display: none; /* TODO still show this somewhere */

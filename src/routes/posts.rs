@@ -2,7 +2,7 @@ use super::{
     fetch_base_data, for_client, get_cookie_map_for_headers, get_cookie_map_for_req, html_response,
     res_to_error,
 };
-use crate::components::{Comment, CommunityLink, Content, HTPage, TimeAgo, UserLink};
+use crate::components::{Comment, CommunityLink, Content, HTPage, IconExt, TimeAgo, UserLink};
 use crate::resp_types::{JustUser, RespCommunityInfoMaybeYour, RespList, RespPostInfo};
 use crate::util::author_is_me;
 use std::sync::Arc;
@@ -79,30 +79,36 @@ async fn page_post(
                 }
             }
             <h1>{title}</h1>
-            <p>
-                <a href={format!("/posts/{}/likes", post_id)}>
-                    <em>{lang.tr("score", Some(&fluent::fluent_args!["score" => post.score]))}</em>
-                </a>
-                {" "}
+            <div>
                 {
                     if base_data.login.is_some() {
                         Some(if post.your_vote.is_some() {
                             render::rsx! {
-                                <form method={"POST"} action={format!("/posts/{}/unlike", post_id)}>
-                                    <button type={"submit"}>{lang.tr("like_undo", None)}</button>
-                                </form>
+                                <>
+                                    <form method={"POST"} action={format!("/posts/{}/unlike", post_id)} class={"inline"}>
+                                        <button type={"submit"} class={"iconbutton"}>{hitide_icons::UPVOTED.img()}</button>
+                                    </form>
+                                    {" "}
+                                </>
                             }
                         } else {
                             render::rsx! {
-                                <form method={"POST"} action={format!("/posts/{}/like", post_id)}>
-                                    <button type={"submit"}>{lang.tr("like", None)}</button>
-                                </form>
+                                <>
+                                    <form method={"POST"} action={format!("/posts/{}/like", post_id)} class={"inline"}>
+                                        <button type={"submit"} class={"iconbutton"}>{hitide_icons::UPVOTE.img()}</button>
+                                    </form>
+                                    {" "}
+                                </>
                             }
                         })
                     } else {
                         None
                     }
                 }
+                <a href={format!("/posts/{}/likes", post_id)}>
+                    <em>{lang.tr("score", Some(&fluent::fluent_args!["score" => post.score]))}</em>
+                </a>
+                {" "}
                 {
                     if is_community_moderator {
                         Some(if post.approved {
@@ -122,7 +128,7 @@ async fn page_post(
                         None
                     }
                 }
-            </p>
+            </div>
             <p>
                 {lang.tr("submitted", None)}
                 {" "}<TimeAgo since={chrono::DateTime::parse_from_rfc3339(&post.as_ref().created)?} lang={&lang} />
@@ -167,7 +173,7 @@ async fn page_post(
                         None
                     }
                 }
-                <ul>
+                <ul class={"commentList topLevel"}>
                     {
                         post.comments.iter().map(|comment| {
                             render::rsx! {

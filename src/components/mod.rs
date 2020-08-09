@@ -20,55 +20,65 @@ pub fn Comment<'a>(
     lang: &'a crate::Translator,
 ) {
     render::rsx! {
-        <li>
-            <small>
-                <cite><UserLink user={comment.author.as_ref()} /></cite>
-                {" "}
-                <TimeAgo since={chrono::DateTime::parse_from_rfc3339(&comment.created).unwrap()} lang />
-            </small>
-            <Content src={comment} />
-            <div class={"actionList"}>
-                {
-                    if base_data.login.is_some() {
-                        Some(render::rsx! {
-                            <>
-                                {
-                                    if comment.your_vote.is_some() {
-                                        render::rsx! {
-                                            <form method={"POST"} action={format!("/comments/{}/unlike", comment.as_ref().id)}>
-                                                <button type={"submit"}>{lang.tr("like_undo", None)}</button>
-                                            </form>
-                                        }
-                                    } else {
-                                        render::rsx! {
-                                            <form method={"POST"} action={format!("/comments/{}/like", comment.as_ref().id)}>
-                                                <button type={"submit"}>{lang.tr("like", None)}</button>
-                                            </form>
-                                        }
+        <li class={"comment"}>
+            {
+                if base_data.login.is_some() {
+                    Some(render::rsx! {
+                        <div class={"votebox"}>
+                            {
+                                if comment.your_vote.is_some() {
+                                    render::rsx! {
+                                        <form method={"POST"} action={format!("/comments/{}/unlike", comment.as_ref().id)}>
+                                            <button class={"iconbutton"} type={"submit"}>{hitide_icons::UPVOTED.img()}</button>
+                                        </form>
+                                    }
+                                } else {
+                                    render::rsx! {
+                                        <form method={"POST"} action={format!("/comments/{}/like", comment.as_ref().id)}>
+                                            <button class={"iconbutton"} type={"submit"}>{hitide_icons::UPVOTE.img()}</button>
+                                        </form>
                                     }
                                 }
+                            }
+                        </div>
+                    })
+                } else {
+                    None
+                }
+            }
+            <div class={"content"}>
+                <small>
+                    <cite><UserLink user={comment.author.as_ref()} /></cite>
+                    {" "}
+                    <TimeAgo since={chrono::DateTime::parse_from_rfc3339(&comment.created).unwrap()} lang />
+                </small>
+                <Content src={comment} />
+                <div class={"actionList"}>
+                    {
+                        if base_data.login.is_some() {
+                            Some(render::rsx! {
                                 <a href={format!("/comments/{}", comment.as_ref().id)}>{lang.tr("reply", None)}</a>
-                            </>
-                        })
-                    } else {
-                        None
+                            })
+                        } else {
+                            None
+                        }
                     }
-                }
-                {
-                    if author_is_me(&comment.author, &base_data.login) {
-                        Some(render::rsx! {
-                            <a href={format!("/comments/{}/delete", comment.as_ref().id)}>{lang.tr("delete", None)}</a>
-                        })
-                    } else {
-                        None
+                    {
+                        if author_is_me(&comment.author, &base_data.login) {
+                            Some(render::rsx! {
+                                <a href={format!("/comments/{}/delete", comment.as_ref().id)}>{lang.tr("delete", None)}</a>
+                            })
+                        } else {
+                            None
+                        }
                     }
-                }
+                </div>
             </div>
 
             {
                 if let Some(replies) = &comment.replies {
                         Some(render::rsx! {
-                            <ul>
+                            <ul class={"commentList"}>
                                 {
                                     replies.iter().map(|reply| {
                                         render::rsx! {
@@ -509,7 +519,7 @@ impl<'a> render::Render for NotificationItem<'a> {
     }
 }
 
-trait IconExt {
+pub trait IconExt {
     fn img(&self) -> render::SimpleElement<()>;
 }
 
