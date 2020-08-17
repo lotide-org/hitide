@@ -11,7 +11,7 @@ RUN cargo build --release
 
 FROM debian:buster-slim
 RUN apt-get update \
-	&& apt-get install -y openssl \
+	&& apt-get install -y openssl ca-certificates \
 	&& rm -rf /var/lib/apt/lists/*
 COPY --from=builder /usr/src/hitide/target/release/hitide /usr/bin/
 CMD ["hitide"]
