@@ -78,12 +78,9 @@ body {
 }
 
 .iconbutton {
+	background: none;
+	border: none;
 	padding: 0;
-}
-
-.iconbutton > .icon {
-	margin-left: -1em;
-	margin-right: -1em;
 }
 
 .votebox {
