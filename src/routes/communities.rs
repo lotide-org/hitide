@@ -1,7 +1,7 @@
 use crate::components::{CommunityLink, HTPage, MaybeFillInput, MaybeFillTextArea, PostItem};
 use crate::resp_types::{
-    JustContentHTML, RespCommunityInfoMaybeYour, RespMinimalCommunityInfo, RespPostListPost,
-    RespYourFollow,
+    JustContentHTML, RespCommunityInfoMaybeYour, RespMinimalAuthorInfo, RespMinimalCommunityInfo,
+    RespPostListPost, RespYourFollow,
 };
 use crate::routes::{
     fetch_base_data, for_client, get_cookie_map_for_headers, get_cookie_map_for_req, html_response,
@@ -229,6 +229,7 @@ async fn page_community(
                     }
                 }
                 <p>{community_info.description.as_ref()}</p>
+                <p><a href={format!("/communities/{}/moderators", community_id)}>{lang.tr("moderators", None)}</a></p>
             </div>
             <div class={"sortOptions"}>
                 <span>{lang.tr("sort", None)}</span>
@@ -413,6 +414,140 @@ async fn handler_community_follow(
             format!("/communities/{}", community_id),
         )
         .body("Successfully followed".into())?)
+}
+
+async fn page_community_moderators(
+    params: (i64,),
+    ctx: Arc<crate::RouteContext>,
+    req: hyper::Request<hyper::Body>,
+) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+    let (community_id,) = params;
+
+    let lang = crate::get_lang_for_req(&req);
+    let cookies = get_cookie_map_for_req(&req)?;
+    let base_data =
+        fetch_base_data(&ctx.backend_host, &ctx.http_client, req.headers(), &cookies).await?;
+
+    let community_info_api_res = res_to_error(
+        ctx.http_client
+            .request(for_client(
+                hyper::Request::get(format!(
+                    "{}/api/unstable/communities/{}{}",
+                    ctx.backend_host,
+                    community_id,
+                    if base_data.login.is_some() {
+                        "?include_your=true"
+                    } else {
+                        ""
+                    },
+                ))
+                .body(Default::default())?,
+                req.headers(),
+                &cookies,
+            )?)
+            .await?,
+    )
+    .await?;
+    let community_info_api_res = hyper::body::to_bytes(community_info_api_res.into_body()).await?;
+    let community_info: RespCommunityInfoMaybeYour =
+        { serde_json::from_slice(&community_info_api_res)? };
+
+    let api_res = res_to_error(
+        ctx.http_client
+            .request(for_client(
+                hyper::Request::get(format!(
+                    "{}/api/unstable/communities/{}/moderators",
+                    ctx.backend_host, community_id,
+                ))
+                .body(Default::default())?,
+                req.headers(),
+                &cookies,
+            )?)
+            .await?,
+    )
+    .await?;
+    let api_res = hyper::body::to_bytes(api_res.into_body()).await?;
+    let api_res: Vec<RespMinimalAuthorInfo> = serde_json::from_slice(&api_res)?;
+
+    let title = lang.tr("moderators", None);
+
+    Ok(html_response(render::html! {
+        <HTPage base_data={&base_data} lang={&lang} title={&title}>
+            <h1>{title.as_ref()}</h1>
+            <ul>
+                {
+                    api_res.iter().map(|user| {
+                        render::rsx! {
+                            <li><a href={format!("/users/{}", user.id)}>{user.username.as_ref()}</a></li>
+                        }
+                    })
+                    .collect::<Vec<_>>()
+                }
+            </ul>
+            {
+                if community_info.you_are_moderator == Some(true) {
+                    Some(render::rsx! {
+                        <div>
+                            <h2>{lang.tr("community_add_moderator", None)}</h2>
+                            <form method={"POST"} action={format!("/communities/{}/moderators/add", community_id)}>
+                                <label>
+                                    {lang.tr("user_id_prompt", None)}{" "}
+                                    <input type={"number"} name={"user"} />
+                                </label>
+                                {" "}
+                                <button type={"submit"}>{lang.tr("add", None)}</button>
+                            </form>
+                        </div>
+                    })
+                } else {
+                    None
+                }
+            }
+        </HTPage>
+    }))
+}
+
+async fn handler_community_moderators_add(
+    params: (i64,),
+    ctx: Arc<crate::RouteContext>,
+    req: hyper::Request<hyper::Body>,
+) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+    let (community_id,) = params;
+
+    let (req_parts, body) = req.into_parts();
+
+    let cookies = get_cookie_map_for_headers(&req_parts.headers)?;
+
+    #[derive(Deserialize)]
+    struct ModeratorsAddParams {
+        user: i64,
+    }
+
+    let body = hyper::body::to_bytes(body).await?;
+    let body: ModeratorsAddParams = serde_urlencoded::from_bytes(&body)?;
+
+    res_to_error(
+        ctx.http_client
+            .request(for_client(
+                hyper::Request::put(format!(
+                    "{}/api/unstable/communities/{}/moderators/{}",
+                    ctx.backend_host, community_id, body.user,
+                ))
+                .body(Default::default())?,
+                &req_parts.headers,
+                &cookies,
+            )?)
+            .await?,
+    )
+    .await?;
+
+    Ok(hyper::Response::builder()
+        .status(hyper::StatusCode::SEE_OTHER)
+        .header(
+            hyper::header::LOCATION,
+            format!("/communities/{}/moderators", community_id),
+        )
+        .body("Successfully added.".into())?)
 }
 
 async fn handler_community_post_approve(
@@ -724,6 +859,16 @@ pub fn route_communities() -> crate::RouteNode<()> {
                 .with_child(
                     "follow",
                     crate::RouteNode::new().with_handler_async("POST", handler_community_follow),
+                )
+                .with_child(
+                    "moderators",
+                    crate::RouteNode::new()
+                        .with_handler_async("GET", page_community_moderators)
+                        .with_child(
+                            "add",
+                            crate::RouteNode::new()
+                                .with_handler_async("POST", handler_community_moderators_add),
+                        ),
                 )
                 .with_child(
                     "posts",
