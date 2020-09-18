@@ -478,7 +478,24 @@ async fn page_community_moderators(
                 {
                     api_res.iter().map(|user| {
                         render::rsx! {
-                            <li><a href={format!("/users/{}", user.id)}>{user.username.as_ref()}</a></li>
+                            <li>
+                                <a href={format!("/users/{}", user.id)}>{user.username.as_ref()}</a>
+                                {
+                                    if community_info.you_are_moderator == Some(true) {
+                                        Some(render::rsx! {
+                                            <>
+                                                {" "}
+                                                <form class={"inline"} method={"POST"} action={format!("/communities/{}/moderators/remove", community_id)}>
+                                                    <input type={"hidden"} name={"user"} value={user.id.to_string()} />
+                                                    <button type={"submit"}>{lang.tr("remove", None)}</button>
+                                                </form>
+                                            </>
+                                        })
+                                    } else {
+                                        None
+                                    }
+                                }
+                            </li>
                         }
                     })
                     .collect::<Vec<_>>()
@@ -548,6 +565,49 @@ async fn handler_community_moderators_add(
             format!("/communities/{}/moderators", community_id),
         )
         .body("Successfully added.".into())?)
+}
+
+async fn handler_community_moderators_remove(
+    params: (i64,),
+    ctx: Arc<crate::RouteContext>,
+    req: hyper::Request<hyper::Body>,
+) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+    let (community_id,) = params;
+
+    let (req_parts, body) = req.into_parts();
+
+    let cookies = get_cookie_map_for_headers(&req_parts.headers)?;
+
+    #[derive(Deserialize)]
+    struct ModeratorsRemoveParams {
+        user: i64,
+    }
+
+    let body = hyper::body::to_bytes(body).await?;
+    let body: ModeratorsRemoveParams = serde_urlencoded::from_bytes(&body)?;
+
+    res_to_error(
+        ctx.http_client
+            .request(for_client(
+                hyper::Request::delete(format!(
+                    "{}/api/unstable/communities/{}/moderators/{}",
+                    ctx.backend_host, community_id, body.user,
+                ))
+                .body(Default::default())?,
+                &req_parts.headers,
+                &cookies,
+            )?)
+            .await?,
+    )
+    .await?;
+
+    Ok(hyper::Response::builder()
+        .status(hyper::StatusCode::SEE_OTHER)
+        .header(
+            hyper::header::LOCATION,
+            format!("/communities/{}/moderators", community_id),
+        )
+        .body("Successfully removed.".into())?)
 }
 
 async fn handler_community_post_approve(
@@ -868,6 +928,11 @@ pub fn route_communities() -> crate::RouteNode<()> {
                             "add",
                             crate::RouteNode::new()
                                 .with_handler_async("POST", handler_community_moderators_add),
+                        )
+                        .with_child(
+                            "remove",
+                            crate::RouteNode::new()
+                                .with_handler_async("POST", handler_community_moderators_remove),
                         ),
                 )
                 .with_child(

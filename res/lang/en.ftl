@@ -59,6 +59,7 @@ post_not_approved = This post has not been approved by the community.
 preview = Preview
 register = Register
 remote = Remote
+remove = remove
 reply = reply
 reply_submit = Reply
 reply_to = Reply to
