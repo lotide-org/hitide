@@ -41,6 +41,7 @@ macro_rules! icons {
 }
 
 icons! {
+    LOGOUT => "logout.svg",
     NOTIFICATIONS => "notifications.svg",
     NOTIFICATIONS_SOME => "notifications-some.svg",
     PERSON => "person.svg",

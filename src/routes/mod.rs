@@ -719,6 +719,38 @@ async fn handler_login_submit(
     }
 }
 
+async fn handler_logout(
+    _: (),
+    ctx: Arc<crate::RouteContext>,
+    req: hyper::Request<hyper::Body>,
+) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+    let cookies = get_cookie_map_for_req(&req)?;
+
+    res_to_error(
+        ctx.http_client
+            .request(for_client(
+                hyper::Request::delete(format!(
+                    "{}/api/unstable/logins/~current",
+                    ctx.backend_host,
+                ))
+                .body(Default::default())?,
+                req.headers(),
+                &cookies,
+            )?)
+            .await?,
+    )
+    .await?;
+
+    Ok(hyper::Response::builder()
+        .status(hyper::StatusCode::SEE_OTHER)
+        .header(hyper::header::LOCATION, "/")
+        .header(
+            hyper::header::SET_COOKIE,
+            format!("hitideToken=\"\"; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT"),
+        )
+        .body("Successfully logged out.".into())?)
+}
+
 async fn page_lookup(
     _: (),
     ctx: Arc<crate::RouteContext>,
@@ -1587,6 +1619,10 @@ pub fn route_root() -> crate::RouteNode<()> {
                     "submit",
                     crate::RouteNode::new().with_handler_async("POST", handler_login_submit),
                 ),
+        )
+        .with_child(
+            "logout",
+            crate::RouteNode::new().with_handler_async("POST", handler_logout),
         )
         .with_child(
             "lookup",

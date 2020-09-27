@@ -248,6 +248,11 @@ pub fn HTPage<'a, Children: render::Render>(
                                             <a href={format!("/users/{}", login.user.id)}>
                                                 {hitide_icons::PERSON.img()}
                                             </a>
+                                            <form method={"POST"} action={"/logout"} class={"inline"}>
+                                                <button type={"submit"} class={"iconbutton"}>
+                                                    {hitide_icons::LOGOUT.img()}
+                                                </button>
+                                            </form>
                                         </>
                                     })
                                 } else {
