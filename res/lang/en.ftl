@@ -126,6 +126,7 @@ to_post = Comment on
 url = URL
 user_edit_description_prompt = Profile Description:
 user_edit_not_you = You can only edit your own profile.
+user_edit_password_prompt = Change Password
 user_edit_submit = Save
 user_edit_title = Edit Profile
 user_id_prompt = User ID:

@@ -1330,6 +1330,12 @@ async fn page_user_edit(
                         <textarea name={"description"}>{user.description.as_ref()}</textarea>
                     </label>
                 </div>
+                <div>
+                    <label>
+                        {lang.tr("user_edit_password_prompt", None)}<br />
+                        <input name={"password"} type={"password"} value={""} autocomplete={"new-password"} />
+                    </label>
+                </div>
                 <button type={"submit"}>{lang.tr("user_edit_submit", None)}</button>
             </form>
         </HTPage>
@@ -1348,7 +1354,15 @@ async fn handler_user_edit_submit(
     let cookies = get_cookie_map_for_headers(&req_parts.headers)?;
 
     let body = hyper::body::to_bytes(body).await?;
-    let body: serde_json::Value = serde_urlencoded::from_bytes(&body)?;
+    let mut body: serde_json::map::Map<String, serde_json::Value> =
+        serde_urlencoded::from_bytes(&body)?;
+
+    // ignore password field if blank
+    if let Some(password) = body.get("password") {
+        if password == "" {
+            body.remove("password");
+        }
+    }
 
     res_to_error(
         ctx.http_client
