@@ -14,6 +14,7 @@ use crate::util::author_is_me;
 use crate::PageBaseData;
 
 mod communities;
+mod forgot_password;
 mod posts;
 mod r#static;
 
@@ -647,6 +648,9 @@ async fn page_login_inner(
             </form>
             <p>
                 {lang.tr("or_start", None)}{" "}<a href={"/signup"}>{lang.tr("login_signup_link", None)}</a>
+            </p>
+            <p>
+                <a href={"/forgot_password"}>{lang.tr("forgot_password", None)}</a>
             </p>
         </HTPage>
     }))
@@ -1568,6 +1572,7 @@ pub fn route_root() -> crate::RouteNode<()> {
             ),
         )
         .with_child("communities", communities::route_communities())
+        .with_child("forgot_password", forgot_password::route_forgot_password())
         .with_child(
             "login",
             crate::RouteNode::new()
