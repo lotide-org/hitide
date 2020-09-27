@@ -90,7 +90,7 @@ body {
 }
 
 .comment > .content {
-	display: inline-block;
+	overflow-x: auto;
 }
 
 .commentList {
