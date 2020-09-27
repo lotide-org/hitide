@@ -1053,6 +1053,12 @@ async fn page_signup_inner(
                             <MaybeFillInput values={&prev_values} r#type={"password"} name={"password"} required={true} id={"input_password"} />
                         </td>
                     </tr>
+                    <tr>
+                        <td><label for={"input_email_address"}>{lang.tr("signup_email_address_prompt", None)}</label></td>
+                        <td>
+                            <MaybeFillInput values={&prev_values} r#type={"email"} name={"email_address"} required={false} id={"input_email_address"} />
+                        </td>
+                    </tr>
                 </table>
                 <button r#type={"submit"}>{lang.tr("register", None)}</button>
             </form>

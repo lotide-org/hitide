@@ -75,6 +75,7 @@ score = { $score } { $score ->
     [one] like
     *[other] likes
 }
+signup_email_address_prompt = Email Address (optional):
 sort = Sort:
 sort_hot = hot
 sort_new = new
