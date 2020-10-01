@@ -27,6 +27,10 @@ async fn handler_static_get(
             hyper::header::CONTENT_TYPE,
             hyper::header::HeaderValue::from_static("image/svg+xml"),
         );
+        resp.headers_mut().insert(
+            hyper::header::CACHE_CONTROL,
+            hyper::header::HeaderValue::from_static("max-age=31536000, immutable"),
+        );
 
         Ok(resp)
     } else {
