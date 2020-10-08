@@ -1,5 +1,6 @@
 use serde_derive::Deserialize;
 use std::borrow::Cow;
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use crate::components::{
@@ -1053,7 +1054,7 @@ async fn page_signup_inner(
     ctx: Arc<crate::RouteContext>,
     headers: &hyper::HeaderMap,
     display_error: Option<String>,
-    prev_values: Option<&serde_json::Value>,
+    prev_values: Option<&HashMap<Cow<'_, str>, serde_json::Value>>,
 ) -> Result<hyper::Response<hyper::Body>, crate::Error> {
     let lang = crate::get_lang_for_headers(&headers);
     let cookies = get_cookie_map_for_headers(&headers)?;
@@ -1111,8 +1112,11 @@ async fn handler_signup_submit(
     let (req_parts, body) = req.into_parts();
 
     let body = hyper::body::to_bytes(body).await?;
-    let mut body: serde_json::Value = serde_urlencoded::from_bytes(&body)?;
-    body["login"] = true.into();
+    let mut body: HashMap<Cow<'_, str>, serde_json::Value> = serde_urlencoded::from_bytes(&body)?;
+    body.insert("login".into(), true.into());
+    if body.get("email_address").and_then(|x| x.as_str()) == Some("") {
+        body.remove("email_address");
+    }
 
     let api_res = res_to_error(
         ctx.http_client
