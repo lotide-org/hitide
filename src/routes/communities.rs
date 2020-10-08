@@ -1,13 +1,14 @@
 use crate::components::{CommunityLink, HTPage, MaybeFillInput, MaybeFillTextArea, PostItem};
 use crate::resp_types::{
-    JustContentHTML, RespCommunityInfoMaybeYour, RespMinimalAuthorInfo, RespMinimalCommunityInfo,
-    RespPostListPost, RespYourFollow,
+    JustContentHTML, JustStringID, RespCommunityInfoMaybeYour, RespMinimalAuthorInfo,
+    RespMinimalCommunityInfo, RespPostListPost, RespYourFollow,
 };
 use crate::routes::{
     fetch_base_data, for_client, get_cookie_map_for_headers, get_cookie_map_for_req, html_response,
     res_to_error, CookieMap,
 };
 use serde_derive::Deserialize;
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -722,7 +723,7 @@ async fn page_community_new_post_inner(
     cookies: &CookieMap<'_>,
     ctx: Arc<crate::RouteContext>,
     display_error: Option<String>,
-    prev_values: Option<&HashMap<&str, serde_json::Value>>,
+    prev_values: Option<&HashMap<Cow<'_, str>, serde_json::Value>>,
     display_preview: Option<&str>,
 ) -> Result<hyper::Response<hyper::Body>, crate::Error> {
     let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, headers, &cookies).await?;
@@ -744,7 +745,7 @@ async fn page_community_new_post_inner(
                     }
                 })
             }
-            <form method={"POST"} action={&submit_url}>
+            <form method={"POST"} action={&submit_url} enctype={"multipart/form-data"}>
                 <table>
                     <tr>
                         <td>
@@ -760,6 +761,14 @@ async fn page_community_new_post_inner(
                         </td>
                         <td>
                             <MaybeFillInput values={&prev_values} r#type={"text"} name={"href"} required={false} id={"input_url"} />
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <label for={"input_image"}>{lang.tr("post_new_image_prompt", None)}</label>
+                        </td>
+                        <td>
+                            <input id={"input_image"} type={"file"} accept={"image/*"} name={"href_media"} />
                         </td>
                     </tr>
                 </table>
@@ -792,12 +801,113 @@ async fn handler_communities_new_post_submit(
     let (community_id,) = params;
 
     let (req_parts, body) = req.into_parts();
+    let lang = crate::get_lang_for_headers(&req_parts.headers);
     let cookies = get_cookie_map_for_headers(&req_parts.headers)?;
 
-    let body = hyper::body::to_bytes(body).await?;
-    let mut body: HashMap<&str, serde_json::Value> = serde_urlencoded::from_bytes(&body)?;
-    if body.contains_key("preview") {
-        let md = body
+    let content_type = req_parts
+        .headers
+        .get(hyper::header::CONTENT_TYPE)
+        .ok_or_else(|| {
+            crate::Error::InternalStr("missing content-type header in form submission".to_owned())
+        })?;
+    let content_type = std::str::from_utf8(content_type.as_ref())?;
+
+    let boundary = multer::parse_boundary(&content_type)?;
+
+    let mut multipart = multer::Multipart::new(body, boundary);
+
+    let mut body_values: HashMap<Cow<'_, str>, serde_json::Value> = HashMap::new();
+    {
+        let mut error = None;
+
+        loop {
+            let field = multipart.next_field().await?;
+            let field = match field {
+                None => break,
+                Some(field) => field,
+            };
+
+            if field.name().is_none() {
+                continue;
+            }
+
+            if field.name().unwrap() == "href_media" {
+                if body_values.contains_key("href") && body_values["href"] != "" {
+                    error = Some(lang.tr("post_new_href_conflict", None).into_owned());
+                } else {
+                    match field.content_type() {
+                        None => {
+                            error =
+                                Some(lang.tr("post_new_missing_content_type", None).into_owned());
+                        }
+                        Some(mime) => {
+                            println!("will upload media");
+                            let res = res_to_error(
+                                ctx.http_client
+                                    .request(for_client(
+                                        hyper::Request::post(format!(
+                                            "{}/api/unstable/media",
+                                            ctx.backend_host,
+                                        ))
+                                        .header(hyper::header::CONTENT_TYPE, mime.as_ref())
+                                        .body(hyper::Body::wrap_stream(field))?,
+                                        &req_parts.headers,
+                                        &cookies,
+                                    )?)
+                                    .await?,
+                            )
+                            .await;
+
+                            match res {
+                                Err(crate::Error::RemoteError((_, message))) => {
+                                    error = Some(message);
+                                }
+                                Err(other) => {
+                                    return Err(other);
+                                }
+                                Ok(res) => {
+                                    let res = hyper::body::to_bytes(res.into_body()).await?;
+                                    let res: JustStringID = serde_json::from_slice(&res)?;
+
+                                    body_values.insert(
+                                        "href".into(),
+                                        format!("local-media://{}", res.id).into(),
+                                    );
+                                }
+                            }
+
+                            println!("finished media upload");
+                        }
+                    }
+                }
+            } else {
+                let name = field.name().unwrap();
+                if name == "href" && body_values.contains_key("href") && body_values["href"] != "" {
+                    error = Some(lang.tr("post_new_href_conflict", None).into_owned());
+                } else {
+                    let name = name.to_owned();
+                    let value = field.text().await?;
+                    body_values.insert(name.into(), value.into());
+                }
+            }
+        }
+
+        if let Some(error) = error {
+            return page_community_new_post_inner(
+                community_id,
+                &req_parts.headers,
+                &cookies,
+                ctx,
+                Some(error),
+                Some(&body_values),
+                None,
+            )
+            .await;
+        }
+    }
+
+    if body_values.contains_key("preview") {
+        let md = body_values
             .get("content_markdown")
             .and_then(|x| x.as_str())
             .unwrap_or("");
@@ -828,7 +938,7 @@ async fn handler_communities_new_post_submit(
                     &cookies,
                     ctx,
                     None,
-                    Some(&body),
+                    Some(&body_values),
                     Some(&preview_res.content_html),
                 )
                 .await
@@ -840,7 +950,7 @@ async fn handler_communities_new_post_submit(
                     &cookies,
                     ctx,
                     Some(message),
-                    Some(&body),
+                    Some(&body_values),
                     None,
                 )
                 .await
@@ -849,19 +959,19 @@ async fn handler_communities_new_post_submit(
         };
     }
 
-    body.insert("community", community_id.into());
-    if body.get("content_markdown").and_then(|x| x.as_str()) == Some("") {
-        body.remove("content_markdown");
+    body_values.insert("community".into(), community_id.into());
+    if body_values.get("content_markdown").and_then(|x| x.as_str()) == Some("") {
+        body_values.remove("content_markdown");
     }
-    if body.get("href").and_then(|x| x.as_str()) == Some("") {
-        body.remove("href");
+    if body_values.get("href").and_then(|x| x.as_str()) == Some("") {
+        body_values.remove("href");
     }
 
     let api_res = res_to_error(
         ctx.http_client
             .request(for_client(
                 hyper::Request::post(format!("{}/api/unstable/posts", ctx.backend_host))
-                    .body(serde_json::to_vec(&body)?.into())?,
+                    .body(serde_json::to_vec(&body_values)?.into())?,
                 &req_parts.headers,
                 &cookies,
             )?)
@@ -891,7 +1001,7 @@ async fn handler_communities_new_post_submit(
                 &cookies,
                 ctx,
                 Some(message),
-                Some(&body),
+                Some(&body_values),
                 None,
             )
             .await

@@ -32,3 +32,4 @@ lazy_static = "1.4.0"
 unic-langid = { version = "0.9.0", features = ["macros"] }
 futures-util = "0.3.5"
 hitide_icons = { path = "./icons" }
+multer = "1.2.2"

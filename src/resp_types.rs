@@ -166,6 +166,11 @@ pub struct JustID {
 }
 
 #[derive(Deserialize, Debug)]
+pub struct JustStringID<'a> {
+    pub id: &'a str,
+}
+
+#[derive(Deserialize, Debug)]
 pub struct RespYourFollow {
     pub accepted: bool,
 }
