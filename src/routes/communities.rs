@@ -832,10 +832,28 @@ async fn handler_communities_new_post_submit(
             }
 
             if field.name().unwrap() == "href_media" {
+                use futures_util::StreamExt;
+                let mut stream = field.peekable();
+
+                let first_chunk = std::pin::Pin::new(&mut stream).peek().await;
+                let is_empty = match first_chunk {
+                    None => true,
+                    Some(Ok(chunk)) => chunk.is_empty(),
+                    Some(Err(err)) => {
+                        return Err(crate::Error::InternalStr(format!(
+                            "failed parsing form: {:?}",
+                            err
+                        )));
+                    }
+                };
+                if is_empty {
+                    continue;
+                }
+
                 if body_values.contains_key("href") && body_values["href"] != "" {
                     error = Some(lang.tr("post_new_href_conflict", None).into_owned());
                 } else {
-                    match field.content_type() {
+                    match stream.get_ref().content_type() {
                         None => {
                             error =
                                 Some(lang.tr("post_new_missing_content_type", None).into_owned());
@@ -850,7 +868,7 @@ async fn handler_communities_new_post_submit(
                                             ctx.backend_host,
                                         ))
                                         .header(hyper::header::CONTENT_TYPE, mime.as_ref())
-                                        .body(hyper::Body::wrap_stream(field))?,
+                                        .body(hyper::Body::wrap_stream(stream))?,
                                         &req_parts.headers,
                                         &cookies,
                                     )?)
