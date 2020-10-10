@@ -1,10 +1,13 @@
 use super::{
     fetch_base_data, for_client, get_cookie_map_for_headers, get_cookie_map_for_req, html_response,
-    res_to_error,
+    res_to_error, CookieMap,
 };
-use crate::components::{Comment, CommunityLink, Content, HTPage, IconExt, TimeAgo, UserLink};
+use crate::components::{
+    Comment, CommunityLink, Content, HTPage, IconExt, MaybeFillTextArea, TimeAgo, UserLink,
+};
 use crate::resp_types::{JustUser, RespCommunityInfoMaybeYour, RespList, RespPostInfo};
 use crate::util::author_is_me;
+use std::collections::HashMap;
 use std::sync::Arc;
 
 async fn page_post(
@@ -14,11 +17,22 @@ async fn page_post(
 ) -> Result<hyper::Response<hyper::Body>, crate::Error> {
     let (post_id,) = params;
 
-    let lang = crate::get_lang_for_req(&req);
     let cookies = get_cookie_map_for_req(&req)?;
 
-    let base_data =
-        fetch_base_data(&ctx.backend_host, &ctx.http_client, req.headers(), &cookies).await?;
+    page_post_inner(post_id, req.headers(), &cookies, ctx, None, None).await
+}
+
+async fn page_post_inner(
+    post_id: i64,
+    headers: &hyper::header::HeaderMap,
+    cookies: &CookieMap<'_>,
+    ctx: Arc<crate::RouteContext>,
+    display_error: Option<String>,
+    prev_values: Option<&HashMap<&str, serde_json::Value>>,
+) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+    let lang = crate::get_lang_for_headers(headers);
+
+    let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, headers, &cookies).await?;
 
     let api_res = res_to_error(
         ctx.http_client
@@ -34,7 +48,7 @@ async fn page_post(
                     },
                 ))
                 .body(Default::default())?,
-                req.headers(),
+                headers,
                 &cookies,
             )?)
             .await?,
@@ -53,7 +67,7 @@ async fn page_post(
                         post.as_ref().community.id,
                     ))
                     .body(Default::default())?,
-                    req.headers(),
+                    headers,
                     &cookies,
                 )?)
                 .await?,
@@ -160,11 +174,18 @@ async fn page_post(
             <div>
                 <h2>{"Comments"}</h2>
                 {
+                    display_error.map(|msg| {
+                        render::rsx! {
+                            <div class={"errorBox"}>{msg}</div>
+                        }
+                    })
+                }
+                {
                     if base_data.login.is_some() {
                         Some(render::rsx! {
                             <form method={"POST"} action={format!("/posts/{}/submit_reply", post.as_ref().as_ref().id)}>
                                 <div>
-                                    <textarea name={"content_markdown"}>{()}</textarea>
+                                    <MaybeFillTextArea name={"content_markdown"} values={&prev_values} default_value={None} />
                                 </div>
                                 <button r#type={"submit"}>{lang.tr("comment_submit", None)}</button>
                             </form>
@@ -401,28 +422,41 @@ async fn handler_post_submit_reply(
     let cookies = get_cookie_map_for_headers(&req_parts.headers)?;
 
     let body = hyper::body::to_bytes(body).await?;
-    let body: serde_json::Value = serde_urlencoded::from_bytes(&body)?;
-    let body = serde_json::to_vec(&body)?;
+    let body: HashMap<&str, serde_json::Value> = serde_urlencoded::from_bytes(&body)?;
 
-    res_to_error(
+    let api_res = res_to_error(
         ctx.http_client
             .request(for_client(
                 hyper::Request::post(format!(
                     "{}/api/unstable/posts/{}/replies",
                     ctx.backend_host, post_id
                 ))
-                .body(body.into())?,
+                .body(serde_json::to_vec(&body)?.into())?,
                 &req_parts.headers,
                 &cookies,
             )?)
             .await?,
     )
-    .await?;
+    .await;
 
-    Ok(hyper::Response::builder()
-        .status(hyper::StatusCode::SEE_OTHER)
-        .header(hyper::header::LOCATION, format!("/posts/{}", post_id))
-        .body("Successfully posted.".into())?)
+    match api_res {
+        Err(crate::Error::RemoteError((_, message))) => {
+            page_post_inner(
+                post_id,
+                &req_parts.headers,
+                &cookies,
+                ctx,
+                Some(message),
+                Some(&body),
+            )
+            .await
+        }
+        Err(other) => Err(other),
+        Ok(_) => Ok(hyper::Response::builder()
+            .status(hyper::StatusCode::SEE_OTHER)
+            .header(hyper::header::LOCATION, format!("/posts/{}", post_id))
+            .body("Successfully posted.".into())?),
+    }
 }
 
 pub fn route_posts() -> crate::RouteNode<()> {
