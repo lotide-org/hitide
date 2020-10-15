@@ -29,7 +29,7 @@ async fn handler_static_get(
         );
         resp.headers_mut().insert(
             hyper::header::CACHE_CONTROL,
-            hyper::header::HeaderValue::from_static("max-age=31536000, immutable"),
+            hyper::header::HeaderValue::from_static("public, max-age=31536000, immutable"),
         );
 
         Ok(resp)
