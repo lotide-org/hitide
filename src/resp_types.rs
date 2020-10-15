@@ -113,7 +113,7 @@ pub struct RespPostInfo<'a> {
     pub approved: bool,
     pub score: i64,
     #[serde(borrow)]
-    pub comments: Vec<RespPostCommentInfo<'a>>,
+    pub replies: Vec<RespPostCommentInfo<'a>>,
     pub your_vote: Option<Empty>,
 }
 

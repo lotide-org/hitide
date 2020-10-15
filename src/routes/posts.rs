@@ -196,7 +196,7 @@ async fn page_post_inner(
                 }
                 <ul class={"commentList topLevel"}>
                     {
-                        post.comments.iter().map(|comment| {
+                        post.replies.iter().map(|comment| {
                             render::rsx! {
                                 <Comment comment={comment} base_data={&base_data} lang={&lang} />
                             }
