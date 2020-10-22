@@ -1,3 +1,4 @@
+use super::JustStringID;
 use super::{
     fetch_base_data, for_client, get_cookie_map_for_headers, get_cookie_map_for_req, html_response,
     res_to_error, CookieMap,
@@ -7,6 +8,7 @@ use crate::components::{
 };
 use crate::resp_types::{JustUser, RespCommunityInfoMaybeYour, RespList, RespPostInfo};
 use crate::util::author_is_me;
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -28,7 +30,7 @@ async fn page_post_inner(
     cookies: &CookieMap<'_>,
     ctx: Arc<crate::RouteContext>,
     display_error: Option<String>,
-    prev_values: Option<&HashMap<&str, serde_json::Value>>,
+    prev_values: Option<&HashMap<Cow<'_, str>, serde_json::Value>>,
 ) -> Result<hyper::Response<hyper::Body>, crate::Error> {
     let lang = crate::get_lang_for_headers(headers);
 
@@ -172,7 +174,7 @@ async fn page_post_inner(
                 }
             }
             <div>
-                <h2>{"Comments"}</h2>
+                <h2>{lang.tr("comments", None)}</h2>
                 {
                     display_error.map(|msg| {
                         render::rsx! {
@@ -183,9 +185,16 @@ async fn page_post_inner(
                 {
                     if base_data.login.is_some() {
                         Some(render::rsx! {
-                            <form method={"POST"} action={format!("/posts/{}/submit_reply", post.as_ref().as_ref().id)}>
+                            <form method={"POST"} action={format!("/posts/{}/submit_reply", post.as_ref().as_ref().id)} enctype={"multipart/form-data"}>
                                 <div>
                                     <MaybeFillTextArea name={"content_markdown"} values={&prev_values} default_value={None} />
+                                </div>
+                                <div>
+                                    <label>
+                                        {lang.tr("comment_reply_image_prompt", None)}
+                                        {" "}
+                                        <input type={"file"} accept={"image/*"} name={"attachment_media"} />
+                                    </label>
                                 </div>
                                 <button r#type={"submit"}>{lang.tr("comment_submit", None)}</button>
                             </form>
@@ -419,10 +428,119 @@ async fn handler_post_submit_reply(
     let (post_id,) = params;
 
     let (req_parts, body) = req.into_parts();
+    let lang = crate::get_lang_for_headers(&req_parts.headers);
     let cookies = get_cookie_map_for_headers(&req_parts.headers)?;
 
-    let body = hyper::body::to_bytes(body).await?;
-    let body: HashMap<&str, serde_json::Value> = serde_urlencoded::from_bytes(&body)?;
+    let content_type = req_parts
+        .headers
+        .get(hyper::header::CONTENT_TYPE)
+        .ok_or_else(|| {
+            crate::Error::InternalStr("missing content-type header in form submission".to_owned())
+        })?;
+    let content_type = std::str::from_utf8(content_type.as_ref())?;
+    let boundary = multer::parse_boundary(&content_type)?;
+
+    let mut multipart = multer::Multipart::new(body, boundary);
+
+    let mut body_values: HashMap<Cow<'_, str>, serde_json::Value> = HashMap::new();
+
+    {
+        let mut error = None;
+
+        loop {
+            let field = multipart.next_field().await?;
+            let field = match field {
+                None => break,
+                Some(field) => field,
+            };
+
+            if field.name().is_none() {
+                continue;
+            }
+
+            if field.name().unwrap() == "attachment_media" {
+                use futures_util::StreamExt;
+                let mut stream = field.peekable();
+
+                let first_chunk = std::pin::Pin::new(&mut stream).peek().await;
+                let is_empty = match first_chunk {
+                    None => true,
+                    Some(Ok(chunk)) => chunk.is_empty(),
+                    Some(Err(err)) => {
+                        return Err(crate::Error::InternalStr(format!(
+                            "failed parsing form: {:?}",
+                            err
+                        )));
+                    }
+                };
+                if is_empty {
+                    continue;
+                }
+
+                match stream.get_ref().content_type() {
+                    None => {
+                        error = Some(
+                            lang.tr("comment_reply_attachment_missing_content_type", None)
+                                .into_owned(),
+                        );
+                    }
+                    Some(mime) => {
+                        let res = res_to_error(
+                            ctx.http_client
+                                .request(for_client(
+                                    hyper::Request::post(format!(
+                                        "{}/api/unstable/media",
+                                        ctx.backend_host,
+                                    ))
+                                    .header(hyper::header::CONTENT_TYPE, mime.as_ref())
+                                    .body(hyper::Body::wrap_stream(stream))?,
+                                    &req_parts.headers,
+                                    &cookies,
+                                )?)
+                                .await?,
+                        )
+                        .await;
+
+                        match res {
+                            Err(crate::Error::RemoteError((_, message))) => {
+                                error = Some(message);
+                            }
+                            Err(other) => {
+                                return Err(other);
+                            }
+                            Ok(res) => {
+                                let res = hyper::body::to_bytes(res.into_body()).await?;
+                                let res: JustStringID = serde_json::from_slice(&res)?;
+
+                                body_values.insert(
+                                    "attachment".into(),
+                                    format!("local-media://{}", res.id).into(),
+                                );
+                            }
+                        }
+
+                        println!("finished media upload");
+                    }
+                }
+            } else {
+                let name = field.name().unwrap().to_owned();
+                let value = field.text().await?;
+                body_values.insert(name.into(), value.into());
+            }
+        }
+
+        if let Some(error) = error {
+            return page_post_inner(
+                post_id,
+                &req_parts.headers,
+                &cookies,
+                ctx,
+                Some(error),
+                Some(&body_values),
+            )
+            .await;
+        }
+    }
 
     let api_res = res_to_error(
         ctx.http_client
@@ -431,7 +549,7 @@ async fn handler_post_submit_reply(
                     "{}/api/unstable/posts/{}/replies",
                     ctx.backend_host, post_id
                 ))
-                .body(serde_json::to_vec(&body)?.into())?,
+                .body(serde_json::to_vec(&body_values)?.into())?,
                 &req_parts.headers,
                 &cookies,
             )?)
@@ -447,7 +565,7 @@ async fn handler_post_submit_reply(
                 &cookies,
                 ctx,
                 Some(message),
-                Some(&body),
+                Some(&body_values),
             )
             .await
         }

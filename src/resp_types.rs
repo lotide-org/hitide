@@ -68,9 +68,16 @@ impl<'a> AsRef<RespMinimalCommentInfo<'a>> for RespThingComment<'a> {
 }
 
 #[derive(Deserialize, Debug)]
+pub struct JustURL<'a> {
+    pub url: Cow<'a, str>,
+}
+
+#[derive(Deserialize, Debug)]
 pub struct RespPostCommentInfo<'a> {
     #[serde(flatten)]
     pub base: RespMinimalCommentInfo<'a>,
+
+    pub attachments: Vec<JustURL<'a>>,
 
     #[serde(borrow)]
     pub author: Option<RespMinimalAuthorInfo<'a>>,

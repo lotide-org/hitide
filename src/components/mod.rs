@@ -53,6 +53,19 @@ pub fn Comment<'a>(
                     <TimeAgo since={chrono::DateTime::parse_from_rfc3339(&comment.created).unwrap()} lang />
                 </small>
                 <Content src={comment} />
+                {
+                    comment.attachments.iter().map(|attachment| {
+                        let href = &attachment.url;
+                        render::rsx! {
+                            <div>
+                                <strong>{lang.tr("comment_attachment_prefix", None)}</strong>
+                                {" "}
+                                <em><a href={href.as_ref()}>{abbreviate_link(&href)}{" ↗"}</a></em>
+                            </div>
+                        }
+                    })
+                    .collect::<Vec<_>>()
+                }
                 <div class={"actionList"}>
                     {
                         if base_data.login.is_some() {

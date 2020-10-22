@@ -8,10 +8,10 @@ use crate::components::{
     PostItem, ThingItem, UserLink,
 };
 use crate::resp_types::{
-    RespCommentInfo, RespInstanceInfo, RespNotification, RespPostCommentInfo, RespPostListPost,
-    RespThingInfo, RespUserInfo,
+    JustStringID, RespCommentInfo, RespInstanceInfo, RespNotification, RespPostCommentInfo,
+    RespPostListPost, RespThingInfo, RespUserInfo,
 };
-use crate::util::author_is_me;
+use crate::util::{abbreviate_link, author_is_me};
 use crate::PageBaseData;
 
 mod communities;
@@ -202,7 +202,7 @@ async fn page_comment_inner(
     cookies: &CookieMap<'_>,
     ctx: Arc<crate::RouteContext>,
     display_error: Option<String>,
-    prev_values: Option<&serde_json::Value>,
+    prev_values: Option<&HashMap<Cow<'_, str>, serde_json::Value>>,
 ) -> Result<hyper::Response<hyper::Body>, crate::Error> {
     let lang = crate::get_lang_for_headers(headers);
     let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, headers, &cookies).await?;
@@ -284,6 +284,19 @@ async fn page_comment_inner(
                 }
                 <small><cite><UserLink user={comment.as_ref().author.as_ref()} /></cite>{":"}</small>
                 <Content src={&comment} />
+                {
+                    comment.as_ref().attachments.iter().map(|attachment| {
+                        let href = &attachment.url;
+                        render::rsx! {
+                            <div>
+                                <strong>{lang.tr("comment_attachment_prefix", None)}</strong>
+                                {" "}
+                                <em><a href={href.as_ref()}>{abbreviate_link(&href)}{" ↗"}</a></em>
+                            </div>
+                        }
+                    })
+                    .collect::<Vec<_>>()
+                }
             </p>
             <div class={"actionList"}>
                 {
@@ -306,9 +319,16 @@ async fn page_comment_inner(
             {
                 if base_data.login.is_some() {
                     Some(render::rsx! {
-                        <form method={"POST"} action={format!("/comments/{}/submit_reply", comment.as_ref().as_ref().id)}>
+                        <form method={"POST"} action={format!("/comments/{}/submit_reply", comment.as_ref().as_ref().id)} enctype={"multipart/form-data"}>
                             <div>
                                 <MaybeFillTextArea values={&prev_values} name={"content_markdown"} default_value={None} />
+                            </div>
+                            <div>
+                                <label>
+                                    {lang.tr("comment_reply_image_prompt", None)}
+                                    {" "}
+                                    <input type={"file"} accept={"image/*"} name={"attachment_media"} />
+                                </label>
                             </div>
                             <button r#type={"submit"}>{lang.tr("reply_submit", None)}</button>
                         </form>
@@ -554,10 +574,124 @@ async fn handler_comment_submit_reply(
 
     let (req_parts, body) = req.into_parts();
 
+    let lang = crate::get_lang_for_headers(&req_parts.headers);
     let cookies = get_cookie_map_for_headers(&req_parts.headers)?;
 
-    let body = hyper::body::to_bytes(body).await?;
-    let body: serde_json::Value = serde_urlencoded::from_bytes(&body)?;
+    let content_type = req_parts
+        .headers
+        .get(hyper::header::CONTENT_TYPE)
+        .ok_or_else(|| {
+            crate::Error::InternalStr("missing content-type header in form submission".to_owned())
+        })?;
+    let content_type = std::str::from_utf8(content_type.as_ref())?;
+    let boundary = multer::parse_boundary(&content_type)?;
+
+    let mut multipart = multer::Multipart::new(body, boundary);
+
+    let mut body_values: HashMap<Cow<'_, str>, serde_json::Value> = HashMap::new();
+
+    {
+        let mut error = None;
+
+        loop {
+            let field = multipart.next_field().await?;
+            let field = match field {
+                None => break,
+                Some(field) => field,
+            };
+
+            if field.name().is_none() {
+                continue;
+            }
+
+            if field.name().unwrap() == "attachment_media" {
+                use futures_util::StreamExt;
+                let mut stream = field.peekable();
+
+                let first_chunk = std::pin::Pin::new(&mut stream).peek().await;
+                let is_empty = match first_chunk {
+                    None => true,
+                    Some(Ok(chunk)) => chunk.is_empty(),
+                    Some(Err(err)) => {
+                        return Err(crate::Error::InternalStr(format!(
+                            "failed parsing form: {:?}",
+                            err
+                        )));
+                    }
+                };
+                if is_empty {
+                    continue;
+                }
+
+                match stream.get_ref().content_type() {
+                    None => {
+                        error = Some(
+                            lang.tr("comment_reply_attachment_missing_content_type", None)
+                                .into_owned(),
+                        );
+                    }
+                    Some(mime) => {
+                        let res = res_to_error(
+                            ctx.http_client
+                                .request(for_client(
+                                    hyper::Request::post(format!(
+                                        "{}/api/unstable/media",
+                                        ctx.backend_host,
+                                    ))
+                                    .header(hyper::header::CONTENT_TYPE, mime.as_ref())
+                                    .body(hyper::Body::wrap_stream(stream))?,
+                                    &req_parts.headers,
+                                    &cookies,
+                                )?)
+                                .await?,
+                        )
+                        .await;
+
+                        match res {
+                            Err(crate::Error::RemoteError((_, message))) => {
+                                error = Some(message);
+                            }
+                            Err(other) => {
+                                return Err(other);
+                            }
+                            Ok(res) => {
+                                let res = hyper::body::to_bytes(res.into_body()).await?;
+                                let res: JustStringID = serde_json::from_slice(&res)?;
+
+                                body_values.insert(
+                                    "attachment".into(),
+                                    format!("local-media://{}", res.id).into(),
+                                );
+                            }
+                        }
+
+                        println!("finished media upload");
+                    }
+                }
+            } else {
+                let name = field.name().unwrap();
+                if name == "href" && body_values.contains_key("href") && body_values["href"] != "" {
+                    error = Some(lang.tr("post_new_href_conflict", None).into_owned());
+                } else {
+                    let name = name.to_owned();
+                    let value = field.text().await?;
+                    body_values.insert(name.into(), value.into());
+                }
+            }
+        }
+
+        if let Some(error) = error {
+            return page_comment_inner(
+                comment_id,
+                &req_parts.headers,
+                &cookies,
+                ctx,
+                Some(error),
+                Some(&body_values),
+            )
+            .await;
+        }
+    }
 
     let api_res = res_to_error(
         ctx.http_client
@@ -566,7 +700,7 @@ async fn handler_comment_submit_reply(
                     "{}/api/unstable/comments/{}/replies",
                     ctx.backend_host, comment_id
                 ))
-                .body(serde_json::to_vec(&body)?.into())?,
+                .body(serde_json::to_vec(&body_values)?.into())?,
                 &req_parts.headers,
                 &cookies,
             )?)
@@ -586,7 +720,7 @@ async fn handler_comment_submit_reply(
                 &cookies,
                 ctx,
                 Some(message),
-                Some(&body),
+                Some(&body_values),
             )
             .await
         }
