@@ -77,7 +77,7 @@ pub fn Comment<'a>(
                         }
                     }
                     {
-                        if author_is_me(&comment.author, &base_data.login) {
+                        if author_is_me(&comment.author, &base_data.login) || (comment.local && base_data.is_site_admin()) {
                             Some(render::rsx! {
                                 <a href={format!("/comments/{}/delete", comment.as_ref().id)}>{lang.tr("delete", None)}</a>
                             })

@@ -82,6 +82,7 @@ pub struct RespPostCommentInfo<'a> {
     #[serde(borrow)]
     pub author: Option<RespMinimalAuthorInfo<'a>>,
     pub created: Cow<'a, str>,
+    pub local: bool,
     pub your_vote: Option<Empty>,
     #[serde(borrow)]
     pub replies: Option<Vec<RespPostCommentInfo<'a>>>,
@@ -119,6 +120,7 @@ pub struct RespPostInfo<'a> {
     pub content_html: Option<Cow<'a, str>>,
     pub approved: bool,
     pub score: i64,
+    pub local: bool,
     #[serde(borrow)]
     pub replies: Vec<RespPostCommentInfo<'a>>,
     pub your_vote: Option<Empty>,
@@ -156,6 +158,7 @@ impl<'a> AsRef<RespMinimalAuthorInfo<'a>> for RespUserInfo<'a> {
 #[derive(Deserialize, Debug)]
 pub struct RespLoginInfoUser {
     pub id: i64,
+    pub is_site_admin: bool,
     pub has_unread_notifications: bool,
 }
 

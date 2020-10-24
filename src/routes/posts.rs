@@ -163,7 +163,7 @@ async fn page_post_inner(
             }
             <Content src={&post} />
             {
-                if author_is_me(&post.as_ref().author, &base_data.login) {
+                if author_is_me(&post.as_ref().author, &base_data.login) || (post.local && base_data.is_site_admin()) {
                     Some(render::rsx! {
                         <p>
                             <a href={format!("/posts/{}/delete", post_id)}>{lang.tr("delete", None)}</a>

@@ -73,6 +73,15 @@ pub struct PageBaseData {
     pub login: Option<RespLoginInfo>,
 }
 
+impl PageBaseData {
+    pub fn is_site_admin(&self) -> bool {
+        match &self.login {
+            None => false,
+            Some(login) => login.user.is_site_admin,
+        }
+    }
+}
+
 pub fn simple_response(
     code: hyper::StatusCode,
     text: impl Into<hyper::Body>,
