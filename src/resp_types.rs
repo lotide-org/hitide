@@ -146,6 +146,7 @@ pub struct RespUserInfo<'a> {
     #[serde(flatten)]
     pub base: RespMinimalAuthorInfo<'a>,
     pub description: Cow<'a, str>,
+    pub suspended: Option<bool>,
     pub your_note: Option<JustContentText<'a>>,
 }
 

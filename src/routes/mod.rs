@@ -1349,11 +1349,48 @@ async fn page_user(
                     Some(render::rsx! {
                         <div class={"infoBox"}>
                             {lang.tr("user_remote_note", None)}
+                            {" "}
                             <a href={remote_url.as_ref()}>{lang.tr("view_at_source", None)}{" ↗"}</a>
                         </div>
                     })
                 } else {
                     None // shouldn't ever happen
+                }
+            }
+            {
+                if base_data.is_site_admin() && user.as_ref().local {
+                    Some(render::rsx! {
+                        <>
+                            {
+                                if user.suspended == Some(true) {
+                                    Some(render::rsx! {
+                                        <div class={"infoBox"}>
+                                            {lang.tr("user_suspended_note", None)}
+                                            {" "}
+                                            <form method={"POST"} action={format!("/users/{}/suspend/undo", user_id)} class={"inline"}>
+                                                <button type={"submit"}>{lang.tr("user_suspend_undo", None)}</button>
+                                            </form>
+                                        </div>
+                                    })
+                                } else {
+                                    None
+                                }
+                            }
+                            {
+                                if user.suspended == Some(false) {
+                                    Some(render::rsx! {
+                                        <div>
+                                            <a href={format!("/users/{}/suspend", user_id)}>{lang.tr("user_suspend", None)}</a>
+                                            </div>
+                                    })
+                                } else {
+                                    None
+                                }
+                            }
+                        </>
+                    })
+                } else {
+                    None
                 }
             }
             {
@@ -1518,6 +1555,96 @@ async fn handler_user_edit_submit(
         .status(hyper::StatusCode::SEE_OTHER)
         .header(hyper::header::LOCATION, format!("/users/{}", user_id))
         .body("Successfully created.".into())?)
+}
+
+async fn page_user_suspend(
+    params: (i64,),
+    ctx: Arc<crate::RouteContext>,
+    req: hyper::Request<hyper::Body>,
+) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+    let (user_id,) = params;
+
+    let lang = crate::get_lang_for_req(&req);
+    let cookies = get_cookie_map_for_req(&req)?;
+
+    let base_data =
+        fetch_base_data(&ctx.backend_host, &ctx.http_client, req.headers(), &cookies).await?;
+
+    let title = lang.tr("user_suspend_title", None);
+
+    Ok(html_response(render::html! {
+        <HTPage base_data={&base_data} lang={&lang} title={&title}>
+            <h1>{title.as_ref()}</h1>
+            <p>
+                {lang.tr("user_suspend_question", None)}
+            </p>
+            <form method={"POST"} action={format!("/users/{}/suspend/submit", user_id)}>
+                <a href={format!("/users/{}", user_id)}>{lang.tr("no_cancel", None)}</a>
+                {" "}
+                <button type={"submit"}>{lang.tr("user_suspend_yes", None)}</button>
+            </form>
+        </HTPage>
+    }))
+}
+
+async fn handler_user_suspend_submit(
+    params: (i64,),
+    ctx: Arc<crate::RouteContext>,
+    req: hyper::Request<hyper::Body>,
+) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+    let (user_id,) = params;
+
+    let cookies = get_cookie_map_for_req(&req)?;
+
+    res_to_error(
+        ctx.http_client
+            .request(for_client(
+                hyper::Request::patch(format!(
+                    "{}/api/unstable/users/{}",
+                    ctx.backend_host, user_id
+                ))
+                .body(r#"{"suspended":true}"#.into())?,
+                req.headers(),
+                &cookies,
+            )?)
+            .await?,
+    )
+    .await?;
+
+    Ok(hyper::Response::builder()
+        .status(hyper::StatusCode::SEE_OTHER)
+        .header(hyper::header::LOCATION, format!("/users/{}", user_id))
+        .body("Successfully suspended.".into())?)
+}
+
+async fn handler_user_suspend_undo(
+    params: (i64,),
+    ctx: Arc<crate::RouteContext>,
+    req: hyper::Request<hyper::Body>,
+) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+    let (user_id,) = params;
+
+    let cookies = get_cookie_map_for_req(&req)?;
+
+    res_to_error(
+        ctx.http_client
+            .request(for_client(
+                hyper::Request::patch(format!(
+                    "{}/api/unstable/users/{}",
+                    ctx.backend_host, user_id
+                ))
+                .body(r#"{"suspended":false}"#.into())?,
+                req.headers(),
+                &cookies,
+            )?)
+            .await?,
+    )
+    .await?;
+
+    Ok(hyper::Response::builder()
+        .status(hyper::StatusCode::SEE_OTHER)
+        .header(hyper::header::LOCATION, format!("/users/{}", user_id))
+        .body("Successfully unsuspended.".into())?)
 }
 
 async fn page_user_your_note_edit(
@@ -1818,6 +1945,21 @@ pub fn route_root() -> crate::RouteNode<()> {
                                 "submit",
                                 crate::RouteNode::new()
                                     .with_handler_async("POST", handler_user_edit_submit),
+                            ),
+                    )
+                    .with_child(
+                        "suspend",
+                        crate::RouteNode::new()
+                            .with_handler_async("GET", page_user_suspend)
+                            .with_child(
+                                "submit",
+                                crate::RouteNode::new()
+                                    .with_handler_async("POST", handler_user_suspend_submit),
+                            )
+                            .with_child(
+                                "undo",
+                                crate::RouteNode::new()
+                                    .with_handler_async("POST", handler_user_suspend_undo),
                             ),
                     )
                     .with_child(
