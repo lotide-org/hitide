@@ -230,7 +230,19 @@ async fn page_community(
                     }
                 }
                 <p>{community_info.description.as_ref()}</p>
-                <p><a href={format!("/communities/{}/moderators", community_id)}>{lang.tr("moderators", None)}</a></p>
+                {
+                    if community_info.as_ref().local {
+                        Some(render::rsx! {
+                            <p>
+                                <a href={format!("/communities/{}/moderators", community_id)}>
+                                    {lang.tr("moderators", None)}
+                                </a>
+                            </p>
+                        })
+                    } else {
+                        None
+                    }
+                }
             </div>
             <div class={"sortOptions"}>
                 <span>{lang.tr("sort", None)}</span>
