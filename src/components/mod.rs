@@ -317,6 +317,8 @@ pub fn PostItem<'a>(
             <br />
             <small>
                 {lang.tr("submitted", None)}
+                {" "}
+                <TimeAgo since={chrono::DateTime::parse_from_rfc3339(&post.as_ref().created).unwrap()} lang />
                 {
                     if no_user {
                         None
