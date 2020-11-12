@@ -61,6 +61,7 @@ or_start = Aŭ
 password_prompt = Pasvorto:
 post_approve = Aprobi
 post_approve_undo = Forpreni el komunumo
+post_comments_count = { $count } komentoj
 post_delete_question = Ĉu vi volas forigi ĉi tiun poŝton?
 post_delete_title = Forigi Poŝton
 post_likes_nothing = Ŝajnas, ke neniu ankoraŭ ŝatis ĉi tion poŝton.

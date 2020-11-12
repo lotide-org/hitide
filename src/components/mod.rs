@@ -299,11 +299,11 @@ pub fn PostItem<'a>(
 ) {
     render::rsx! {
         <li>
-            <a href={format!("/posts/{}", post.as_ref().id)}>
-                {post.as_ref().title.as_ref()}
+            <a href={format!("/posts/{}", post.as_ref().as_ref().id)}>
+                {post.as_ref().as_ref().title.as_ref()}
             </a>
             {
-                if let Some(href) = &post.href {
+                if let Some(href) = &post.as_ref().href {
                     Some(render::rsx! {
                         <>
                             {" "}
@@ -315,27 +315,31 @@ pub fn PostItem<'a>(
                 }
             }
             <br />
-            {lang.tr("submitted", None)}
-            {
-                if no_user {
-                    None
-                } else {
-                    Some(render::rsx! {
-                        <>
-                            {" "}{lang.tr("by", None)}{" "}<UserLink user={post.author.as_ref()} />
-                        </>
-                    })
+            <small>
+                {lang.tr("submitted", None)}
+                {
+                    if no_user {
+                        None
+                    } else {
+                        Some(render::rsx! {
+                            <>
+                                {" "}{lang.tr("by", None)}{" "}<UserLink user={post.as_ref().author.as_ref()} />
+                            </>
+                        })
+                    }
                 }
-            }
-            {
-                if !in_community {
-                    Some(render::rsx! {
-                        <>{" "}{lang.tr("to", None)}{" "}<CommunityLink community={&post.community} /></>
-                    })
-                } else {
-                    None
+                {
+                    if !in_community {
+                        Some(render::rsx! {
+                            <>{" "}{lang.tr("to", None)}{" "}<CommunityLink community={&post.as_ref().community} /></>
+                        })
+                    } else {
+                        None
+                    }
                 }
-            }
+                {" | "}
+                {lang.tr("post_comments_count", Some(&fluent::fluent_args!["count" => post.replies_count_total])).into_owned()}
+            </small>
         </li>
     }
 }

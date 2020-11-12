@@ -61,6 +61,7 @@ or_start = Or
 password_prompt = Password:
 post_approve = Approve
 post_approve_undo = Remove from Community
+post_comments_count = { $count } comments
 post_delete_question = Delete this post?
 post_delete_title = Delete Post
 post_likes_nothing = Looks like nobody has liked this post yet.

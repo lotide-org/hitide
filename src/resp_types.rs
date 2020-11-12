@@ -17,7 +17,7 @@ pub struct RespMinimalPostInfo<'a> {
 }
 
 #[derive(Deserialize, Debug)]
-pub struct RespPostListPost<'a> {
+pub struct RespSomePostInfo<'a> {
     #[serde(flatten)]
     pub base: RespMinimalPostInfo<'a>,
     pub href: Option<Cow<'a, str>>,
@@ -28,8 +28,21 @@ pub struct RespPostListPost<'a> {
     pub community: RespMinimalCommunityInfo<'a>,
 }
 
-impl<'a> AsRef<RespMinimalPostInfo<'a>> for RespPostListPost<'a> {
+impl<'a> AsRef<RespMinimalPostInfo<'a>> for RespSomePostInfo<'a> {
     fn as_ref(&self) -> &RespMinimalPostInfo<'a> {
+        &self.base
+    }
+}
+
+#[derive(Deserialize, Debug)]
+pub struct RespPostListPost<'a> {
+    #[serde(flatten, borrow)]
+    pub base: RespSomePostInfo<'a>,
+    pub replies_count_total: i64,
+}
+
+impl<'a> AsRef<RespSomePostInfo<'a>> for RespPostListPost<'a> {
+    fn as_ref(&self) -> &RespSomePostInfo<'a> {
         &self.base
     }
 }
@@ -114,7 +127,7 @@ impl<'a> AsRef<RespPostCommentInfo<'a>> for RespCommentInfo<'a> {
 #[derive(Deserialize, Debug)]
 pub struct RespPostInfo<'a> {
     #[serde(flatten, borrow)]
-    pub base: RespPostListPost<'a>,
+    pub base: RespSomePostInfo<'a>,
 
     pub content_text: Option<Cow<'a, str>>,
     pub content_html: Option<Cow<'a, str>>,
@@ -126,8 +139,8 @@ pub struct RespPostInfo<'a> {
     pub your_vote: Option<Empty>,
 }
 
-impl<'a> AsRef<RespPostListPost<'a>> for RespPostInfo<'a> {
-    fn as_ref(&self) -> &RespPostListPost<'a> {
+impl<'a> AsRef<RespSomePostInfo<'a>> for RespPostInfo<'a> {
+    fn as_ref(&self) -> &RespSomePostInfo<'a> {
         &self.base
     }
 }
