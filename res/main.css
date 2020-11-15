@@ -6,6 +6,7 @@ body {
 	padding: 8px;
 	border-bottom: 1px solid rgba(0,0,0,.24);
 	box-shadow: 0 1px 3px rgba(0,0,0,.24);
+	background-color: #81D4FA;
 }
 .mainHeader:after {
 	content: "";
@@ -17,6 +18,16 @@ body {
 }
 .mainHeader > .right {
 	float: right;
+}
+.mainHeader a {
+	text-decoration: none;
+	color: black;
+}
+.mainHeader a:hover {
+	text-decoration: underline;
+}
+.mainHeader .actionList.left > * {
+	margin-right: 1em;
 }
 
 .actionList > * {
