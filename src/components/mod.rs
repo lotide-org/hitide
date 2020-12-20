@@ -299,22 +299,20 @@ pub fn PostItem<'a>(
 ) {
     render::rsx! {
         <li>
-            <a href={format!("/posts/{}", post.as_ref().as_ref().id)}>
-                {post.as_ref().as_ref().title.as_ref()}
-            </a>
-            {
-                if let Some(href) = &post.as_ref().href {
-                    Some(render::rsx! {
-                        <>
-                            {" "}
+            <div class={"titleLine"}>
+                <a href={format!("/posts/{}", post.as_ref().as_ref().id)}>
+                    {post.as_ref().as_ref().title.as_ref()}
+                </a>
+                {
+                    if let Some(href) = &post.as_ref().href {
+                        Some(render::rsx! {
                             <em><a href={href.as_ref()}>{abbreviate_link(&href)}{" ↗"}</a></em>
-                        </>
-                    })
-                } else {
-                    None
+                        })
+                    } else {
+                        None
+                    }
                 }
-            }
-            <br />
+            </div>
             <small>
                 {lang.tr("submitted", None)}
                 {" "}
