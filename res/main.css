@@ -113,6 +113,18 @@ body {
 	padding-left: 0;
 }
 
+.titleLine {
+	white-space: nowrap;
+	display: flex;
+	padding-right: .5em;
+}
+.titleLine > a {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	margin-right: .5em;
+}
+
 form.inline {
 	display: inline-block;
 }
