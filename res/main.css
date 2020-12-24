@@ -33,6 +33,12 @@ body {
 .actionList > * {
 	margin-right: .5em;
 }
+.actionList.small {
+	font-size: .8em;
+}
+.actionList.small > a {
+	color: #444;
+}
 
 .siteName {
 	font-weight: bold;
@@ -95,6 +101,12 @@ body {
 	cursor: pointer;
 }
 
+.postContent {
+	border: 1px solid #0d47a1;
+	border-radius: .5em;
+	padding: .5em;
+}
+
 .votebox {
 	float: left;
 	margin-right: .5em;
@@ -102,6 +114,11 @@ body {
 
 .comment > .content {
 	overflow-x: auto;
+	margin-bottom: 1em;
+}
+.commentContent {
+	margin-top: .5em;
+	margin-bottom: .5em;
 }
 
 .commentList {
@@ -132,6 +149,11 @@ form.inline {
 textarea {
 	width: 30em;
 	height: 7em;
+}
+
+p {
+	margin-top: 0;
+	margin-bottom: 16px;
 }
 
 @media (max-width: 768px) {

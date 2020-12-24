@@ -52,7 +52,9 @@ pub fn Comment<'a>(
                     {" "}
                     <TimeAgo since={chrono::DateTime::parse_from_rfc3339(&comment.created).unwrap()} lang />
                 </small>
-                <Content src={comment} />
+                <div class={"commentContent"}>
+                    <Content src={comment} />
+                </div>
                 {
                     comment.attachments.iter().map(|attachment| {
                         let href = &attachment.url;
@@ -66,7 +68,7 @@ pub fn Comment<'a>(
                     })
                     .collect::<Vec<_>>()
                 }
-                <div class={"actionList"}>
+                <div class={"actionList small"}>
                     {
                         if base_data.login.is_some() {
                             Some(render::rsx! {
@@ -201,15 +203,15 @@ impl<'a, T: HavingContent + 'a> render::Render for Content<'a, T> {
         match self.src.content_html() {
             Some(html) => {
                 let cleaned = ammonia::clean(&html);
-                writer.write_str("<p>")?;
+                writer.write_str("<div>")?;
                 render::raw!(cleaned.as_ref()).render_into(writer)?;
-                writer.write_str("</p>")?;
+                writer.write_str("</div>")?;
             }
             None => {
                 if let Some(text) = self.src.content_text() {
-                    writer.write_str("<p>")?;
+                    writer.write_str("<div>")?;
                     text.render_into(writer)?;
-                    writer.write_str("</p>")?;
+                    writer.write_str("</div>")?;
                 }
             }
         }

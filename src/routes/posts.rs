@@ -145,6 +145,7 @@ async fn page_post_inner(
                     }
                 }
             </div>
+            <br />
             <p>
                 {lang.tr("submitted", None)}
                 {" "}<TimeAgo since={chrono::DateTime::parse_from_rfc3339(&post.as_ref().created)?} lang={&lang} />
@@ -161,7 +162,9 @@ async fn page_post_inner(
                     }
                 }
             }
-            <Content src={&post} />
+            <div class={"postContent"}>
+                <Content src={&post} />
+            </div>
             {
                 if author_is_me(&post.as_ref().author, &base_data.login) || (post.local && base_data.is_site_admin()) {
                     Some(render::rsx! {
