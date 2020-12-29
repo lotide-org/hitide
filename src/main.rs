@@ -122,7 +122,7 @@ impl Translator {
         let pattern = match pattern {
             Some(pattern) => pattern,
             None => {
-                eprintln!("Missing message in translation: {}", key);
+                log::error!("Missing message in translation: {}", key);
                 return Cow::Borrowed(key);
             }
         };
@@ -130,7 +130,7 @@ impl Translator {
         let mut errors = Vec::with_capacity(0);
         let out = self.bundle.format_pattern(pattern, args, &mut errors);
         if !errors.is_empty() {
-            eprintln!("Errors in translation: {:?}", errors);
+            log::error!("Errors in translation: {:?}", errors);
         }
 
         out
@@ -167,7 +167,7 @@ pub fn get_lang_for_headers(headers: &hyper::header::HeaderMap) -> Translator {
                 match err {
                     fluent::FluentError::Overriding { .. } => {}
                     _ => {
-                        eprintln!("Failed to add language resource: {:?}", err);
+                        log::error!("Failed to add language resource: {:?}", err);
                         break;
                     }
                 }
@@ -216,7 +216,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             Err(Error::UserError(res)) => res,
                             Err(Error::RoutingError(err)) => err.to_simple_response(),
                             Err(err) => {
-                                eprintln!("Error: {:?}", err);
+                                log::error!("Error: {:?}", err);
 
                                 simple_response(
                                     hyper::StatusCode::INTERNAL_SERVER_ERROR,
