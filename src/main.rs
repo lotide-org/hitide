@@ -184,6 +184,7 @@ pub fn get_lang_for_req(req: &hyper::Request<hyper::Body>) -> Translator {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    env_logger::init();
     let backend_host = std::env::var("BACKEND_HOST").expect("Missing BACKEND_HOST");
 
     let port = match std::env::var("PORT") {

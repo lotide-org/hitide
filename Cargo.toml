@@ -33,3 +33,5 @@ futures-util = "0.3.5"
 hitide_icons = { path = "./icons" }
 multer = "1.2.2"
 fluent = "0.13.1"
+log = "0.4"
+env_logger = "0.8"
