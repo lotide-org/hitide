@@ -665,7 +665,7 @@ async fn handler_comment_submit_reply(
                             }
                         }
 
-                        println!("finished media upload");
+                        log::debug!("finished media upload");
                     }
                 }
             } else {

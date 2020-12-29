@@ -871,7 +871,7 @@ async fn handler_communities_new_post_submit(
                                 Some(lang.tr("post_new_missing_content_type", None).into_owned());
                         }
                         Some(mime) => {
-                            println!("will upload media");
+                            log::debug!("will upload media");
                             let res = res_to_error(
                                 ctx.http_client
                                     .request(for_client(
@@ -906,7 +906,7 @@ async fn handler_communities_new_post_submit(
                                 }
                             }
 
-                            println!("finished media upload");
+                            log::debug!("finished media upload");
                         }
                     }
                 }
