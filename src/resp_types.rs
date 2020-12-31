@@ -158,7 +158,8 @@ pub struct RespMinimalCommunityInfo<'a> {
 pub struct RespUserInfo<'a> {
     #[serde(flatten)]
     pub base: RespMinimalAuthorInfo<'a>,
-    pub description: Cow<'a, str>,
+    pub description_html: Option<Cow<'a, str>>,
+    pub description_text: Option<Cow<'a, str>>,
     pub suspended: Option<bool>,
     pub your_note: Option<JustContentText<'a>>,
 }
@@ -204,7 +205,8 @@ pub struct RespCommunityInfoMaybeYour<'a> {
     #[serde(flatten)]
     pub base: RespMinimalCommunityInfo<'a>,
 
-    pub description: Cow<'a, str>,
+    pub description_html: Option<Cow<'a, str>>,
+    pub description_text: Option<Cow<'a, str>>,
 
     pub you_are_moderator: Option<bool>,
     pub your_follow: Option<RespYourFollow>,

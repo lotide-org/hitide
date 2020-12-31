@@ -1427,7 +1427,7 @@ async fn page_user(
                     None
                 }
             }
-            <p>{user.description.as_ref()}</p>
+            <Content src={&user.description()} />
             {
                 if things.is_empty() {
                     Some(render::rsx! { <p>{lang.tr("nothing", None)}</p> })
@@ -1502,7 +1502,7 @@ async fn page_user_edit(
                 <div>
                     <label>
                         {lang.tr("user_edit_description_prompt", None)}<br />
-                        <textarea name={"description"}>{user.description.as_ref()}</textarea>
+                        <textarea name={"description"}>{user.description_text.as_deref().unwrap_or("")}</textarea>
                     </label>
                 </div>
                 <div>

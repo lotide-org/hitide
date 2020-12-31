@@ -4,9 +4,9 @@ use std::borrow::{Borrow, Cow};
 use std::collections::HashMap;
 
 use crate::resp_types::{
-    RespCommentInfo, RespMinimalAuthorInfo, RespMinimalCommentInfo, RespMinimalCommunityInfo,
-    RespNotification, RespNotificationInfo, RespPostCommentInfo, RespPostInfo, RespPostListPost,
-    RespThingComment, RespThingInfo,
+    RespCommentInfo, RespCommunityInfoMaybeYour, RespMinimalAuthorInfo, RespMinimalCommentInfo,
+    RespMinimalCommunityInfo, RespNotification, RespNotificationInfo, RespPostCommentInfo,
+    RespPostInfo, RespPostListPost, RespThingComment, RespThingInfo, RespUserInfo,
 };
 use crate::util::{abbreviate_link, author_is_me};
 use crate::PageBaseData;
@@ -191,6 +191,38 @@ impl<'a> HavingContent for RespPostInfo<'a> {
     }
     fn content_html(&self) -> Option<&str> {
         self.content_html.as_deref()
+    }
+}
+
+pub struct HavingContentRef<'a> {
+    content_html: Option<&'a str>,
+    content_text: Option<&'a str>,
+}
+
+impl<'a> HavingContent for HavingContentRef<'a> {
+    fn content_text(&self) -> Option<&str> {
+        self.content_text
+    }
+    fn content_html(&self) -> Option<&str> {
+        self.content_html
+    }
+}
+
+impl<'a> RespUserInfo<'a> {
+    pub fn description(&'a self) -> HavingContentRef<'a> {
+        HavingContentRef {
+            content_html: self.description_html.as_deref(),
+            content_text: self.description_text.as_deref(),
+        }
+    }
+}
+
+impl<'a> RespCommunityInfoMaybeYour<'a> {
+    pub fn description(&'a self) -> HavingContentRef<'a> {
+        HavingContentRef {
+            content_html: self.description_html.as_deref(),
+            content_text: self.description_text.as_deref(),
+        }
     }
 }
 

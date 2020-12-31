@@ -1,4 +1,6 @@
-use crate::components::{CommunityLink, HTPage, MaybeFillInput, MaybeFillTextArea, PostItem};
+use crate::components::{
+    CommunityLink, Content, HTPage, MaybeFillInput, MaybeFillTextArea, PostItem,
+};
 use crate::resp_types::{
     JustContentHTML, JustStringID, RespCommunityInfoMaybeYour, RespMinimalAuthorInfo,
     RespMinimalCommunityInfo, RespPostListPost, RespYourFollow,
@@ -229,7 +231,7 @@ async fn page_community(
                         None
                     }
                 }
-                <p>{community_info.description.as_ref()}</p>
+                <Content src={&community_info.description()} />
                 {
                     if community_info.as_ref().local {
                         Some(render::rsx! {
@@ -333,7 +335,7 @@ async fn page_community_edit_inner(
             <form method={"POST"} action={format!("/communities/{}/edit/submit", community_id)}>
                 <label>
                     {lang.tr("description", None)}{":"}<br />
-                    <MaybeFillTextArea values={&prev_values} name={"description"} default_value={Some(community_info.description.as_ref())} />
+                    <MaybeFillTextArea values={&prev_values} name={"description"} default_value={Some(community_info.description_text.as_deref().unwrap_or(""))} />
                 </label>
                 <div>
                     <button r#type={"submit"}>{lang.tr("submit", None)}</button>
