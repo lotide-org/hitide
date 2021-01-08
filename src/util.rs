@@ -2,14 +2,11 @@ use crate::resp_types::{RespLoginInfo, RespMinimalAuthorInfo};
 
 pub fn abbreviate_link(href: &str) -> &str {
     // Attempt to find the hostname from the URL
-    match href.find("://") {
-        Some(idx1) => match href[(idx1 + 3)..].find('/') {
-            Some(idx2) => Some(&href[(idx1 + 3)..(idx1 + 3 + idx2)]),
-            None => None,
-        },
-        None => None,
-    }
-    .unwrap_or(href)
+    href.find("://")
+        .and_then(|idx1| {
+            href[(idx1 + 3)..].find('/').map(|idx2| &href[(idx1 + 3)..(idx1 + 3 + idx2)])
+        })
+        .unwrap_or(href)
 }
 
 pub fn author_is_me(
