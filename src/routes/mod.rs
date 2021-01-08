@@ -29,16 +29,13 @@ struct ReturnToParams<'a> {
 type CookieMap<'a> = std::collections::HashMap<&'a str, ginger::Cookie<'a>>;
 
 fn get_cookie_map(src: Option<&str>) -> Result<CookieMap, ginger::ParseError> {
-    match src {
-        None => Ok(Default::default()),
-        Some(src) => {
-            use fallible_iterator::FallibleIterator;
+    use fallible_iterator::FallibleIterator;
 
-            fallible_iterator::convert(ginger::parse_cookies(src))
-                .map(|cookie| Ok((cookie.name, cookie)))
-                .collect()
-        }
-    }
+    src.map(|s| {
+        fallible_iterator::convert(ginger::parse_cookies(s))
+            .map(|cookie| Ok((cookie.name, cookie)))
+            .collect()
+    }).unwrap_or_else(|| Ok(Default::default()))
 }
 
 fn get_cookie_map_for_req<'a>(
