@@ -4,7 +4,9 @@ pub fn abbreviate_link(href: &str) -> &str {
     // Attempt to find the hostname from the URL
     href.find("://")
         .and_then(|idx1| {
-            href[(idx1 + 3)..].find('/').map(|idx2| &href[(idx1 + 3)..(idx1 + 3 + idx2)])
+            href[(idx1 + 3)..]
+                .find('/')
+                .map(|idx2| &href[(idx1 + 3)..(idx1 + 3 + idx2)])
         })
         .unwrap_or(href)
 }

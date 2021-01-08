@@ -35,7 +35,8 @@ fn get_cookie_map(src: Option<&str>) -> Result<CookieMap, ginger::ParseError> {
         fallible_iterator::convert(ginger::parse_cookies(s))
             .map(|cookie| Ok((cookie.name, cookie)))
             .collect()
-    }).unwrap_or_else(|| Ok(Default::default()))
+    })
+    .unwrap_or_else(|| Ok(Default::default()))
 }
 
 fn get_cookie_map_for_req<'a>(
