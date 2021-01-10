@@ -779,6 +779,7 @@ async fn page_login_inner(
                 </table>
                 <button r#type={"submit"}>{lang.tr("login", None)}</button>
             </form>
+            <br />
             <p>
                 {lang.tr("or_start", None)}{" "}<a href={"/signup"}>{lang.tr("login_signup_link", None)}</a>
             </p>
