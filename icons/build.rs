@@ -3,8 +3,12 @@ use std::io::Write;
 
 fn main() {
     println!("cargo:rerun-if-changed=res");
-    let mut file =
-        std::fs::File::create(format!("{}/icons.rs", std::env::var("OUT_DIR").unwrap())).unwrap();
+    let mut file = std::fs::File::create(format!(
+        "{}{}icons.rs",
+        std::env::var("OUT_DIR").unwrap(),
+        std::path::MAIN_SEPARATOR
+    ))
+    .unwrap();
     let mut mapping = Vec::new();
 
     writeln!(file, "use super::Icon;").unwrap();
@@ -30,7 +34,7 @@ fn main() {
 
         writeln!(
             file,
-            "pub const {}: Icon=Icon{{path:\"{}\",content:include_str!(\"{}\")}};",
+            "pub const {}: Icon=Icon{{path:\"{}\",content:include_str!(r#\"{}\"#)}};",
             name,
             key,
             path.canonicalize().unwrap().to_str().unwrap()
