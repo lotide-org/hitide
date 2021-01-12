@@ -438,10 +438,23 @@ async fn page_community_moderators(
 ) -> Result<hyper::Response<hyper::Body>, crate::Error> {
     let (community_id,) = params;
 
-    let lang = crate::get_lang_for_req(&req);
+    let headers = req.headers();
     let cookies = get_cookie_map_for_req(&req)?;
-    let base_data =
-        fetch_base_data(&ctx.backend_host, &ctx.http_client, req.headers(), &cookies).await?;
+
+    page_community_moderators_inner(community_id, headers, &cookies, ctx, None, None).await
+}
+
+async fn page_community_moderators_inner(
+    community_id: i64,
+    headers: &hyper::header::HeaderMap,
+    cookies: &CookieMap<'_>,
+    ctx: Arc<crate::RouteContext>,
+    display_error_main: Option<String>,
+    display_error_add: Option<String>,
+) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+    let lang = crate::get_lang_for_headers(headers);
+
+    let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, headers, &cookies).await?;
 
     let community_info_api_res = res_to_error(
         ctx.http_client
@@ -457,7 +470,7 @@ async fn page_community_moderators(
                     },
                 ))
                 .body(Default::default())?,
-                req.headers(),
+                headers,
                 &cookies,
             )?)
             .await?,
@@ -475,7 +488,7 @@ async fn page_community_moderators(
                     ctx.backend_host, community_id,
                 ))
                 .body(Default::default())?,
-                req.headers(),
+                headers,
                 &cookies,
             )?)
             .await?,
@@ -489,6 +502,13 @@ async fn page_community_moderators(
     Ok(html_response(render::html! {
         <HTPage base_data={&base_data} lang={&lang} title={&title}>
             <h1>{title.as_ref()}</h1>
+            {
+                display_error_main.map(|msg| {
+                    render::rsx! {
+                        <div class={"errorBox"}>{msg}</div>
+                    }
+                })
+            }
             <ul>
                 {
                     api_res.iter().map(|user| {
@@ -521,6 +541,13 @@ async fn page_community_moderators(
                     Some(render::rsx! {
                         <div>
                             <h2>{lang.tr("community_add_moderator", None)}</h2>
+                            {
+                                display_error_add.map(|msg| {
+                                    render::rsx! {
+                                        <div class={"errorBox"}>{msg}</div>
+                                    }
+                                })
+                            }
                             <form method={"POST"} action={format!("/communities/{}/moderators/add", community_id)}>
                                 <label>
                                     {lang.tr("user_id_prompt", None)}{" "}
@@ -558,7 +585,7 @@ async fn handler_community_moderators_add(
     let body = hyper::body::to_bytes(body).await?;
     let body: ModeratorsAddParams = serde_urlencoded::from_bytes(&body)?;
 
-    res_to_error(
+    let api_res = res_to_error(
         ctx.http_client
             .request(for_client(
                 hyper::Request::put(format!(
@@ -571,15 +598,29 @@ async fn handler_community_moderators_add(
             )?)
             .await?,
     )
-    .await?;
+    .await;
 
-    Ok(hyper::Response::builder()
-        .status(hyper::StatusCode::SEE_OTHER)
-        .header(
-            hyper::header::LOCATION,
-            format!("/communities/{}/moderators", community_id),
-        )
-        .body("Successfully added.".into())?)
+    match api_res {
+        Err(crate::Error::RemoteError((_, message))) => {
+            page_community_moderators_inner(
+                community_id,
+                &req_parts.headers,
+                &cookies,
+                ctx,
+                None,
+                Some(message),
+            )
+            .await
+        }
+        Err(other) => Err(other),
+        Ok(_) => Ok(hyper::Response::builder()
+            .status(hyper::StatusCode::SEE_OTHER)
+            .header(
+                hyper::header::LOCATION,
+                format!("/communities/{}/moderators", community_id),
+            )
+            .body("Successfully added.".into())?),
+    }
 }
 
 async fn handler_community_moderators_remove(
@@ -601,7 +642,7 @@ async fn handler_community_moderators_remove(
     let body = hyper::body::to_bytes(body).await?;
     let body: ModeratorsRemoveParams = serde_urlencoded::from_bytes(&body)?;
 
-    res_to_error(
+    let api_res = res_to_error(
         ctx.http_client
             .request(for_client(
                 hyper::Request::delete(format!(
@@ -614,15 +655,29 @@ async fn handler_community_moderators_remove(
             )?)
             .await?,
     )
-    .await?;
+    .await;
 
-    Ok(hyper::Response::builder()
-        .status(hyper::StatusCode::SEE_OTHER)
-        .header(
-            hyper::header::LOCATION,
-            format!("/communities/{}/moderators", community_id),
-        )
-        .body("Successfully removed.".into())?)
+    match api_res {
+        Err(crate::Error::RemoteError((_, message))) => {
+            page_community_moderators_inner(
+                community_id,
+                &req_parts.headers,
+                &cookies,
+                ctx,
+                Some(message),
+                None,
+            )
+            .await
+        }
+        Err(other) => Err(other),
+        Ok(_) => Ok(hyper::Response::builder()
+            .status(hyper::StatusCode::SEE_OTHER)
+            .header(
+                hyper::header::LOCATION,
+                format!("/communities/{}/moderators", community_id),
+            )
+            .body("Successfully removed.".into())?),
+    }
 }
 
 async fn handler_community_post_approve(
