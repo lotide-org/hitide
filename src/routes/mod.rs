@@ -1846,6 +1846,59 @@ async fn page_all_inner(
     }))
 }
 
+async fn page_local(
+    _: (),
+    ctx: Arc<crate::RouteContext>,
+    req: hyper::Request<hyper::Body>,
+) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+    let cookies = get_cookie_map_for_req(&req)?;
+
+    let base_data =
+        fetch_base_data(&ctx.backend_host, &ctx.http_client, req.headers(), &cookies).await?;
+
+    let lang = crate::get_lang_for_headers(req.headers());
+
+    let api_res = res_to_error(
+        ctx.http_client
+            .request(for_client(
+                hyper::Request::get(format!(
+                    "{}/api/unstable/posts?in_any_local_community=true",
+                    ctx.backend_host
+                ))
+                .body(Default::default())?,
+                req.headers(),
+                &cookies,
+            )?)
+            .await?,
+    )
+    .await?;
+
+    let api_res = hyper::body::to_bytes(api_res.into_body()).await?;
+    let api_res: Vec<RespPostListPost<'_>> = serde_json::from_slice(&api_res)?;
+
+    Ok(html_response(render::html! {
+        <HTPage base_data={&base_data} lang={&lang} title={"lotide"}>
+            <h1>{lang.tr("local_title", None)}</h1>
+            {
+                if api_res.is_empty() {
+                    Some(render::rsx! {
+                        <p>
+                            {lang.tr("nothing_yet", None)}
+                        </p>
+                    })
+                } else {
+                    None
+                }
+            }
+            <ul>
+                {api_res.iter().map(|post| {
+                    PostItem { post, in_community: false, no_user: false, lang: &lang }
+                }).collect::<Vec<_>>()}
+            </ul>
+        </HTPage>
+    }))
+}
+
 pub fn route_root() -> crate::RouteNode<()> {
     crate::RouteNode::new()
         .with_handler_async("GET", page_home)
@@ -1889,6 +1942,10 @@ pub fn route_root() -> crate::RouteNode<()> {
         )
         .with_child("communities", communities::route_communities())
         .with_child("forgot_password", forgot_password::route_forgot_password())
+        .with_child(
+            "local",
+            crate::RouteNode::new().with_handler_async("GET", page_local),
+        )
         .with_child(
             "login",
             crate::RouteNode::new()

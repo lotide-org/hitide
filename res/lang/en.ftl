@@ -45,6 +45,7 @@ home_follow_prompt2 = follow some communities?
 liked_by = Liked by:
 likes = Likes
 local = Local
+local_title = Posts from Local Communities
 login = Login
 login_signup_link = create a new account
 lookup_nothing = Nothing found.

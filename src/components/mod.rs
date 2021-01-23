@@ -273,6 +273,7 @@ pub fn HTPage<'a, Children: render::Render>(
                         <div class={"left actionList"}>
                             <a href={"/"} class={"siteName"}>{"lotide"}</a>
                             <a href={"/all"}>{lang.tr("all", None)}</a>
+                            <a href={"/local"}>{lang.tr("local", None)}</a>
                             <a href={"/communities"}>{lang.tr("communities", None)}</a>
                             <a href={"/about"}>{lang.tr("about", None)}</a>
                         </div>
