@@ -1811,8 +1811,11 @@ async fn page_all_inner(
     let api_res = res_to_error(
         ctx.http_client
             .request(for_client(
-                hyper::Request::get(format!("{}/api/unstable/posts", ctx.backend_host))
-                    .body(Default::default())?,
+                hyper::Request::get(format!(
+                    "{}/api/unstable/posts?use_aggregate_filters=true",
+                    ctx.backend_host
+                ))
+                .body(Default::default())?,
                 headers,
                 &cookies,
             )?)
@@ -1862,7 +1865,7 @@ async fn page_local(
         ctx.http_client
             .request(for_client(
                 hyper::Request::get(format!(
-                    "{}/api/unstable/posts?in_any_local_community=true",
+                    "{}/api/unstable/posts?in_any_local_community=true&use_aggregate_filters=true",
                     ctx.backend_host
                 ))
                 .body(Default::default())?,
