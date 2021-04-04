@@ -98,8 +98,7 @@ pub struct RespPostCommentInfo<'a> {
     pub local: bool,
     pub your_vote: Option<Empty>,
     #[serde(borrow)]
-    pub replies: Option<Vec<RespPostCommentInfo<'a>>>,
-    pub has_replies: bool,
+    pub replies: Option<RespList<'a, RespPostCommentInfo<'a>>>,
 }
 
 impl<'a> AsRef<RespMinimalCommentInfo<'a>> for RespPostCommentInfo<'a> {
@@ -134,8 +133,6 @@ pub struct RespPostInfo<'a> {
     pub approved: bool,
     pub score: i64,
     pub local: bool,
-    #[serde(borrow)]
-    pub replies: Vec<RespPostCommentInfo<'a>>,
     pub your_vote: Option<Empty>,
 }
 
