@@ -92,24 +92,37 @@ pub fn Comment<'a>(
 
             {
                 if let Some(replies) = &comment.replies {
+                    if replies.items.is_empty() {
+                        None
+                    } else {
                         Some(render::rsx! {
-                            <ul class={"commentList"}>
+                            <>
+                                <ul class={"commentList"}>
+                                    {
+                                        replies.items.iter().map(|reply| {
+                                            render::rsx! {
+                                                <Comment comment={reply} base_data lang />
+                                            }
+                                        })
+                                        .collect::<Vec<_>>()
+                                    }
+                                </ul>
                                 {
-                                    replies.iter().map(|reply| {
+                                    replies.next_page.as_ref().map(|next_page| {
                                         render::rsx! {
-                                            <Comment comment={reply} base_data lang />
+                                            <a href={format!("/comments/{}?page={}", comment.base.id, next_page)}>{"-> "}{lang.tr("view_more_comments", None)}</a>
                                         }
                                     })
-                                    .collect::<Vec<_>>()
                                 }
-                            </ul>
+                            </>
                         })
+                    }
                 } else {
                     None
                 }
             }
             {
-                if comment.replies.is_none() && comment.has_replies {
+                if comment.replies.is_none() {
                     Some(render::rsx! {
                         <ul><li><a href={format!("/comments/{}", comment.as_ref().id)}>{"-> "}{lang.tr("view_more_comments", None)}</a></li></ul>
                     })

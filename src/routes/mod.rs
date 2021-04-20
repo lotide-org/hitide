@@ -1,4 +1,4 @@
-use serde_derive::Deserialize;
+use serde_derive::{Deserialize, Serialize};
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -8,8 +8,8 @@ use crate::components::{
     PostItem, ThingItem, UserLink,
 };
 use crate::resp_types::{
-    JustStringID, RespCommentInfo, RespInstanceInfo, RespNotification, RespPostCommentInfo,
-    RespPostListPost, RespThingInfo, RespUserInfo,
+    JustStringID, RespCommentInfo, RespInstanceInfo, RespList, RespNotification,
+    RespPostCommentInfo, RespPostListPost, RespThingInfo, RespUserInfo,
 };
 use crate::util::{abbreviate_link, author_is_me};
 use crate::PageBaseData;
@@ -191,21 +191,39 @@ async fn page_comment(
 
     let cookies = get_cookie_map_for_req(&req)?;
 
-    page_comment_inner(comment_id, req.headers(), &cookies, ctx, None, None).await
+    page_comment_inner(
+        comment_id,
+        req.headers(),
+        req.uri().query(),
+        &cookies,
+        ctx,
+        None,
+        None,
+    )
+    .await
 }
 
 async fn page_comment_inner(
     comment_id: i64,
     headers: &hyper::header::HeaderMap,
+    query: Option<&str>,
     cookies: &CookieMap<'_>,
     ctx: Arc<crate::RouteContext>,
     display_error: Option<String>,
     prev_values: Option<&HashMap<Cow<'_, str>, serde_json::Value>>,
 ) -> Result<hyper::Response<hyper::Body>, crate::Error> {
     let lang = crate::get_lang_for_headers(headers);
+
+    #[derive(Deserialize)]
+    struct Query<'a> {
+        page: Option<Cow<'a, str>>,
+    }
+
+    let query: Query = serde_urlencoded::from_str(query.unwrap_or(""))?;
+
     let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, headers, &cookies).await?;
 
-    let api_res = res_to_error(
+    let info_api_res = res_to_error(
         ctx.http_client
             .request(for_client(
                 hyper::Request::get(format!(
@@ -225,8 +243,40 @@ async fn page_comment_inner(
             .await?,
     )
     .await?;
-    let api_res = hyper::body::to_bytes(api_res.into_body()).await?;
-    let comment: RespCommentInfo<'_> = serde_json::from_slice(&api_res)?;
+    let info_api_res = hyper::body::to_bytes(info_api_res.into_body()).await?;
+    let comment: RespCommentInfo<'_> = serde_json::from_slice(&info_api_res)?;
+
+    #[derive(Serialize)]
+    struct RepliesListQuery<'a> {
+        include_your: Option<bool>,
+        page: Option<&'a str>,
+    }
+    let replies_req_query = RepliesListQuery {
+        include_your: if base_data.login.is_some() {
+            Some(true)
+        } else {
+            None
+        },
+        page: query.page.as_deref(),
+    };
+    let replies_req_query = serde_urlencoded::to_string(&replies_req_query)?;
+
+    let replies_api_res = res_to_error(
+        ctx.http_client
+            .request(for_client(
+                hyper::Request::get(format!(
+                    "{}/api/unstable/comments/{}/replies?{}",
+                    ctx.backend_host, comment_id, replies_req_query,
+                ))
+                .body(Default::default())?,
+                headers,
+                &cookies,
+            )?)
+            .await?,
+    )
+    .await?;
+    let replies_api_res = hyper::body::to_bytes(replies_api_res.into_body()).await?;
+    let replies: RespList<RespPostCommentInfo<'_>> = serde_json::from_slice(&replies_api_res)?;
 
     let title = lang.tr("comment", None);
 
@@ -337,13 +387,20 @@ async fn page_comment_inner(
             }
             <ul class={"commentList topLevel"}>
                 {
-                    comment.as_ref().replies.as_ref().unwrap().iter().map(|reply| {
+                    replies.items.iter().map(|reply| {
                         render::rsx! {
                             <Comment comment={reply} base_data={&base_data} lang={&lang} />
                         }
                     }).collect::<Vec<_>>()
                 }
             </ul>
+            {
+                replies.next_page.as_ref().map(|next_page| {
+                    render::rsx! {
+                        <a href={format!("/comments/{}?page={}", comment.base.base.id, next_page)}>{"-> "}{lang.tr("view_more_comments", None)}</a>
+                    }
+                })
+            }
         </HTPage>
     }))
 }
@@ -682,6 +739,7 @@ async fn handler_comment_submit_reply(
             return page_comment_inner(
                 comment_id,
                 &req_parts.headers,
+                None,
                 &cookies,
                 ctx,
                 Some(error),
@@ -715,6 +773,7 @@ async fn handler_comment_submit_reply(
             page_comment_inner(
                 comment_id,
                 &req_parts.headers,
+                None,
                 &cookies,
                 ctx,
                 Some(message),

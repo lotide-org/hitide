@@ -6,8 +6,11 @@ use super::{
 use crate::components::{
     Comment, CommunityLink, Content, HTPage, IconExt, MaybeFillTextArea, TimeAgo, UserLink,
 };
-use crate::resp_types::{JustUser, RespCommunityInfoMaybeYour, RespList, RespPostInfo};
+use crate::resp_types::{
+    JustUser, RespCommunityInfoMaybeYour, RespList, RespPostCommentInfo, RespPostInfo,
+};
 use crate::util::author_is_me;
+use serde_derive::{Deserialize, Serialize};
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -21,18 +24,35 @@ async fn page_post(
 
     let cookies = get_cookie_map_for_req(&req)?;
 
-    page_post_inner(post_id, req.headers(), &cookies, ctx, None, None).await
+    page_post_inner(
+        post_id,
+        req.headers(),
+        req.uri().query(),
+        &cookies,
+        ctx,
+        None,
+        None,
+    )
+    .await
 }
 
 async fn page_post_inner(
     post_id: i64,
     headers: &hyper::header::HeaderMap,
+    query: Option<&str>,
     cookies: &CookieMap<'_>,
     ctx: Arc<crate::RouteContext>,
     display_error: Option<String>,
     prev_values: Option<&HashMap<Cow<'_, str>, serde_json::Value>>,
 ) -> Result<hyper::Response<hyper::Body>, crate::Error> {
     let lang = crate::get_lang_for_headers(headers);
+
+    #[derive(Deserialize)]
+    struct Query<'a> {
+        page: Option<Cow<'a, str>>,
+    }
+
+    let query: Query = serde_urlencoded::from_str(query.unwrap_or(""))?;
 
     let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, headers, &cookies).await?;
 
@@ -58,6 +78,38 @@ async fn page_post_inner(
     .await?;
     let api_res = hyper::body::to_bytes(api_res.into_body()).await?;
     let post: RespPostInfo = serde_json::from_slice(&api_res)?;
+
+    #[derive(Serialize)]
+    struct RepliesListQuery<'a> {
+        include_your: Option<bool>,
+        page: Option<&'a str>,
+    }
+    let api_req_query = RepliesListQuery {
+        include_your: if base_data.login.is_some() {
+            Some(true)
+        } else {
+            None
+        },
+        page: query.page.as_deref(),
+    };
+    let api_req_query = serde_urlencoded::to_string(&api_req_query)?;
+
+    let replies_api_res = res_to_error(
+        ctx.http_client
+            .request(for_client(
+                hyper::Request::get(format!(
+                    "{}/api/unstable/posts/{}/replies?{}",
+                    ctx.backend_host, post_id, api_req_query,
+                ))
+                .body(Default::default())?,
+                headers,
+                &cookies,
+            )?)
+            .await?,
+    )
+    .await?;
+    let replies_api_res = hyper::body::to_bytes(replies_api_res.into_body()).await?;
+    let replies: RespList<RespPostCommentInfo> = serde_json::from_slice(&replies_api_res)?;
 
     let is_community_moderator = if base_data.login.is_some() {
         let api_res = res_to_error(
@@ -208,13 +260,20 @@ async fn page_post_inner(
                 }
                 <ul class={"commentList topLevel"}>
                     {
-                        post.replies.iter().map(|comment| {
+                        replies.items.iter().map(|comment| {
                             render::rsx! {
                                 <Comment comment={comment} base_data={&base_data} lang={&lang} />
                             }
                         }).collect::<Vec<_>>()
                     }
                 </ul>
+                {
+                    replies.next_page.map(|next_page| {
+                        render::rsx! {
+                            <a href={format!("/posts/{}?page={}", post_id, next_page)}>{"-> "}{lang.tr("view_more_comments", None)}</a>
+                        }
+                    })
+                }
             </div>
         </HTPage>
     }))
@@ -536,6 +595,7 @@ async fn handler_post_submit_reply(
             return page_post_inner(
                 post_id,
                 &req_parts.headers,
+                None,
                 &cookies,
                 ctx,
                 Some(error),
@@ -565,6 +625,7 @@ async fn handler_post_submit_reply(
             page_post_inner(
                 post_id,
                 &req_parts.headers,
+                None,
                 &cookies,
                 ctx,
                 Some(message),
