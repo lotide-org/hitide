@@ -8,9 +8,12 @@ use std::sync::Arc;
 use trout::hyper::RoutingFailureExtHyper;
 
 mod components;
+mod config;
 mod resp_types;
 mod routes;
 mod util;
+
+use self::config::Config;
 
 #[derive(Deserialize, PartialEq, Clone, Copy)]
 #[serde(rename_all = "snake_case")]
@@ -185,20 +188,16 @@ pub fn get_lang_for_req(req: &hyper::Request<hyper::Body>) -> Translator {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
-    let backend_host = std::env::var("BACKEND_HOST").expect("Missing BACKEND_HOST");
 
-    let port = match std::env::var("PORT") {
-        Ok(port_str) => port_str.parse().expect("Failed to parse port"),
-        _ => 4333,
-    };
+    let config = Config::load().expect("Failed to load config");
 
     let routes = Arc::new(routes::route_root());
     let context = Arc::new(RouteContext {
-        backend_host,
+        backend_host: config.backend_host,
         http_client: hyper::Client::builder().build(hyper_tls::HttpsConnector::new()),
     });
 
-    let server = hyper::Server::bind(&(std::net::Ipv6Addr::UNSPECIFIED, port).into()).serve(
+    let server = hyper::Server::bind(&(std::net::Ipv6Addr::UNSPECIFIED, config.port).into()).serve(
         hyper::service::make_service_fn(|_| {
             let routes = routes.clone();
             let context = context.clone();
