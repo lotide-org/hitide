@@ -247,9 +247,8 @@ impl<'a, T: HavingContent + 'a> render::Render for Content<'a, T> {
     fn render_into<W: std::fmt::Write>(self, writer: &mut W) -> std::fmt::Result {
         match self.src.content_html() {
             Some(html) => {
-                let cleaned = ammonia::clean(&html);
                 writer.write_str("<div>")?;
-                render::raw!(cleaned.as_ref()).render_into(writer)?;
+                render::raw!(html).render_into(writer)?;
                 writer.write_str("</div>")?;
             }
             None => {

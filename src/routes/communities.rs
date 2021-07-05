@@ -802,8 +802,6 @@ async fn page_community_new_post_inner(
 
     let title = lang.tr("post_new", None);
 
-    let display_preview = display_preview.map(|x| ammonia::clean(&x));
-
     Ok(html_response(render::html! {
         <HTPage base_data={&base_data} lang={&lang} title={&title}>
             <h1>{title.as_ref()}</h1>
