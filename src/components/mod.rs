@@ -345,7 +345,7 @@ pub fn PostItem<'a>(
     lang: &'a crate::Translator,
 ) {
     render::rsx! {
-        <li class={if post.sticky { "sticky" } else { "" }}>
+        <li class={if post.as_ref().sticky { "sticky" } else { "" }}>
             <div class={"titleLine"}>
                 <a href={format!("/posts/{}", post.as_ref().as_ref().id)}>
                     {post.as_ref().as_ref().title.as_ref()}

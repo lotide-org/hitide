@@ -741,6 +741,66 @@ async fn handler_community_post_unapprove(
         .body("Successfully unapproved.".into())?)
 }
 
+async fn handler_community_post_make_sticky(
+    params: (i64, i64),
+    ctx: Arc<crate::RouteContext>,
+    req: hyper::Request<hyper::Body>,
+) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+    let (community_id, post_id) = params;
+
+    let cookies = get_cookie_map_for_req(&req)?;
+
+    res_to_error(
+        ctx.http_client
+            .request(for_client(
+                hyper::Request::patch(format!(
+                    "{}/api/unstable/communities/{}/posts/{}",
+                    ctx.backend_host, community_id, post_id
+                ))
+                .body("{\"sticky\": true}".into())?,
+                req.headers(),
+                &cookies,
+            )?)
+            .await?,
+    )
+    .await?;
+
+    Ok(hyper::Response::builder()
+        .status(hyper::StatusCode::SEE_OTHER)
+        .header(hyper::header::LOCATION, format!("/posts/{}", post_id))
+        .body("Successfully stickied.".into())?)
+}
+
+async fn handler_community_post_make_unsticky(
+    params: (i64, i64),
+    ctx: Arc<crate::RouteContext>,
+    req: hyper::Request<hyper::Body>,
+) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+    let (community_id, post_id) = params;
+
+    let cookies = get_cookie_map_for_req(&req)?;
+
+    res_to_error(
+        ctx.http_client
+            .request(for_client(
+                hyper::Request::patch(format!(
+                    "{}/api/unstable/communities/{}/posts/{}",
+                    ctx.backend_host, community_id, post_id
+                ))
+                .body("{\"sticky\": false}".into())?,
+                req.headers(),
+                &cookies,
+            )?)
+            .await?,
+    )
+    .await?;
+
+    Ok(hyper::Response::builder()
+        .status(hyper::StatusCode::SEE_OTHER)
+        .header(hyper::header::LOCATION, format!("/posts/{}", post_id))
+        .body("Successfully unstickied.".into())?)
+}
+
 async fn handler_community_unfollow(
     params: (i64,),
     ctx: Arc<crate::RouteContext>,
@@ -1139,6 +1199,18 @@ pub fn route_communities() -> crate::RouteNode<()> {
                                 "approve",
                                 crate::RouteNode::new()
                                     .with_handler_async("POST", handler_community_post_approve),
+                            )
+                            .with_child(
+                                "make_sticky",
+                                crate::RouteNode::new()
+                                    .with_handler_async("POST", handler_community_post_make_sticky),
+                            )
+                            .with_child(
+                                "make_unsticky",
+                                crate::RouteNode::new().with_handler_async(
+                                    "POST",
+                                    handler_community_post_make_unsticky,
+                                ),
                             )
                             .with_child(
                                 "unapprove",

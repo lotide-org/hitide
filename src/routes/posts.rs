@@ -179,18 +179,39 @@ async fn page_post_inner(
                 {" "}
                 {
                     if is_community_moderator {
-                        Some(if post.approved {
-                            render::rsx! {
-                                <form method={"POST"} action={format!("/communities/{}/posts/{}/unapprove", post.as_ref().community.id, post_id)}>
-                                    <button type={"submit"}>{lang.tr("post_approve_undo", None)}</button>
-                                </form>
-                            }
-                        } else {
-                            render::rsx! {
-                                <form method={"POST"} action={format!("/communities/{}/posts/{}/approve", post.as_ref().community.id, post_id)}>
-                                    <button type={"submit"}>{lang.tr("post_approve", None)}</button>
-                                </form>
-                            }
+                        Some(render::rsx! {
+                            <>
+                                {
+                                    if post.approved {
+                                        render::rsx! {
+                                            <form method={"POST"} action={format!("/communities/{}/posts/{}/unapprove", post.as_ref().community.id, post_id)}>
+                                                <button type={"submit"}>{lang.tr("post_approve_undo", None)}</button>
+                                            </form>
+                                        }
+                                    } else {
+                                        render::rsx! {
+                                            <form method={"POST"} action={format!("/communities/{}/posts/{}/approve", post.as_ref().community.id, post_id)}>
+                                                <button type={"submit"}>{lang.tr("post_approve", None)}</button>
+                                            </form>
+                                        }
+                                    }
+                                }
+                                {
+                                    if post.as_ref().sticky {
+                                        render::rsx! {
+                                            <form method={"POST"} action={format!("/communities/{}/posts/{}/make_unsticky", post.as_ref().community.id, post_id)}>
+                                                <button type={"submit"}>{lang.tr("post_make_not_sticky", None)}</button>
+                                            </form>
+                                        }
+                                    } else {
+                                        render::rsx! {
+                                            <form method={"POST"} action={format!("/communities/{}/posts/{}/make_sticky", post.as_ref().community.id, post_id)}>
+                                                <button type={"submit"}>{lang.tr("post_make_sticky", None)}</button>
+                                            </form>
+                                        }
+                                    }
+                                }
+                            </>
                         })
                     } else {
                         None
