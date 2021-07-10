@@ -130,6 +130,11 @@ body {
 	padding-left: 0;
 }
 
+.sticky > .titleLine > a {
+	color: #558B2F;
+	font-weight: bold;
+}
+
 .titleLine {
 	white-space: nowrap;
 	display: flex;

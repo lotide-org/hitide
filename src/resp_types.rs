@@ -39,6 +39,7 @@ pub struct RespPostListPost<'a> {
     #[serde(flatten, borrow)]
     pub base: RespSomePostInfo<'a>,
     pub replies_count_total: i64,
+    pub sticky: bool,
 }
 
 impl<'a> AsRef<RespSomePostInfo<'a>> for RespPostListPost<'a> {
