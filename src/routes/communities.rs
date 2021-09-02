@@ -1,5 +1,5 @@
 use crate::components::{
-    CommunityLink, Content, HTPage, MaybeFillInput, MaybeFillTextArea, PostItem,
+    CommunityLink, Content, HTPage, HTPageAdvanced, MaybeFillInput, MaybeFillTextArea, PostItem,
 };
 use crate::resp_types::{
     JustContentHTML, JustStringID, RespCommunityInfoMaybeYour, RespMinimalAuthorInfo,
@@ -39,7 +39,11 @@ async fn page_communities(
     let title = lang.tr("communities", None);
 
     Ok(html_response(render::html! {
-        <HTPage base_data={&base_data} lang={&lang} title={&title}>
+        <HTPage
+            base_data={&base_data}
+            lang={&lang}
+            title={&title}
+        >
             <h1>{title.as_ref()}</h1>
             <div>
                 <h2>{lang.tr("local", None)}</h2>
@@ -167,8 +171,20 @@ async fn page_community(
 
     let title = community_info.as_ref().name.as_ref();
 
+    let feed_url = format!(
+        "{}/api/stable/communities/{}/feed",
+        ctx.backend_host, community_id
+    );
+
     Ok(html_response(render::html! {
-        <HTPage base_data={&base_data} lang={&lang} title>
+        <HTPageAdvanced
+            base_data={&base_data}
+            lang={&lang}
+            title
+            head_items={render::rsx! {
+                <link rel={"alternate"} type={"application/atom+xml"} href={feed_url} />
+            }}
+        >
             <div class={"communitySidebar"}>
                 <h2>{title}</h2>
                 <div><em>{format!("@{}@{}", community_info.as_ref().name, community_info.as_ref().host)}</em></div>
@@ -274,7 +290,7 @@ async fn page_community(
                     PostItem { post, in_community: true, no_user: false, lang: &lang }
                 }).collect::<Vec<_>>()}
             </ul>
-        </HTPage>
+        </HTPageAdvanced>
     }))
 }
 

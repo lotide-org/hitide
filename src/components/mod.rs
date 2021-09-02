@@ -272,6 +272,19 @@ pub fn HTPage<'a, Children: render::Render>(
     children: Children,
 ) {
     render::rsx! {
+        <HTPageAdvanced base_data={base_data} lang={lang} title={title} head_items={()}>{children}</HTPageAdvanced>
+    }
+}
+
+#[render::component]
+pub fn HTPageAdvanced<'a, HeadItems: render::Render, Children: render::Render>(
+    base_data: &'a PageBaseData,
+    lang: &'a crate::Translator,
+    title: &'a str,
+    head_items: HeadItems,
+    children: Children,
+) {
+    render::rsx! {
         <>
             <render::html::HTML5Doctype />
             <html>
@@ -279,6 +292,7 @@ pub fn HTPage<'a, Children: render::Render>(
                     <meta charset={"utf-8"} />
                     <link rel={"stylesheet"} href={"/static/main.css"} />
                     <title>{title}</title>
+                    {head_items}
                 </head>
                 <body>
                     <header class={"mainHeader"}>
