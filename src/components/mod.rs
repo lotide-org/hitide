@@ -358,10 +358,12 @@ pub fn PostItem<'a>(
     no_user: bool,
     lang: &'a crate::Translator,
 ) {
+    let post_href = format!("/posts/{}", post.as_ref().as_ref().id);
+
     render::rsx! {
         <li class={if post.as_ref().sticky { "sticky" } else { "" }}>
             <div class={"titleLine"}>
-                <a href={format!("/posts/{}", post.as_ref().as_ref().id)}>
+                <a href={post_href.clone()}>
                     {post.as_ref().as_ref().title.as_ref()}
                 </a>
                 {
@@ -399,7 +401,7 @@ pub fn PostItem<'a>(
                     }
                 }
                 {" | "}
-                {lang.tr("post_comments_count", Some(&fluent::fluent_args!["count" => post.replies_count_total])).into_owned()}
+                <a href={post_href}>{lang.tr("post_comments_count", Some(&fluent::fluent_args!["count" => post.replies_count_total])).into_owned()}</a>
             </small>
         </li>
     }
