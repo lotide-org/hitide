@@ -171,10 +171,7 @@ async fn page_community(
 
     let title = community_info.as_ref().name.as_ref();
 
-    let feed_url = format!(
-        "{}/api/stable/communities/{}/feed",
-        ctx.backend_host, community_id
-    );
+    let feed_url = &community_info.feeds.atom.new;
 
     Ok(html_response(render::html! {
         <HTPageAdvanced
@@ -182,7 +179,7 @@ async fn page_community(
             lang={&lang}
             title
             head_items={render::rsx! {
-                <link rel={"alternate"} type={"application/atom+xml"} href={feed_url} />
+                <link rel={"alternate"} type={"application/atom+xml"} href={feed_url.as_ref()} />
             }}
         >
             <div class={"communitySidebar"}>

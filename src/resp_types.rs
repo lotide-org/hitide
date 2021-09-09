@@ -199,12 +199,23 @@ pub struct RespYourFollow {
 }
 
 #[derive(Deserialize)]
+pub struct RespCommunityFeedsType<'a> {
+    pub new: Cow<'a, str>,
+}
+
+#[derive(Deserialize)]
+pub struct RespCommunityFeeds<'a> {
+    pub atom: RespCommunityFeedsType<'a>,
+}
+
+#[derive(Deserialize)]
 pub struct RespCommunityInfoMaybeYour<'a> {
     #[serde(flatten)]
     pub base: RespMinimalCommunityInfo<'a>,
 
     pub description_html: Option<Cow<'a, str>>,
     pub description_text: Option<Cow<'a, str>>,
+    pub feeds: RespCommunityFeeds<'a>,
 
     pub you_are_moderator: Option<bool>,
     pub your_follow: Option<RespYourFollow>,
