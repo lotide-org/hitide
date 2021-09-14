@@ -273,7 +273,7 @@ async fn page_community(
         ctx.http_client
             .request(for_client(
                 hyper::Request::get(format!(
-                    "{}/api/unstable/communities/{}/posts?sort={}&sort_sticky={}",
+                    "{}/api/unstable/posts?community={}&sort={}&sort_sticky={}",
                     ctx.backend_host,
                     community_id,
                     query.sort.as_str(),
