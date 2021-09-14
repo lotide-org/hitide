@@ -2,7 +2,7 @@ use crate::components::{
     CommunityLink, Content, HTPage, HTPageAdvanced, MaybeFillInput, MaybeFillTextArea, PostItem,
 };
 use crate::resp_types::{
-    JustContentHTML, JustStringID, RespCommunityInfoMaybeYour, RespMinimalAuthorInfo,
+    JustContentHTML, JustStringID, RespCommunityInfoMaybeYour, RespList, RespMinimalAuthorInfo,
     RespMinimalCommunityInfo, RespPostListPost, RespYourFollow,
 };
 use crate::routes::{
@@ -24,19 +24,81 @@ async fn page_communities(
     let base_data =
         fetch_base_data(&ctx.backend_host, &ctx.http_client, req.headers(), &cookies).await?;
 
-    let api_res = res_to_error(
-        ctx.http_client
-            .request(
-                hyper::Request::get(format!("{}/api/unstable/communities", ctx.backend_host,))
-                    .body(Default::default())?,
+    #[derive(Deserialize)]
+    struct Query<'a> {
+        local: Option<bool>,
+        page: Option<Cow<'a, str>>,
+    }
+
+    let query: Query = serde_urlencoded::from_str(req.uri().query().unwrap_or(""))?;
+
+    let page_param = if let Some(page) = query.page {
+        Cow::Owned(format!("&page={}", page))
+    } else {
+        Cow::Borrowed("")
+    };
+
+    let remote_communities_api_res = if query.local == Some(true) {
+        None
+    } else {
+        Some(
+            hyper::body::to_bytes(
+                res_to_error(
+                    ctx.http_client
+                        .request(
+                            hyper::Request::get(format!(
+                                "{}/api/unstable/communities?local=false&limit=2{}",
+                                ctx.backend_host, page_param
+                            ))
+                            .body(Default::default())?,
+                        )
+                        .await?,
+                )
+                .await?
+                .into_body(),
             )
             .await?,
-    )
-    .await?;
-    let api_res = hyper::body::to_bytes(api_res.into_body()).await?;
-    let communities: Vec<RespMinimalCommunityInfo> = serde_json::from_slice(&api_res)?;
+        )
+    };
+    let remote_communities: Option<RespList<RespMinimalCommunityInfo>> = remote_communities_api_res
+        .map(|value| serde_json::from_slice(&value))
+        .transpose()?;
 
-    let title = lang.tr("communities", None);
+    let local_communities_api_res = if query.local == Some(false) {
+        None
+    } else {
+        Some(
+            hyper::body::to_bytes(
+                res_to_error(
+                    ctx.http_client
+                        .request(
+                            hyper::Request::get(format!(
+                                "{}/api/unstable/communities?local=true{}",
+                                ctx.backend_host, page_param
+                            ))
+                            .body(Default::default())?,
+                        )
+                        .await?,
+                )
+                .await?
+                .into_body(),
+            )
+            .await?,
+        )
+    };
+    let local_communities: Option<RespList<RespMinimalCommunityInfo>> = local_communities_api_res
+        .map(|value| serde_json::from_slice(&value))
+        .transpose()?;
+
+    let title = if let Some(local) = query.local {
+        if local {
+            lang.tr("communities_local_more", None)
+        } else {
+            lang.tr("communities_remote_more", None)
+        }
+    } else {
+        lang.tr("communities", None)
+    };
 
     Ok(html_response(render::html! {
         <HTPage
@@ -45,51 +107,112 @@ async fn page_communities(
             title={&title}
         >
             <h1>{title.as_ref()}</h1>
-            <div>
-                <h2>{lang.tr("local", None)}</h2>
-                {
-                    if base_data.login.is_some() {
-                        Some(render::rsx! { <a href={"/new_community"}>{lang.tr("community_create", None)}</a> })
-                    } else {
-                        None
-                    }
+            {
+                if query.local.is_some() {
+                    Some(render::rsx! {
+                        <a href={"/communities"}>{lang.tr("communities_all_view", None)}</a>
+                    })
+                } else {
+                    None
                 }
-                <ul>
-                    {
-                        communities.iter()
-                            .filter(|x| x.local)
-                            .map(|community| {
-                                render::rsx! {
-                                    <li><CommunityLink community={&community} /></li>
+            }
+            {
+                if let Some(local_communities) = &local_communities {
+                    Some(render::rsx! {
+                        <div>
+                            {
+                                if query.local.is_none() {
+                                    Some(render::rsx! {
+                                        <h2>{lang.tr("local", None)}</h2>
+                                    })
+                                } else {
+                                    None
                                 }
-                            })
-                            .collect::<Vec<_>>()
-                    }
-                </ul>
-            </div>
-            <div>
-                <h2>{lang.tr("remote", None)}</h2>
-                <form method={"GET"} action={"/lookup"}>
-                    <label>
-                        {lang.tr("add_by_remote_id", None)}{" "}
-                        <input r#type={"text"} name={"query"} placeholder={"group@example.com"} />
-                    </label>
-                    {" "}
-                    <button r#type={"submit"}>{lang.tr("fetch", None)}</button>
-                </form>
-                <ul>
-                    {
-                        communities.iter()
-                            .filter(|x| !x.local)
-                            .map(|community| {
-                                render::rsx! {
-                                    <li><CommunityLink community={&community} /></li>
+                            }
+                            {
+                                if base_data.login.is_some() {
+                                    Some(render::rsx! { <a href={"/new_community"}>{lang.tr("community_create", None)}</a> })
+                                } else {
+                                    None
                                 }
-                            })
-                            .collect::<Vec<_>>()
-                    }
-                </ul>
-            </div>
+                            }
+                            <ul>
+                                {
+                                    local_communities.items.iter()
+                                        .map(|community| {
+                                            render::rsx! {
+                                                <li><CommunityLink community={&community} /></li>
+                                            }
+                                        })
+                                        .collect::<Vec<_>>()
+                                }
+                            </ul>
+                            {
+                                if let Some(next_page) = &local_communities.next_page {
+                                    Some(render::rsx! {
+                                        <a href={format!("/communities?local=true&page={}", next_page)}>
+                                            {lang.tr("communities_page_next", None)}
+                                        </a>
+                                    })
+                                } else {
+                                    None
+                                }
+                            }
+                        </div>
+                    })
+                } else {
+                    None
+                }
+            }
+            {
+                if let Some(remote_communities) = &remote_communities {
+                    Some(render::rsx! {
+                        <div>
+                            {
+                                if query.local.is_none() {
+                                    Some(render::rsx! {
+                                        <h2>{lang.tr("remote", None)}</h2>
+                                    })
+                                } else {
+                                    None
+                                }
+                            }
+                            <form method={"GET"} action={"/lookup"}>
+                                <label>
+                                    {lang.tr("add_by_remote_id", None)}{" "}
+                                    <input r#type={"text"} name={"query"} placeholder={"group@example.com"} />
+                                </label>
+                                {" "}
+                                <button r#type={"submit"}>{lang.tr("fetch", None)}</button>
+                            </form>
+                            <ul>
+                                {
+                                    remote_communities.items.iter()
+                                        .map(|community| {
+                                            render::rsx! {
+                                                <li><CommunityLink community={&community} /></li>
+                                            }
+                                        })
+                                        .collect::<Vec<_>>()
+                                }
+                            </ul>
+                            {
+                                if let Some(next_page) = &remote_communities.next_page {
+                                    Some(render::rsx! {
+                                        <a href={format!("/communities?local=false&page={}", next_page)}>
+                                            {lang.tr("communities_page_next", None)}
+                                        </a>
+                                    })
+                                } else {
+                                    None
+                                }
+                            }
+                        </div>
+                    })
+                } else {
+                    None
+                }
+            }
         </HTPage>
     }))
 }
