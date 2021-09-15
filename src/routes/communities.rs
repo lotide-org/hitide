@@ -48,7 +48,7 @@ async fn page_communities(
                     ctx.http_client
                         .request(
                             hyper::Request::get(format!(
-                                "{}/api/unstable/communities?local=false&limit=2{}",
+                                "{}/api/unstable/communities?local=false{}",
                                 ctx.backend_host, page_param
                             ))
                             .body(Default::default())?,
