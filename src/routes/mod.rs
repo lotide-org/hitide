@@ -1803,12 +1803,25 @@ async fn page_home(
         return page_all_inner(req.headers(), &cookies, &base_data, req.uri().query(), ctx).await;
     }
 
+    #[derive(Deserialize)]
+    struct Query<'a> {
+        page: Option<Cow<'a, str>>,
+    }
+
+    let query: Query = serde_urlencoded::from_str(req.uri().query().unwrap_or(""))?;
+
     let api_res = res_to_error(
         ctx.http_client
             .request(for_client(
                 hyper::Request::get(format!(
-                    "{}/api/unstable/posts?in_your_follows=true&include_your=true",
-                    ctx.backend_host
+                    "{}/api/unstable/posts?{}",
+                    ctx.backend_host,
+                    serde_urlencoded::to_string(&PostListQuery {
+                        in_your_follows: Some(true),
+                        include_your: Some(true),
+                        page: query.page.as_deref(),
+                        ..Default::default()
+                    })?,
                 ))
                 .body(Default::default())?,
                 req.headers(),
@@ -1843,6 +1856,17 @@ async fn page_home(
                     PostItem { post, in_community: false, no_user: false, lang: &lang }
                 }).collect::<Vec<_>>()}
             </ul>
+            {
+                if let Some(next_page) = &api_res.next_page {
+                    Some(render::rsx! {
+                        <a href={format!("/?page={}", next_page)}>
+                            {lang.tr("posts_page_next", None)}
+                        </a>
+                    })
+                } else {
+                    None
+                }
+            }
         </HTPage>
     }))
 }
