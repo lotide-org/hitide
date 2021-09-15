@@ -1883,13 +1883,13 @@ async fn page_all_inner(
     .await?;
 
     let api_res = hyper::body::to_bytes(api_res.into_body()).await?;
-    let api_res: Vec<RespPostListPost<'_>> = serde_json::from_slice(&api_res)?;
+    let api_res: RespList<RespPostListPost<'_>> = serde_json::from_slice(&api_res)?;
 
     Ok(html_response(render::html! {
         <HTPage base_data={&base_data} lang={&lang} title={"lotide"}>
             <h1>{lang.tr("all_title", None)}</h1>
             {
-                if api_res.is_empty() {
+                if api_res.items.is_empty() {
                     Some(render::rsx! {
                         <p>
                             {lang.tr("nothing_yet", None)}
@@ -1900,7 +1900,7 @@ async fn page_all_inner(
                 }
             }
             <ul>
-                {api_res.iter().map(|post| {
+                {api_res.items.iter().map(|post| {
                     PostItem { post, in_community: false, no_user: false, lang: &lang }
                 }).collect::<Vec<_>>()}
             </ul>
@@ -1936,13 +1936,13 @@ async fn page_local(
     .await?;
 
     let api_res = hyper::body::to_bytes(api_res.into_body()).await?;
-    let api_res: Vec<RespPostListPost<'_>> = serde_json::from_slice(&api_res)?;
+    let api_res: RespList<RespPostListPost<'_>> = serde_json::from_slice(&api_res)?;
 
     Ok(html_response(render::html! {
         <HTPage base_data={&base_data} lang={&lang} title={"lotide"}>
             <h1>{lang.tr("local_title", None)}</h1>
             {
-                if api_res.is_empty() {
+                if api_res.items.is_empty() {
                     Some(render::rsx! {
                         <p>
                             {lang.tr("nothing_yet", None)}
@@ -1953,7 +1953,7 @@ async fn page_local(
                 }
             }
             <ul>
-                {api_res.iter().map(|post| {
+                {api_res.items.iter().map(|post| {
                     PostItem { post, in_community: false, no_user: false, lang: &lang }
                 }).collect::<Vec<_>>()}
             </ul>

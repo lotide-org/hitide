@@ -288,7 +288,7 @@ async fn page_community(
     .await?;
     let posts_api_res = hyper::body::to_bytes(posts_api_res.into_body()).await?;
 
-    let posts: Vec<RespPostListPost<'_>> = serde_json::from_slice(&posts_api_res)?;
+    let posts: RespList<RespPostListPost<'_>> = serde_json::from_slice(&posts_api_res)?;
 
     let new_post_url = format!("/communities/{}/new_post", community_id);
 
@@ -399,14 +399,14 @@ async fn page_community(
                 }
             </div>
             {
-                if posts.is_empty() {
+                if posts.items.is_empty() {
                     Some(render::rsx! { <p>{lang.tr("nothing", None)}</p> })
                 } else {
                     None
                 }
             }
             <ul>
-                {posts.iter().map(|post| {
+                {posts.items.iter().map(|post| {
                     PostItem { post, in_community: true, no_user: false, lang: &lang }
                 }).collect::<Vec<_>>()}
             </ul>
