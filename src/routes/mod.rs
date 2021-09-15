@@ -1392,7 +1392,7 @@ async fn page_user(
     )
     .await?;
     let things = hyper::body::to_bytes(things.into_body()).await?;
-    let things: Vec<RespThingInfo> = serde_json::from_slice(&things)?;
+    let things: RespList<RespThingInfo> = serde_json::from_slice(&things)?;
 
     let title = user.as_ref().username.as_ref();
 
@@ -1487,7 +1487,7 @@ async fn page_user(
             }
             <Content src={&user.description()} />
             {
-                if things.is_empty() {
+                if things.items.is_empty() {
                     Some(render::rsx! { <p>{lang.tr("nothing", None)}</p> })
                 } else {
                     None
@@ -1495,7 +1495,7 @@ async fn page_user(
             }
             <ul>
                 {
-                    things.iter().map(|thing| {
+                    things.items.iter().map(|thing| {
                         ThingItem { thing, lang: &lang }
                     })
                     .collect::<Vec<_>>()
@@ -1806,7 +1806,7 @@ async fn page_home(
         ctx.http_client
             .request(for_client(
                 hyper::Request::get(format!(
-                    "{}/api/unstable/users/~me/following:posts",
+                    "{}/api/unstable/posts?in_your_follows=true&include_your=true",
                     ctx.backend_host
                 ))
                 .body(Default::default())?,
@@ -1818,12 +1818,12 @@ async fn page_home(
     .await?;
 
     let api_res = hyper::body::to_bytes(api_res.into_body()).await?;
-    let api_res: Vec<RespPostListPost<'_>> = serde_json::from_slice(&api_res)?;
+    let api_res: RespList<RespPostListPost<'_>> = serde_json::from_slice(&api_res)?;
 
     Ok(html_response(render::html! {
         <HTPage base_data={&base_data} lang={&lang} title={"lotide"}>
             {
-                if api_res.is_empty() {
+                if api_res.items.is_empty() {
                     Some(render::rsx! {
                         <p>
                             {lang.tr("nothing", None)}
@@ -1838,7 +1838,7 @@ async fn page_home(
                 }
             }
             <ul>
-                {api_res.iter().map(|post| {
+                {api_res.items.iter().map(|post| {
                     PostItem { post, in_community: false, no_user: false, lang: &lang }
                 }).collect::<Vec<_>>()}
             </ul>
@@ -1883,13 +1883,13 @@ async fn page_all_inner(
     .await?;
 
     let api_res = hyper::body::to_bytes(api_res.into_body()).await?;
-    let api_res: Vec<RespPostListPost<'_>> = serde_json::from_slice(&api_res)?;
+    let api_res: RespList<RespPostListPost<'_>> = serde_json::from_slice(&api_res)?;
 
     Ok(html_response(render::html! {
         <HTPage base_data={&base_data} lang={&lang} title={"lotide"}>
             <h1>{lang.tr("all_title", None)}</h1>
             {
-                if api_res.is_empty() {
+                if api_res.items.is_empty() {
                     Some(render::rsx! {
                         <p>
                             {lang.tr("nothing_yet", None)}
@@ -1900,7 +1900,7 @@ async fn page_all_inner(
                 }
             }
             <ul>
-                {api_res.iter().map(|post| {
+                {api_res.items.iter().map(|post| {
                     PostItem { post, in_community: false, no_user: false, lang: &lang }
                 }).collect::<Vec<_>>()}
             </ul>
@@ -1936,13 +1936,13 @@ async fn page_local(
     .await?;
 
     let api_res = hyper::body::to_bytes(api_res.into_body()).await?;
-    let api_res: Vec<RespPostListPost<'_>> = serde_json::from_slice(&api_res)?;
+    let api_res: RespList<RespPostListPost<'_>> = serde_json::from_slice(&api_res)?;
 
     Ok(html_response(render::html! {
         <HTPage base_data={&base_data} lang={&lang} title={"lotide"}>
             <h1>{lang.tr("local_title", None)}</h1>
             {
-                if api_res.is_empty() {
+                if api_res.items.is_empty() {
                     Some(render::rsx! {
                         <p>
                             {lang.tr("nothing_yet", None)}
@@ -1953,7 +1953,7 @@ async fn page_local(
                 }
             }
             <ul>
-                {api_res.iter().map(|post| {
+                {api_res.items.iter().map(|post| {
                     PostItem { post, in_community: false, no_user: false, lang: &lang }
                 }).collect::<Vec<_>>()}
             </ul>
