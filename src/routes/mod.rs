@@ -1392,7 +1392,7 @@ async fn page_user(
     )
     .await?;
     let things = hyper::body::to_bytes(things.into_body()).await?;
-    let things: Vec<RespThingInfo> = serde_json::from_slice(&things)?;
+    let things: RespList<RespThingInfo> = serde_json::from_slice(&things)?;
 
     let title = user.as_ref().username.as_ref();
 
@@ -1487,7 +1487,7 @@ async fn page_user(
             }
             <Content src={&user.description()} />
             {
-                if things.is_empty() {
+                if things.items.is_empty() {
                     Some(render::rsx! { <p>{lang.tr("nothing", None)}</p> })
                 } else {
                     None
@@ -1495,7 +1495,7 @@ async fn page_user(
             }
             <ul>
                 {
-                    things.iter().map(|thing| {
+                    things.items.iter().map(|thing| {
                         ThingItem { thing, lang: &lang }
                     })
                     .collect::<Vec<_>>()
