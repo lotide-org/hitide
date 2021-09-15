@@ -64,6 +64,7 @@ on = on
 on_your_post = on your post
 or_start = Or
 password_prompt = Password:
+posts_page_next = View More
 post_approve = Approve
 post_approve_undo = Remove from Community
 post_comments_count =

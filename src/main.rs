@@ -9,6 +9,7 @@ use trout::hyper::RoutingFailureExtHyper;
 
 mod components;
 mod config;
+mod query_types;
 mod resp_types;
 mod routes;
 mod util;

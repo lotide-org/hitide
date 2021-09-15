@@ -1,6 +1,7 @@
 use crate::components::{
     CommunityLink, Content, HTPage, HTPageAdvanced, MaybeFillInput, MaybeFillTextArea, PostItem,
 };
+use crate::query_types::PostListQuery;
 use crate::resp_types::{
     JustContentHTML, JustStringID, RespCommunityInfoMaybeYour, RespList, RespMinimalAuthorInfo,
     RespMinimalCommunityInfo, RespPostListPost, RespYourFollow,
@@ -229,9 +230,11 @@ async fn page_community(
     }
 
     #[derive(Deserialize)]
-    struct Query {
+    struct Query<'a> {
         #[serde(default = "default_sort")]
         sort: crate::SortType,
+
+        page: Option<Cow<'a, str>>,
     }
 
     let query: Query = serde_urlencoded::from_str(req.uri().query().unwrap_or(""))?;
@@ -273,11 +276,15 @@ async fn page_community(
         ctx.http_client
             .request(for_client(
                 hyper::Request::get(format!(
-                    "{}/api/unstable/posts?community={}&sort={}&sort_sticky={}",
+                    "{}/api/unstable/posts?{}",
                     ctx.backend_host,
-                    community_id,
-                    query.sort.as_str(),
-                    query.sort == crate::SortType::Hot,
+                    serde_urlencoded::to_string(&PostListQuery {
+                        community: Some(community_id),
+                        sort_sticky: Some(query.sort == crate::SortType::Hot),
+                        sort: Some(query.sort.as_str()),
+                        page: query.page.as_deref(),
+                        ..Default::default()
+                    })?,
                 ))
                 .body(Default::default())?,
                 req.headers(),
@@ -306,7 +313,7 @@ async fn page_community(
             }}
         >
             <div class={"communitySidebar"}>
-                <h2>{title}</h2>
+                <h2><a href={format!("/communities/{}", community_id)}>{title}</a></h2>
                 <div><em>{format!("@{}@{}", community_info.as_ref().name, community_info.as_ref().host)}</em></div>
                 {
                     if community_info.as_ref().local {
@@ -410,6 +417,17 @@ async fn page_community(
                     PostItem { post, in_community: true, no_user: false, lang: &lang }
                 }).collect::<Vec<_>>()}
             </ul>
+            {
+                if let Some(next_page) = &posts.next_page {
+                    Some(render::rsx! {
+                        <a href={format!("/communities/{}?sort={}&page={}", community_id, query.sort.as_str(), next_page)}>
+                            {lang.tr("posts_page_next", None)}
+                        </a>
+                    })
+                } else {
+                    None
+                }
+            }
         </HTPageAdvanced>
     }))
 }
