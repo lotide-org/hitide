@@ -7,6 +7,7 @@ use crate::components::{
     Comment, Content, HTPage, IconExt, MaybeFillInput, MaybeFillTextArea, NotificationItem,
     PostItem, ThingItem, UserLink,
 };
+use crate::query_types::PostListQuery;
 use crate::resp_types::{
     JustStringID, RespCommentInfo, RespInstanceInfo, RespList, RespNotification,
     RespPostCommentInfo, RespPostListPost, RespThingInfo, RespUserInfo,
@@ -1799,7 +1800,7 @@ async fn page_home(
         fetch_base_data(&ctx.backend_host, &ctx.http_client, req.headers(), &cookies).await?;
 
     if base_data.login.is_none() {
-        return page_all_inner(req.headers(), &cookies, &base_data, ctx).await;
+        return page_all_inner(req.headers(), &cookies, &base_data, req.uri().query(), ctx).await;
     }
 
     let api_res = res_to_error(
@@ -1856,23 +1857,36 @@ async fn page_all(
     let base_data =
         fetch_base_data(&ctx.backend_host, &ctx.http_client, req.headers(), &cookies).await?;
 
-    page_all_inner(req.headers(), &cookies, &base_data, ctx).await
+    page_all_inner(req.headers(), &cookies, &base_data, req.uri().query(), ctx).await
 }
 
 async fn page_all_inner(
     headers: &hyper::header::HeaderMap,
     cookies: &CookieMap<'_>,
     base_data: &crate::PageBaseData,
+    query: Option<&str>,
     ctx: Arc<crate::RouteContext>,
 ) -> Result<hyper::Response<hyper::Body>, crate::Error> {
     let lang = crate::get_lang_for_headers(headers);
+
+    #[derive(Deserialize)]
+    struct Query<'a> {
+        page: Option<Cow<'a, str>>,
+    }
+
+    let query: Query = serde_urlencoded::from_str(query.unwrap_or(""))?;
 
     let api_res = res_to_error(
         ctx.http_client
             .request(for_client(
                 hyper::Request::get(format!(
-                    "{}/api/unstable/posts?use_aggregate_filters=true",
-                    ctx.backend_host
+                    "{}/api/unstable/posts?{}",
+                    ctx.backend_host,
+                    serde_urlencoded::to_string(&PostListQuery {
+                        use_aggregate_filters: Some(true),
+                        page: query.page.as_deref(),
+                        ..Default::default()
+                    })?,
                 ))
                 .body(Default::default())?,
                 headers,
@@ -1904,6 +1918,17 @@ async fn page_all_inner(
                     PostItem { post, in_community: false, no_user: false, lang: &lang }
                 }).collect::<Vec<_>>()}
             </ul>
+            {
+                if let Some(next_page) = &api_res.next_page {
+                    Some(render::rsx! {
+                        <a href={format!("/all?page={}", next_page)}>
+                            {lang.tr("posts_page_next", None)}
+                        </a>
+                    })
+                } else {
+                    None
+                }
+            }
         </HTPage>
     }))
 }
@@ -1920,12 +1945,25 @@ async fn page_local(
 
     let lang = crate::get_lang_for_headers(req.headers());
 
+    #[derive(Deserialize)]
+    struct Query<'a> {
+        page: Option<Cow<'a, str>>,
+    }
+
+    let query: Query = serde_urlencoded::from_str(req.uri().query().unwrap_or(""))?;
+
     let api_res = res_to_error(
         ctx.http_client
             .request(for_client(
                 hyper::Request::get(format!(
-                    "{}/api/unstable/posts?in_any_local_community=true&use_aggregate_filters=true",
-                    ctx.backend_host
+                    "{}/api/unstable/posts?{}",
+                    ctx.backend_host,
+                    serde_urlencoded::to_string(&PostListQuery {
+                        use_aggregate_filters: Some(true),
+                        in_any_local_community: Some(true),
+                        page: query.page.as_deref(),
+                        ..Default::default()
+                    })?,
                 ))
                 .body(Default::default())?,
                 req.headers(),
@@ -1957,6 +1995,17 @@ async fn page_local(
                     PostItem { post, in_community: false, no_user: false, lang: &lang }
                 }).collect::<Vec<_>>()}
             </ul>
+            {
+                if let Some(next_page) = &api_res.next_page {
+                    Some(render::rsx! {
+                        <a href={format!("/local?page={}", next_page)}>
+                            {lang.tr("posts_page_next", None)}
+                        </a>
+                    })
+                } else {
+                    None
+                }
+            }
         </HTPage>
     }))
 }
