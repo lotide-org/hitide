@@ -1806,7 +1806,7 @@ async fn page_home(
         ctx.http_client
             .request(for_client(
                 hyper::Request::get(format!(
-                    "{}/api/unstable/users/~me/following:posts",
+                    "{}/api/unstable/posts?in_your_follows=true&include_your=true",
                     ctx.backend_host
                 ))
                 .body(Default::default())?,
@@ -1818,12 +1818,12 @@ async fn page_home(
     .await?;
 
     let api_res = hyper::body::to_bytes(api_res.into_body()).await?;
-    let api_res: Vec<RespPostListPost<'_>> = serde_json::from_slice(&api_res)?;
+    let api_res: RespList<RespPostListPost<'_>> = serde_json::from_slice(&api_res)?;
 
     Ok(html_response(render::html! {
         <HTPage base_data={&base_data} lang={&lang} title={"lotide"}>
             {
-                if api_res.is_empty() {
+                if api_res.items.is_empty() {
                     Some(render::rsx! {
                         <p>
                             {lang.tr("nothing", None)}
@@ -1838,7 +1838,7 @@ async fn page_home(
                 }
             }
             <ul>
-                {api_res.iter().map(|post| {
+                {api_res.items.iter().map(|post| {
                     PostItem { post, in_community: false, no_user: false, lang: &lang }
                 }).collect::<Vec<_>>()}
             </ul>
