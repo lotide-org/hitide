@@ -8,9 +8,9 @@ use crate::resp_types::{
 };
 use crate::routes::{
     fetch_base_data, for_client, get_cookie_map_for_headers, get_cookie_map_for_req, html_response,
-    res_to_error, CookieMap,
+    res_to_error, CookieMap, RespUserInfo,
 };
-use serde_derive::Deserialize;
+use serde_derive::{Deserialize, Serialize};
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -705,8 +705,8 @@ async fn page_community_moderators_inner(
                             }
                             <form method={"POST"} action={format!("/communities/{}/moderators/add", community_id)}>
                                 <label>
-                                    {lang.tr("user_id_prompt", None)}{" "}
-                                    <input type={"number"} name={"user"} />
+                                    {lang.tr("local_user_name_prompt", None)}{" "}
+                                    <input type={"text"} name={"username"} />
                                 </label>
                                 {" "}
                                 <button type={"submit"}>{lang.tr("add", None)}</button>
@@ -730,22 +730,33 @@ async fn handler_community_moderators_add(
 
     let (req_parts, body) = req.into_parts();
 
+    let lang = crate::get_lang_for_headers(&req_parts.headers);
     let cookies = get_cookie_map_for_headers(&req_parts.headers)?;
 
     #[derive(Deserialize)]
-    struct ModeratorsAddParams {
-        user: i64,
+    struct ModeratorsAddParams<'a> {
+        username: Cow<'a, str>,
     }
 
     let body = hyper::body::to_bytes(body).await?;
     let body: ModeratorsAddParams = serde_urlencoded::from_bytes(&body)?;
 
-    let api_res = res_to_error(
+    #[derive(Serialize)]
+    struct UsersListQuery<'a> {
+        local: bool,
+        username: &'a str,
+    }
+
+    let user_lookup_api_res = res_to_error(
         ctx.http_client
             .request(for_client(
-                hyper::Request::put(format!(
-                    "{}/api/unstable/communities/{}/moderators/{}",
-                    ctx.backend_host, community_id, body.user,
+                hyper::Request::get(format!(
+                    "{}/api/unstable/users?{}",
+                    ctx.backend_host,
+                    serde_urlencoded::to_string(&UsersListQuery {
+                        local: true,
+                        username: &body.username,
+                    })?,
                 ))
                 .body(Default::default())?,
                 &req_parts.headers,
@@ -755,8 +766,39 @@ async fn handler_community_moderators_add(
     )
     .await;
 
-    match api_res {
-        Err(crate::Error::RemoteError((_, message))) => {
+    let add_result = match user_lookup_api_res {
+        Err(err) => Err(err),
+        Ok(api_res) => {
+            let value = hyper::body::to_bytes(api_res.into_body()).await?;
+            let user_list: RespList<RespUserInfo> = serde_json::from_slice(&value)?;
+
+            match user_list.items.first() {
+                None => Err(crate::Error::InternalUserError(
+                    lang.tr("no_such_local_user", None).into_owned(),
+                )),
+                Some(target_user) => {
+                    res_to_error(
+                        ctx.http_client
+                            .request(for_client(
+                                hyper::Request::put(format!(
+                                    "{}/api/unstable/communities/{}/moderators/{}",
+                                    ctx.backend_host, community_id, target_user.base.id,
+                                ))
+                                .body(Default::default())?,
+                                &req_parts.headers,
+                                &cookies,
+                            )?)
+                            .await?,
+                    )
+                    .await
+                }
+            }
+        }
+    };
+
+    match add_result {
+        Err(crate::Error::RemoteError((_, message)))
+        | Err(crate::Error::InternalUserError(message)) => {
             page_community_moderators_inner(
                 community_id,
                 &req_parts.headers,

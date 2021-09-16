@@ -64,6 +64,7 @@ pub enum Error {
     UserError(hyper::Response<hyper::Body>),
     RoutingError(trout::RoutingFailure),
     RemoteError((hyper::StatusCode, String)),
+    InternalUserError(String),
 }
 
 impl<T: 'static + std::error::Error + Send> From<T> for Error {
