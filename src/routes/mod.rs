@@ -4,8 +4,8 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use crate::components::{
-    Comment, Content, HTPage, IconExt, MaybeFillInput, MaybeFillTextArea, NotificationItem,
-    PostItem, ThingItem, UserLink,
+    BoolCheckbox, Comment, Content, HTPage, IconExt, MaybeFillInput, MaybeFillTextArea,
+    NotificationItem, PostItem, ThingItem, UserLink,
 };
 use crate::query_types::PostListQuery;
 use crate::resp_types::{
@@ -339,7 +339,7 @@ async fn page_comment_inner(
                         None
                     }
                 }
-                <small><cite><UserLink user={comment.as_ref().author.as_ref()} /></cite>{":"}</small>
+                <small><cite><UserLink lang={&lang} user={comment.as_ref().author.as_ref()} /></cite>{":"}</small>
                 <Content src={&comment} />
                 {
                     comment.as_ref().attachments.iter().map(|attachment| {
@@ -477,7 +477,7 @@ async fn page_comment_delete_inner(
     Ok(html_response(render::html! {
         <HTPage base_data={&base_data} lang={&lang} title={&title}>
             <p>
-                <small><cite><UserLink user={comment.author.as_ref()} /></cite>{":"}</small>
+                <small><cite><UserLink lang={&lang} user={comment.author.as_ref()} /></cite>{":"}</small>
                 <br />
                 <Content src={&comment} />
             </p>
@@ -1593,6 +1593,12 @@ async fn page_user_edit(
                         <input name={"password"} type={"password"} value={""} autocomplete={"new-password"} />
                     </label>
                 </div>
+                <div>
+                    <label>
+                        <BoolCheckbox name={"is_bot"} value={user.base.is_bot} />
+                        {lang.tr("user_edit_is_bot_checkbox_label", None)}<br />
+                    </label>
+                </div>
                 <button type={"submit"}>{lang.tr("user_edit_submit", None)}</button>
             </form>
         </HTPage>
@@ -1620,6 +1626,8 @@ async fn handler_user_edit_submit(
             body.remove("password");
         }
     }
+
+    body.insert("is_bot".to_owned(), body.contains_key("is_bot").into());
 
     res_to_error(
         ctx.http_client
