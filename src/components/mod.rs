@@ -16,6 +16,7 @@ pub use timeago::TimeAgo;
 #[render::component]
 pub fn Comment<'a>(
     comment: &'a RespPostCommentInfo<'a>,
+    sort: crate::SortType,
     base_data: &'a PageBaseData,
     lang: &'a crate::Translator,
 ) {
@@ -72,7 +73,7 @@ pub fn Comment<'a>(
                     {
                         if base_data.login.is_some() {
                             Some(render::rsx! {
-                                <a href={format!("/comments/{}", comment.as_ref().id)}>{lang.tr("reply", None)}</a>
+                                <a href={format!("/comments/{}?sort={}", comment.as_ref().id, sort.as_str())}>{lang.tr("reply", None)}</a>
                             })
                         } else {
                             None
@@ -101,7 +102,7 @@ pub fn Comment<'a>(
                                     {
                                         replies.items.iter().map(|reply| {
                                             render::rsx! {
-                                                <Comment comment={reply} base_data lang />
+                                                <Comment sort={sort} comment={reply} base_data lang />
                                             }
                                         })
                                         .collect::<Vec<_>>()
@@ -110,7 +111,7 @@ pub fn Comment<'a>(
                                 {
                                     replies.next_page.as_ref().map(|next_page| {
                                         render::rsx! {
-                                            <a href={format!("/comments/{}?page={}", comment.base.id, next_page)}>{"-> "}{lang.tr("view_more_comments", None)}</a>
+                                            <a href={format!("/comments/{}?sort={}&page={}", comment.base.id, sort.as_str(), next_page)}>{"-> "}{lang.tr("view_more_comments", None)}</a>
                                         }
                                     })
                                 }

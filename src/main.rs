@@ -1,7 +1,7 @@
 #![allow(unused_braces)]
 
 use crate::resp_types::RespLoginInfo;
-use serde_derive::Deserialize;
+use serde_derive::{Deserialize, Serialize};
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -16,7 +16,7 @@ mod util;
 
 use self::config::Config;
 
-#[derive(Deserialize, PartialEq, Clone, Copy)]
+#[derive(Deserialize, Serialize, PartialEq, Clone, Copy, Debug)]
 #[serde(rename_all = "snake_case")]
 pub enum SortType {
     Hot,

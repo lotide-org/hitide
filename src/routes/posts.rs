@@ -49,6 +49,8 @@ async fn page_post_inner(
 
     #[derive(Deserialize)]
     struct Query<'a> {
+        #[serde(default = "super::default_comments_sort")]
+        sort: crate::SortType,
         page: Option<Cow<'a, str>>,
     }
 
@@ -82,6 +84,7 @@ async fn page_post_inner(
     #[derive(Serialize)]
     struct RepliesListQuery<'a> {
         include_your: Option<bool>,
+        sort: Option<crate::SortType>,
         page: Option<&'a str>,
     }
     let api_req_query = RepliesListQuery {
@@ -90,6 +93,7 @@ async fn page_post_inner(
         } else {
             None
         },
+        sort: Some(query.sort),
         page: query.page.as_deref(),
     };
     let api_req_query = serde_urlencoded::to_string(&api_req_query)?;
@@ -279,11 +283,26 @@ async fn page_post_inner(
                         None
                     }
                 }
+                <div class={"sortOptions"}>
+                    <span>{lang.tr("sort", None)}</span>
+                    {
+                        crate::SortType::VALUES.iter()
+                            .map(|value| {
+                                let name = lang.tr(value.lang_key(), None);
+                                if query.sort == *value {
+                                    render::rsx! { <span>{name}</span> }
+                                } else {
+                                    render::rsx! { <a href={format!("/posts/{}?sort={}", post_id, value.as_str())}>{name}</a> }
+                                }
+                            })
+                            .collect::<Vec<_>>()
+                    }
+                </div>
                 <ul class={"commentList topLevel"}>
                     {
                         replies.items.iter().map(|comment| {
                             render::rsx! {
-                                <Comment comment={comment} base_data={&base_data} lang={&lang} />
+                                <Comment comment={comment} sort={query.sort} base_data={&base_data} lang={&lang} />
                             }
                         }).collect::<Vec<_>>()
                     }

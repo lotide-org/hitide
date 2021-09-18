@@ -115,6 +115,10 @@ fn html_response(html: String) -> hyper::Response<hyper::Body> {
     res
 }
 
+pub fn default_comments_sort() -> crate::SortType {
+    crate::SortType::Hot
+}
+
 async fn page_about(
     _: (),
     ctx: Arc<crate::RouteContext>,
@@ -217,6 +221,8 @@ async fn page_comment_inner(
 
     #[derive(Deserialize)]
     struct Query<'a> {
+        #[serde(default = "default_comments_sort")]
+        sort: crate::SortType,
         page: Option<Cow<'a, str>>,
     }
 
@@ -250,6 +256,7 @@ async fn page_comment_inner(
     #[derive(Serialize)]
     struct RepliesListQuery<'a> {
         include_your: Option<bool>,
+        sort: Option<crate::SortType>,
         page: Option<&'a str>,
     }
     let replies_req_query = RepliesListQuery {
@@ -258,6 +265,7 @@ async fn page_comment_inner(
         } else {
             None
         },
+        sort: Some(query.sort),
         page: query.page.as_deref(),
     };
     let replies_req_query = serde_urlencoded::to_string(&replies_req_query)?;
@@ -386,11 +394,26 @@ async fn page_comment_inner(
                     None
                 }
             }
+            <div class={"sortOptions"}>
+                <span>{lang.tr("sort", None)}</span>
+                {
+                    crate::SortType::VALUES.iter()
+                        .map(|value| {
+                            let name = lang.tr(value.lang_key(), None);
+                            if query.sort == *value {
+                                render::rsx! { <span>{name}</span> }
+                            } else {
+                                render::rsx! { <a href={format!("/comments/{}?sort={}", comment_id, value.as_str())}>{name}</a> }
+                            }
+                        })
+                        .collect::<Vec<_>>()
+                }
+            </div>
             <ul class={"commentList topLevel"}>
                 {
                     replies.items.iter().map(|reply| {
                         render::rsx! {
-                            <Comment comment={reply} base_data={&base_data} lang={&lang} />
+                            <Comment comment={reply} sort={query.sort} base_data={&base_data} lang={&lang} />
                         }
                     }).collect::<Vec<_>>()
                 }
@@ -398,7 +421,7 @@ async fn page_comment_inner(
             {
                 replies.next_page.as_ref().map(|next_page| {
                     render::rsx! {
-                        <a href={format!("/comments/{}?page={}", comment.base.base.id, next_page)}>{"-> "}{lang.tr("view_more_comments", None)}</a>
+                        <a href={format!("/comments/{}?sort={}&page={}", comment.base.base.id, query.sort.as_str(), next_page)}>{"-> "}{lang.tr("view_more_comments", None)}</a>
                     }
                 })
             }
