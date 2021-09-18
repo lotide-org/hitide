@@ -21,7 +21,7 @@ fn main() {
 
         println!("{:?}", path);
 
-        let content = std::fs::read(&path).unwrap();
+        let content = std::fs::read_to_string(&path).unwrap();
 
         let mut hasher = std::collections::hash_map::DefaultHasher::new();
         content.hash(&mut hasher);
@@ -32,12 +32,15 @@ fn main() {
         let name = path.file_name().unwrap().to_str().unwrap();
         let name = (&name[0..name.len() - 4]).to_ascii_uppercase();
 
+        let dark_invert = content.contains("<!--#darkInvert#-->");
+
         writeln!(
             file,
-            "pub const {}: Icon=Icon{{path:\"{}\",content:include_str!(r#\"{}\"#)}};",
+            "pub const {}: Icon=Icon{{path:\"{}\",content:include_str!(r#\"{}\"#),dark_invert:{}}};",
             name,
             key,
-            path.canonicalize().unwrap().to_str().unwrap()
+            path.canonicalize().unwrap().to_str().unwrap(),
+            dark_invert,
         )
         .unwrap();
 

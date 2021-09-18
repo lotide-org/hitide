@@ -1,3 +1,7 @@
+:root {
+	color-scheme: light dark;
+}
+
 body {
 	margin: 8px;
 }
@@ -164,5 +168,36 @@ p {
 @media (max-width: 768px) {
 	.communitySidebar {
 		display: none; /* TODO still show this somewhere */
+	}
+}
+
+@media (prefers-color-scheme: dark) {
+	html {
+		background-color: #121212;
+		color: white;
+	}
+
+	a {
+		color: #9E9EFF;
+	}
+
+	a:visited {
+		color: #D0ADF0;
+	}
+
+	.mainHeader {
+		background-color: #00567D;
+	}
+
+	.mainHeader a {
+		color: white;
+	}
+
+	.actionList.small > a {
+		color: #999;
+	}
+
+	.darkInvert {
+		filter: invert();
 	}
 }

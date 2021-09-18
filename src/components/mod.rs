@@ -632,6 +632,8 @@ pub trait IconExt {
 
 impl IconExt for hitide_icons::Icon {
     fn img(&self) -> render::SimpleElement<()> {
-        render::rsx! { <img src={format!("/static/{}", self.path)} class={"icon"} /> }
+        render::rsx! {
+            <img src={format!("/static/{}", self.path)} class={if self.dark_invert { "icon darkInvert" } else { "icon" }} />
+        }
     }
 }
