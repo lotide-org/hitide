@@ -558,6 +558,19 @@ pub fn BoolSubmitButton<'a>(value: bool, do_text: &'a str, done_text: &'a str) {
     }
 }
 
+#[render::component]
+pub fn BoolCheckbox<'a>(name: &'a str, value: bool) {
+    if value {
+        render::rsx! {
+            <input name type={"checkbox"} checked={""} />
+        }
+    } else {
+        render::rsx! {
+            <input type={"checkbox"} name />
+        }
+    }
+}
+
 pub struct NotificationItem<'a> {
     pub notification: &'a RespNotification<'a>,
     pub lang: &'a crate::Translator,
