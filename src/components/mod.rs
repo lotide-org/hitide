@@ -49,7 +49,7 @@ pub fn Comment<'a>(
             }
             <div class={"content"}>
                 <small>
-                    <cite><UserLink user={comment.author.as_ref()} /></cite>
+                    <cite><UserLink lang user={comment.author.as_ref()} /></cite>
                     {" "}
                     <TimeAgo since={chrono::DateTime::parse_from_rfc3339(&comment.created).unwrap()} lang />
                 </small>
@@ -387,7 +387,7 @@ pub fn PostItem<'a>(
                     } else {
                         Some(render::rsx! {
                             <>
-                                {" "}{lang.tr("by", None)}{" "}<UserLink user={post.as_ref().author.as_ref()} />
+                                {" "}{lang.tr("by", None)}{" "}<UserLink lang user={post.as_ref().author.as_ref()} />
                             </>
                         })
                     }
@@ -436,8 +436,9 @@ impl<'a> render::Render for ThingItem<'a> {
     }
 }
 
-pub struct UserLink<'user> {
-    pub user: Option<&'user RespMinimalAuthorInfo<'user>>,
+pub struct UserLink<'a> {
+    pub lang: &'a crate::Translator,
+    pub user: Option<&'a RespMinimalAuthorInfo<'a>>,
 }
 
 impl<'user> render::Render for UserLink<'user> {
@@ -454,6 +455,13 @@ impl<'user> render::Render for UserLink<'user> {
                             } else {
                                 Cow::Owned(format!("{}@{}", user.username, user.host))
                             }).as_ref()
+                        }
+                        {
+                            if user.is_bot {
+                                Some(format!(" [{}]", self.lang.tr("user_bot_tag", None)))
+                            } else {
+                                None
+                            }
                         }
                     </a>
                 })

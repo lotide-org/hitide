@@ -339,7 +339,7 @@ async fn page_comment_inner(
                         None
                     }
                 }
-                <small><cite><UserLink user={comment.as_ref().author.as_ref()} /></cite>{":"}</small>
+                <small><cite><UserLink lang={&lang} user={comment.as_ref().author.as_ref()} /></cite>{":"}</small>
                 <Content src={&comment} />
                 {
                     comment.as_ref().attachments.iter().map(|attachment| {
@@ -477,7 +477,7 @@ async fn page_comment_delete_inner(
     Ok(html_response(render::html! {
         <HTPage base_data={&base_data} lang={&lang} title={&title}>
             <p>
-                <small><cite><UserLink user={comment.author.as_ref()} /></cite>{":"}</small>
+                <small><cite><UserLink lang={&lang} user={comment.author.as_ref()} /></cite>{":"}</small>
                 <br />
                 <Content src={&comment} />
             </p>

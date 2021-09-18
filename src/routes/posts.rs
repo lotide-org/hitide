@@ -226,7 +226,7 @@ async fn page_post_inner(
             <p>
                 {lang.tr("submitted", None)}
                 {" "}<TimeAgo since={chrono::DateTime::parse_from_rfc3339(&post.as_ref().created)?} lang={&lang} />
-                {" "}{lang.tr("by", None)}{" "}<UserLink user={post.as_ref().author.as_ref()} />
+                {" "}{lang.tr("by", None)}{" "}<UserLink lang={&lang} user={post.as_ref().author.as_ref()} />
                 {" "}{lang.tr("to", None)}{" "}<CommunityLink community={&post.as_ref().community} />
             </p>
             {
@@ -472,7 +472,7 @@ async fn page_post_likes(
                         <ul>
                             {
                                 api_res.items.iter().map(|like| {
-                                    render::rsx! { <li><UserLink user={Some(&like.user)} /></li> }
+                                    render::rsx! { <li><UserLink lang={&lang} user={Some(&like.user)} /></li> }
                                 })
                                 .collect::<Vec<_>>()
                             }
