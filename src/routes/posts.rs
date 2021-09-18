@@ -56,7 +56,7 @@ async fn page_post_inner(
 
     let query: Query = serde_urlencoded::from_str(query.unwrap_or(""))?;
 
-    let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, headers, &cookies).await?;
+    let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, headers, cookies).await?;
 
     let api_res = res_to_error(
         ctx.http_client
@@ -73,7 +73,7 @@ async fn page_post_inner(
                 ))
                 .body(Default::default())?,
                 headers,
-                &cookies,
+                cookies,
             )?)
             .await?,
     )
@@ -107,7 +107,7 @@ async fn page_post_inner(
                 ))
                 .body(Default::default())?,
                 headers,
-                &cookies,
+                cookies,
             )?)
             .await?,
     )
@@ -126,7 +126,7 @@ async fn page_post_inner(
                     ))
                     .body(Default::default())?,
                     headers,
-                    &cookies,
+                    cookies,
                 )?)
                 .await?,
         )
@@ -230,14 +230,11 @@ async fn page_post_inner(
                 {" "}{lang.tr("to", None)}{" "}<CommunityLink community={&post.as_ref().community} />
             </p>
             {
-                match &post.as_ref().href {
-                    None => None,
-                    Some(href) => {
-                        Some(render::rsx! {
-                            <p><a href={href.as_ref()}>{href.as_ref()}</a></p>
-                        })
+                post.as_ref().href.as_ref().map(|href| {
+                    render::rsx! {
+                        <p><a href={href.as_ref()}>{href.as_ref()}</a></p>
                     }
-                }
+                })
             }
             <div class={"postContent"}>
                 <Content src={&post} />

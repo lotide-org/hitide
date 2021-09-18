@@ -23,7 +23,7 @@ async fn page_forgot_password_inner(
     display_error: Option<String>,
 ) -> Result<hyper::Response<hyper::Body>, crate::Error> {
     let lang = crate::get_lang_for_headers(headers);
-    let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, headers, &cookies).await?;
+    let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, headers, cookies).await?;
 
     let title = lang.tr("forgot_password", None);
 
@@ -69,7 +69,7 @@ async fn page_forgot_password_code_inner(
     display_error: Option<String>,
 ) -> Result<hyper::Response<hyper::Body>, crate::Error> {
     let lang = crate::get_lang_for_headers(headers);
-    let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, headers, &cookies).await?;
+    let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, headers, cookies).await?;
 
     let title = lang.tr("forgot_password", None);
 
@@ -106,7 +106,7 @@ async fn page_forgot_password_code_reset_inner(
     display_error: Option<String>,
 ) -> Result<hyper::Response<hyper::Body>, crate::Error> {
     let lang = crate::get_lang_for_headers(headers);
-    let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, headers, &cookies).await?;
+    let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, headers, cookies).await?;
 
     let title = lang.tr("forgot_password", None);
 

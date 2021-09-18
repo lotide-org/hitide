@@ -63,7 +63,7 @@ pub fn Comment<'a>(
                             <div>
                                 <strong>{lang.tr("comment_attachment_prefix", None)}</strong>
                                 {" "}
-                                <em><a href={href.as_ref()}>{abbreviate_link(&href)}{" ↗"}</a></em>
+                                <em><a href={href.as_ref()}>{abbreviate_link(href)}{" ↗"}</a></em>
                             </div>
                         }
                     })
@@ -306,8 +306,8 @@ pub fn HTPageAdvanced<'a, HeadItems: render::Render, Children: render::Render>(
                         </div>
                         <div class={"right actionList"}>
                             {
-                                if let Some(login) =  &base_data.login {
-                                    Some(render::rsx! {
+                                base_data.login.as_ref().map(|login| {
+                                    render::rsx! {
                                         <>
                                             <a
                                                 href={"/notifications"}
@@ -329,10 +329,8 @@ pub fn HTPageAdvanced<'a, HeadItems: render::Render, Children: render::Render>(
                                                 </button>
                                             </form>
                                         </>
-                                    })
-                                } else {
-                                    None
-                                }
+                                    }
+                                })
                             }
                             {
                                 if base_data.login.is_none() {
@@ -368,13 +366,11 @@ pub fn PostItem<'a>(
                     {post.as_ref().as_ref().title.as_ref()}
                 </a>
                 {
-                    if let Some(href) = &post.as_ref().href {
-                        Some(render::rsx! {
-                            <em><a href={href.as_ref()}>{abbreviate_link(&href)}{" ↗"}</a></em>
-                        })
-                    } else {
-                        None
-                    }
+                    post.as_ref().href.as_ref().map(|href| {
+                        render::rsx! {
+                            <em><a href={href.as_ref()}>{abbreviate_link(href)}{" ↗"}</a></em>
+                        }
+                    })
                 }
             </div>
             <small>
@@ -609,11 +605,9 @@ impl<'a> render::Render for NotificationItem<'a> {
                         {" "}
                         <a href={format!("/comments/{}", comment)}>{lang.tr("your_comment", None)}</a>
                         {
-                            if let Some(post) = post {
-                                Some(render::rsx! { <>{" "}{lang.tr("on", None)}{" "}<a href={format!("/posts/{}", post.id)}>{post.title.as_ref()}</a></> })
-                            } else {
-                                None
-                            }
+                            post.as_ref().map(|post| {
+                                render::rsx! { <>{" "}{lang.tr("on", None)}{" "}<a href={format!("/posts/{}", post.id)}>{post.title.as_ref()}</a></> }
+                            })
                         }
                         {":"}
                         <Content src={reply} />

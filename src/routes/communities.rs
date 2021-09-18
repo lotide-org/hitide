@@ -142,22 +142,20 @@ async fn page_communities(
                                     local_communities.items.iter()
                                         .map(|community| {
                                             render::rsx! {
-                                                <li><CommunityLink community={&community} /></li>
+                                                <li><CommunityLink community={community} /></li>
                                             }
                                         })
                                         .collect::<Vec<_>>()
                                 }
                             </ul>
                             {
-                                if let Some(next_page) = &local_communities.next_page {
-                                    Some(render::rsx! {
+                                local_communities.next_page.as_ref().map(|next_page| {
+                                    render::rsx! {
                                         <a href={format!("/communities?local=true&page={}", next_page)}>
                                             {lang.tr("communities_page_next", None)}
                                         </a>
-                                    })
-                                } else {
-                                    None
-                                }
+                                    }
+                                })
                             }
                         </div>
                     })
@@ -191,22 +189,20 @@ async fn page_communities(
                                     remote_communities.items.iter()
                                         .map(|community| {
                                             render::rsx! {
-                                                <li><CommunityLink community={&community} /></li>
+                                                <li><CommunityLink community={community} /></li>
                                             }
                                         })
                                         .collect::<Vec<_>>()
                                 }
                             </ul>
                             {
-                                if let Some(next_page) = &remote_communities.next_page {
-                                    Some(render::rsx! {
+                                remote_communities.next_page.as_ref().map(|next_page| {
+                                    render::rsx! {
                                         <a href={format!("/communities?local=false&page={}", next_page)}>
                                             {lang.tr("communities_page_next", None)}
                                         </a>
-                                    })
-                                } else {
-                                    None
-                                }
+                                    }
+                                })
                             }
                         </div>
                     })
@@ -452,7 +448,7 @@ async fn page_community_edit_inner(
     display_error: Option<String>,
     prev_values: Option<&HashMap<&str, serde_json::Value>>,
 ) -> Result<hyper::Response<hyper::Body>, crate::Error> {
-    let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, headers, &cookies).await?;
+    let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, headers, cookies).await?;
     let lang = crate::get_lang_for_headers(headers);
 
     let community_info_api_res = res_to_error(
@@ -464,7 +460,7 @@ async fn page_community_edit_inner(
                 ))
                 .body(Default::default())?,
                 headers,
-                &cookies,
+                cookies,
             )?)
             .await?,
     )
@@ -609,7 +605,7 @@ async fn page_community_moderators_inner(
 ) -> Result<hyper::Response<hyper::Body>, crate::Error> {
     let lang = crate::get_lang_for_headers(headers);
 
-    let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, headers, &cookies).await?;
+    let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, headers, cookies).await?;
 
     let community_info_api_res = res_to_error(
         ctx.http_client
@@ -626,7 +622,7 @@ async fn page_community_moderators_inner(
                 ))
                 .body(Default::default())?,
                 headers,
-                &cookies,
+                cookies,
             )?)
             .await?,
     )
@@ -644,7 +640,7 @@ async fn page_community_moderators_inner(
                 ))
                 .body(Default::default())?,
                 headers,
-                &cookies,
+                cookies,
             )?)
             .await?,
     )
@@ -1052,7 +1048,7 @@ async fn page_community_new_post_inner(
     prev_values: Option<&HashMap<Cow<'_, str>, serde_json::Value>>,
     display_preview: Option<&str>,
 ) -> Result<hyper::Response<hyper::Body>, crate::Error> {
-    let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, headers, &cookies).await?;
+    let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, headers, cookies).await?;
     let lang = crate::get_lang_for_headers(headers);
 
     let submit_url = format!("/communities/{}/new_post/submit", community_id);
@@ -1107,7 +1103,7 @@ async fn page_community_new_post_inner(
                 </div>
             </form>
             {
-                display_preview.as_deref().map(|html| {
+                display_preview.map(|html| {
                     render::rsx! {
                         <div class={"preview"}>{render::raw!(html)}</div>
                     }

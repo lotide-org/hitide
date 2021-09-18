@@ -40,9 +40,7 @@ fn get_cookie_map(src: Option<&str>) -> Result<CookieMap, ginger::ParseError> {
     .unwrap_or_else(|| Ok(Default::default()))
 }
 
-fn get_cookie_map_for_req<'a>(
-    req: &'a hyper::Request<hyper::Body>,
-) -> Result<CookieMap<'a>, crate::Error> {
+fn get_cookie_map_for_req(req: &hyper::Request<hyper::Body>) -> Result<CookieMap, crate::Error> {
     get_cookie_map_for_headers(req.headers())
 }
 
@@ -90,7 +88,7 @@ async fn fetch_base_data(
                 hyper::Request::get(format!("{}/api/unstable/logins/~current", backend_host))
                     .body(Default::default())?,
                 headers,
-                &cookies,
+                cookies,
             )?)
             .await?;
 
@@ -228,7 +226,7 @@ async fn page_comment_inner(
 
     let query: Query = serde_urlencoded::from_str(query.unwrap_or(""))?;
 
-    let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, headers, &cookies).await?;
+    let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, headers, cookies).await?;
 
     let info_api_res = res_to_error(
         ctx.http_client
@@ -245,7 +243,7 @@ async fn page_comment_inner(
                 ))
                 .body(Default::default())?,
                 headers,
-                &cookies,
+                cookies,
             )?)
             .await?,
     )
@@ -279,7 +277,7 @@ async fn page_comment_inner(
                 ))
                 .body(Default::default())?,
                 headers,
-                &cookies,
+                cookies,
             )?)
             .await?,
     )
@@ -292,15 +290,13 @@ async fn page_comment_inner(
     Ok(html_response(render::html! {
         <HTPage base_data={&base_data} lang={&lang} title={&title}>
             {
-                if let Some(post) = &comment.post {
-                    Some(render::rsx! {
+                comment.post.as_ref().map(|post| {
+                    render::rsx! {
                         <p>
                             {lang.tr("to_post", None)}{" "}<a href={format!("/posts/{}", post.id)}>{post.title.as_ref()}</a>
                         </p>
-                    })
-                } else {
-                    None
-                }
+                    }
+                })
             }
             <p>
                 {
@@ -329,15 +325,13 @@ async fn page_comment_inner(
                     }
                 }
                 {
-                    if let Some(parent) = &comment.parent {
-                        Some(render::rsx! {
+                    comment.parent.as_ref().map(|parent| {
+                        render::rsx! {
                             <div>
                                 <small><a href={format!("/comments/{}", parent.id)}>{"<- "}{lang.tr("to_parent", None)}</a></small>
                             </div>
-                        })
-                    } else {
-                        None
-                    }
+                        }
+                    })
                 }
                 <small><cite><UserLink lang={&lang} user={comment.as_ref().author.as_ref()} /></cite>{":"}</small>
                 <Content src={&comment} />
@@ -348,7 +342,7 @@ async fn page_comment_inner(
                             <div>
                                 <strong>{lang.tr("comment_attachment_prefix", None)}</strong>
                                 {" "}
-                                <em><a href={href.as_ref()}>{abbreviate_link(&href)}{" ↗"}</a></em>
+                                <em><a href={href.as_ref()}>{abbreviate_link(href)}{" ↗"}</a></em>
                             </div>
                         }
                     })
@@ -438,7 +432,7 @@ async fn page_comment_delete(
 
     let cookies = get_cookie_map_for_req(&req)?;
 
-    page_comment_delete_inner(comment_id, ctx, &req.headers(), &cookies, None).await
+    page_comment_delete_inner(comment_id, ctx, req.headers(), &cookies, None).await
 }
 
 async fn page_comment_delete_inner(
@@ -449,7 +443,7 @@ async fn page_comment_delete_inner(
     display_error: Option<String>,
 ) -> Result<hyper::Response<hyper::Body>, crate::Error> {
     let lang = crate::get_lang_for_headers(headers);
-    let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, headers, &cookies).await?;
+    let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, headers, cookies).await?;
 
     let referer = headers
         .get(hyper::header::REFERER)
@@ -464,7 +458,7 @@ async fn page_comment_delete_inner(
                 ))
                 .body(Default::default())?,
                 headers,
-                &cookies,
+                cookies,
             )?)
             .await?,
     )
@@ -492,13 +486,11 @@ async fn page_comment_delete_inner(
                 }
                 <form method={"POST"} action={format!("/comments/{}/delete/confirm", comment.as_ref().id)}>
                     {
-                        if let Some(referer) = referer {
-                            Some(render::rsx! {
+                        referer.map(|referer| {
+                            render::rsx! {
                                 <input type={"hidden"} name={"return_to"} value={referer} />
-                            })
-                        } else {
-                            None
-                        }
+                            }
+                        })
                     }
                     <a href={format!("/comments/{}/", comment.as_ref().id)}>{lang.tr("no_cancel", None)}</a>
                     {" "}
@@ -963,7 +955,7 @@ async fn handler_logout(
         .header(hyper::header::LOCATION, "/")
         .header(
             hyper::header::SET_COOKIE,
-            format!("hitideToken=\"\"; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT"),
+            "hitideToken=\"\"; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT".to_owned(),
         )
         .body("Successfully logged out.".into())?)
 }
@@ -1009,7 +1001,7 @@ async fn page_lookup(
                     hyper::Request::get(format!(
                         "{}/api/unstable/actors:lookup/{}",
                         ctx.backend_host,
-                        urlencoding::encode(&query)
+                        urlencoding::encode(query)
                     ))
                     .body(Default::default())?,
                 )
@@ -1094,7 +1086,7 @@ async fn page_new_community_inner(
     prev_values: Option<&serde_json::Value>,
 ) -> Result<hyper::Response<hyper::Body>, crate::Error> {
     let lang = crate::get_lang_for_headers(headers);
-    let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, headers, &cookies).await?;
+    let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, headers, cookies).await?;
 
     let title = lang.tr("community_create", None);
 
@@ -1272,8 +1264,8 @@ async fn page_signup_inner(
     display_error: Option<String>,
     prev_values: Option<&HashMap<Cow<'_, str>, serde_json::Value>>,
 ) -> Result<hyper::Response<hyper::Body>, crate::Error> {
-    let lang = crate::get_lang_for_headers(&headers);
-    let cookies = get_cookie_map_for_headers(&headers)?;
+    let lang = crate::get_lang_for_headers(headers);
+    let cookies = get_cookie_map_for_headers(headers)?;
 
     let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, headers, &cookies).await?;
 
@@ -1476,16 +1468,14 @@ async fn page_user(
                 }
             }
             {
-                if let Some(your_note) = &user.your_note {
-                    Some(render::rsx! {
+                user.your_note.as_ref().map(|your_note| {
+                    render::rsx! {
                         <div>
                             {lang.tr("your_note", None)}{" ("}<a href={format!("/users/{}/your_note/edit", user_id)}>{lang.tr("edit", None)}</a>{"):"}
                             <pre>{your_note.content_text.as_ref()}</pre>
                         </div>
-                    })
-                } else {
-                    None
-                }
+                    }
+                })
             }
             {
                 if user.your_note.is_none() && base_data.login.is_some() {
@@ -1888,15 +1878,13 @@ async fn page_home(
                 }).collect::<Vec<_>>()}
             </ul>
             {
-                if let Some(next_page) = &api_res.next_page {
-                    Some(render::rsx! {
+                api_res.next_page.map(|next_page| {
+                    render::rsx! {
                         <a href={format!("/?page={}", next_page)}>
                             {lang.tr("posts_page_next", None)}
                         </a>
-                    })
-                } else {
-                    None
-                }
+                    }
+                })
             }
         </HTPage>
     }))
@@ -1945,7 +1933,7 @@ async fn page_all_inner(
                 ))
                 .body(Default::default())?,
                 headers,
-                &cookies,
+                cookies,
             )?)
             .await?,
     )
@@ -1955,7 +1943,7 @@ async fn page_all_inner(
     let api_res: RespList<RespPostListPost<'_>> = serde_json::from_slice(&api_res)?;
 
     Ok(html_response(render::html! {
-        <HTPage base_data={&base_data} lang={&lang} title={"lotide"}>
+        <HTPage base_data={base_data} lang={&lang} title={"lotide"}>
             <h1>{lang.tr("all_title", None)}</h1>
             {
                 if api_res.items.is_empty() {
@@ -1974,15 +1962,13 @@ async fn page_all_inner(
                 }).collect::<Vec<_>>()}
             </ul>
             {
-                if let Some(next_page) = &api_res.next_page {
-                    Some(render::rsx! {
+                api_res.next_page.map(|next_page| {
+                    render::rsx! {
                         <a href={format!("/all?page={}", next_page)}>
                             {lang.tr("posts_page_next", None)}
                         </a>
-                    })
-                } else {
-                    None
-                }
+                    }
+                })
             }
         </HTPage>
     }))
@@ -2051,15 +2037,13 @@ async fn page_local(
                 }).collect::<Vec<_>>()}
             </ul>
             {
-                if let Some(next_page) = &api_res.next_page {
-                    Some(render::rsx! {
+                api_res.next_page.map(|next_page| {
+                    render::rsx! {
                         <a href={format!("/local?page={}", next_page)}>
                             {lang.tr("posts_page_next", None)}
                         </a>
-                    })
-                } else {
-                    None
-                }
+                    }
+                })
             }
         </HTPage>
     }))

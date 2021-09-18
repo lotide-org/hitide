@@ -165,7 +165,7 @@ pub fn get_lang_for_headers(headers: &hyper::header::HeaderMap) -> Translator {
         None => vec![&default],
     };
 
-    let mut bundle = fluent::concurrent::FluentBundle::new(languages.iter().map(|x| *x));
+    let mut bundle = fluent::concurrent::FluentBundle::new(languages.iter().copied());
     for lang in languages {
         if let Err(errors) = bundle.add_resource(&LANG_MAP[lang]) {
             for err in errors {
