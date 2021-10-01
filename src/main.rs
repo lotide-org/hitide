@@ -21,15 +21,17 @@ use self::config::Config;
 pub enum SortType {
     Hot,
     New,
+    Top,
 }
 
 impl SortType {
-    pub const VALUES: &'static [SortType] = &[SortType::Hot, SortType::New];
+    pub const VALUES: &'static [SortType] = &[SortType::Hot, SortType::New, SortType::Top];
 
     pub fn as_str(&self) -> &'static str {
         match self {
             SortType::Hot => "hot",
             SortType::New => "new",
+            SortType::Top => "top",
         }
     }
 
@@ -37,6 +39,7 @@ impl SortType {
         match self {
             SortType::Hot => "sort_hot",
             SortType::New => "sort_new",
+            SortType::Top => "sort_top",
         }
     }
 }

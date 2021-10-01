@@ -100,6 +100,7 @@ signup_email_address_prompt = Email Address (optional):
 sort = Sort:
 sort_hot = hot
 sort_new = new
+sort_top = top
 submit = Submit
 submitted = Submitted
 text_with_markdown = Text (markdown supported)
