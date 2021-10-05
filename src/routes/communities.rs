@@ -230,6 +230,8 @@ async fn page_community(
         #[serde(default = "default_sort")]
         sort: crate::SortType,
 
+        created_within: Option<Cow<'a, str>>,
+
         page: Option<Cow<'a, str>>,
     }
 
@@ -276,6 +278,7 @@ async fn page_community(
                     ctx.backend_host,
                     serde_urlencoded::to_string(&PostListQuery {
                         community: Some(community_id),
+                        created_within: query.created_within.as_deref(),
                         sort_sticky: Some(query.sort == crate::SortType::Hot),
                         sort: Some(query.sort.as_str()),
                         page: query.page.as_deref(),
@@ -399,6 +402,40 @@ async fn page_community(
                             }
                         })
                         .collect::<Vec<_>>()
+                }
+                {
+                    (query.sort == crate::SortType::Top)
+                        .then(|| {
+                            render::rsx! {
+                                <div class={"timeframeOptions"}>
+                                    <span>{lang.tr("post_timeframe", None)}</span>
+                                    {
+                                        [
+                                            ("timeframe_all", None),
+                                            ("timeframe_year", Some("P1Y")),
+                                            ("timeframe_month", Some("P1M")),
+                                            ("timeframe_week", Some("P1W")),
+                                            ("timeframe_day", Some("P1D")),
+                                            ("timeframe_hour", Some("PT1H")),
+                                        ]
+                                            .iter()
+                                            .map(|(key, interval)| {
+                                                let name = lang.tr(key, None);
+                                                if query.created_within.as_deref() == *interval {
+                                                    render::rsx! { <span>{name}</span> }
+                                                } else {
+                                                    if let Some(interval) = interval {
+                                                        render::rsx! { <a href={format!("/communities/{}?sort=top&created_within={}", community_id, interval)}>{name}</a> }
+                                                    } else {
+                                                        render::rsx! { <a href={format!("/communities/{}?sort=top", community_id)}>{name}</a> }
+                                                    }
+                                                }
+                                            })
+                                            .collect::<Vec<_>>()
+                                    }
+                                </div>
+                            }
+                        })
                 }
             </div>
             {

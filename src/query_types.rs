@@ -9,6 +9,7 @@ pub struct PostListQuery<'a> {
     pub use_aggregate_filters: Option<bool>,
     pub community: Option<i64>,
     pub in_your_follows: Option<bool>,
+    pub created_within: Option<&'a str>,
     pub sort_sticky: Option<bool>,
     pub limit: Option<u8>,
     pub page: Option<&'a str>,

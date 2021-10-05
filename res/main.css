@@ -79,11 +79,11 @@ body {
 	padding-left: 5px;
 }
 
-.sortOptions {
+.sortOptions, .timeframeOptions {
 	margin-top: 1em;
 }
 
-.sortOptions > * {
+.sortOptions > *, .timeframeOptions > * {
 	margin-right: .5em;
 }
 
