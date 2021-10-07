@@ -251,8 +251,8 @@ pub enum RespNotificationInfo<'a> {
     },
     CommentReply {
         reply: RespMinimalCommentInfo<'a>,
-        comment: i64,
-        post: Option<RespMinimalPostInfo<'a>>,
+        comment: RespMinimalCommentInfo<'a>,
+        post: RespMinimalPostInfo<'a>,
     },
     #[serde(other)]
     Unknown,

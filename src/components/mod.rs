@@ -603,12 +603,8 @@ impl<'a> render::Render for NotificationItem<'a> {
                     <>
                         {lang.tr("reply_to", None)}
                         {" "}
-                        <a href={format!("/comments/{}", comment)}>{lang.tr("your_comment", None)}</a>
-                        {
-                            post.as_ref().map(|post| {
-                                render::rsx! { <>{" "}{lang.tr("on", None)}{" "}<a href={format!("/posts/{}", post.id)}>{post.title.as_ref()}</a></> }
-                            })
-                        }
+                        <a href={format!("/comments/{}", comment.id)}>{lang.tr("your_comment", None)}</a>
+                        {" "}{lang.tr("on", None)}{" "}<a href={format!("/posts/{}", post.id)}>{post.title.as_ref()}</a>
                         {":"}
                         <Content src={reply} />
                     </>

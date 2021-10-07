@@ -1187,7 +1187,7 @@ async fn page_notifications(
     let lang = crate::get_lang_for_req(&req);
     let cookies = get_cookie_map_for_req(&req)?;
 
-    let api_res: Result<Result<Vec<RespNotification>, _>, _> = res_to_error(
+    let api_res: Result<Result<RespList<RespNotification>, _>, _> = res_to_error(
         ctx.http_client
             .request(for_client(
                 hyper::Request::get(format!(
@@ -1225,7 +1225,7 @@ async fn page_notifications(
         }
         Err(other) => Err(other),
         Ok(api_res) => {
-            let notifications = api_res?;
+            let notifications = api_res?.items;
 
             Ok(html_response(render::html! {
                 <HTPage base_data={&base_data} lang={&lang} title={&title}>
