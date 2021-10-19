@@ -208,6 +208,7 @@ impl<'a> HavingContent for RespPostInfo<'a> {
     }
 }
 
+#[derive(Clone)]
 pub struct HavingContentRef<'a> {
     content_html: Option<&'a str>,
     content_text: Option<&'a str>,
@@ -240,6 +241,7 @@ impl<'a> RespCommunityInfoMaybeYour<'a> {
     }
 }
 
+#[derive(Clone)]
 pub struct Content<'a, T: HavingContent + 'a> {
     pub src: &'a T,
 }

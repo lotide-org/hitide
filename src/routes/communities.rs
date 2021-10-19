@@ -302,6 +302,94 @@ async fn page_community(
 
     let feed_url = &community_info.feeds.atom.new;
 
+    let basic_info_area = render::rsx! {
+        <div class={"communityBaseInfo"}>
+            <h2><a href={format!("/communities/{}", community_id)}>{title}</a></h2>
+            <div><em>{format!("@{}@{}", community_info.as_ref().name, community_info.as_ref().host)}</em></div>
+            {
+                if community_info.as_ref().local {
+                    None
+                } else if let Some(remote_url) = &community_info.as_ref().remote_url {
+                    Some(render::rsx! {
+                        <div class={"infoBox"}>
+                            {lang.tr("community_remote_note", None)}
+                            {" "}
+                            <a href={remote_url.as_ref()}>{lang.tr("view_at_source", None)}{" ↗"}</a>
+                        </div>
+                    })
+                } else {
+                    None // shouldn't ever happen
+                }
+            }
+            <p>
+                {
+                    if base_data.login.is_some() {
+                        Some(match community_info.your_follow {
+                            Some(RespYourFollow { accepted: true }) => {
+                                render::rsx! {
+                                    <form method={"POST"} action={format!("/communities/{}/unfollow", community_id)}>
+                                        <button type={"submit"}>{lang.tr("follow_undo", None)}</button>
+                                    </form>
+                                }
+                            },
+                            Some(RespYourFollow { accepted: false }) => {
+                                render::rsx! {
+                                    <form>
+                                        <button disabled={""}>{lang.tr("follow_request_sent", None)}</button>
+                                    </form>
+                                }
+                            },
+                            None => {
+                                render::rsx! {
+                                    <form method={"POST"} action={format!("/communities/{}/follow", community_id)}>
+                                        <button type={"submit"}>{lang.tr("follow", None)}</button>
+                                    </form>
+                                }
+                            }
+                        })
+                    } else {
+                        None
+                    }
+                }
+            </p>
+        </div>
+    };
+
+    let description = community_info.description();
+
+    let details_content = render::rsx! {
+        <>
+            <p>
+                <a href={&new_post_url}>{lang.tr("post_new", None)}</a>
+            </p>
+            {
+                if community_info.you_are_moderator == Some(true) {
+                    Some(render::rsx! {
+                        <p>
+                            <a href={format!("/communities/{}/edit", community_id)}>{lang.tr("community_edit_link", None)}</a>
+                        </p>
+                    })
+                } else {
+                    None
+                }
+            }
+            <Content src={&description} />
+            {
+                if community_info.as_ref().local {
+                    Some(render::rsx! {
+                        <p>
+                            <a href={format!("/communities/{}/moderators", community_id)}>
+                                {lang.tr("moderators", None)}
+                            </a>
+                        </p>
+                    })
+                } else {
+                    None
+                }
+            }
+        </>
+    };
+
     Ok(html_response(render::html! {
         <HTPageAdvanced
             base_data={&base_data}
@@ -311,83 +399,16 @@ async fn page_community(
                 <link rel={"alternate"} type={"application/atom+xml"} href={feed_url.as_ref()} />
             }}
         >
+            <div class={"communityDetailsMobile"}>
+                {basic_info_area.clone()}
+                <details>
+                    {details_content.clone()}
+                </details>
+                <hr />
+            </div>
             <div class={"communitySidebar"}>
-                <h2><a href={format!("/communities/{}", community_id)}>{title}</a></h2>
-                <div><em>{format!("@{}@{}", community_info.as_ref().name, community_info.as_ref().host)}</em></div>
-                {
-                    if community_info.as_ref().local {
-                        None
-                    } else if let Some(remote_url) = &community_info.as_ref().remote_url {
-                        Some(render::rsx! {
-                            <div class={"infoBox"}>
-                                {lang.tr("community_remote_note", None)}
-                                {" "}
-                                <a href={remote_url.as_ref()}>{lang.tr("view_at_source", None)}{" ↗"}</a>
-                            </div>
-                        })
-                    } else {
-                        None // shouldn't ever happen
-                    }
-                }
-                <p>
-                    {
-                        if base_data.login.is_some() {
-                            Some(match community_info.your_follow {
-                                Some(RespYourFollow { accepted: true }) => {
-                                    render::rsx! {
-                                        <form method={"POST"} action={format!("/communities/{}/unfollow", community_id)}>
-                                            <button type={"submit"}>{lang.tr("follow_undo", None)}</button>
-                                        </form>
-                                    }
-                                },
-                                Some(RespYourFollow { accepted: false }) => {
-                                    render::rsx! {
-                                        <form>
-                                            <button disabled={""}>{lang.tr("follow_request_sent", None)}</button>
-                                        </form>
-                                    }
-                                },
-                                None => {
-                                    render::rsx! {
-                                        <form method={"POST"} action={format!("/communities/{}/follow", community_id)}>
-                                            <button type={"submit"}>{lang.tr("follow", None)}</button>
-                                        </form>
-                                    }
-                                }
-                            })
-                        } else {
-                            None
-                        }
-                    }
-                </p>
-                <p>
-                    <a href={&new_post_url}>{lang.tr("post_new", None)}</a>
-                </p>
-                {
-                    if community_info.you_are_moderator == Some(true) {
-                        Some(render::rsx! {
-                            <p>
-                                <a href={format!("/communities/{}/edit", community_id)}>{lang.tr("community_edit_link", None)}</a>
-                            </p>
-                        })
-                    } else {
-                        None
-                    }
-                }
-                <Content src={&community_info.description()} />
-                {
-                    if community_info.as_ref().local {
-                        Some(render::rsx! {
-                            <p>
-                                <a href={format!("/communities/{}/moderators", community_id)}>
-                                    {lang.tr("moderators", None)}
-                                </a>
-                            </p>
-                        })
-                    } else {
-                        None
-                    }
-                }
+                {basic_info_area}
+                {details_content}
             </div>
             <div class={"sortOptions"}>
                 <span>{lang.tr("sort", None)}</span>

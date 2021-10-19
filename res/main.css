@@ -70,7 +70,7 @@ body {
 	width: 300px;
 }
 
-.communitySidebar > h2 {
+.communityBaseInfo > h2 {
 	margin-bottom: 0;
 }
 
@@ -165,11 +165,19 @@ p {
 	margin-bottom: 16px;
 }
 
-@media (max-width: 768px) {
+.communitySidebar {
+	display: none;
+}
+
+@media (min-width: 768px) {
+	.communityDetailsMobile {
+		display: none;
+	}
 	.communitySidebar {
-		display: none; /* TODO still show this somewhere */
+		display: initial;
 	}
 }
+
 
 @media (prefers-color-scheme: dark) {
 	html {
