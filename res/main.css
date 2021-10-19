@@ -219,7 +219,7 @@ p {
 		color: #D0ADF0;
 	}
 
-	.mainHeader {
+	.mainHeader, .leftLinksMobile > div {
 		background-color: #00567D;
 	}
 
