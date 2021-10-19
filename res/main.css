@@ -48,6 +48,28 @@ body {
 	font-weight: bold;
 	font-size: 1.2em;
 	margin-right: 1em;
+	margin-left: 1em;
+}
+
+.leftLinksMobile {
+	position: absolute;
+	display: inline-block;
+	margin-right: 1em;
+	line-height: 1.5em;
+	left: 0;
+}
+
+.leftLinksMobile > summary {
+	margin-left: 8px;
+}
+
+.leftLinksMobile > div {
+	background-color: #81D4FA;
+	padding: .5em;
+}
+
+.leftLinksMobile > div > * {
+	display: block;
 }
 
 .errorBox, .infoBox {
@@ -165,16 +187,19 @@ p {
 	margin-bottom: 16px;
 }
 
-.communitySidebar {
+.communitySidebar, .leftLinks {
 	display: none;
 }
 
 @media (min-width: 768px) {
-	.communityDetailsMobile {
-		display: none;
+	.communityDetailsMobile, .leftLinksMobile {
+		display: none !important;
 	}
-	.communitySidebar {
-		display: initial;
+	.communitySidebar, .leftLinks {
+		display: inline-block;
+	}
+	.siteName {
+		margin-left: 0;
 	}
 }
 

@@ -287,6 +287,15 @@ pub fn HTPageAdvanced<'a, HeadItems: render::Render, Children: render::Render>(
     head_items: HeadItems,
     children: Children,
 ) {
+    let left_links = render::rsx! {
+        <>
+            <a href={"/all"}>{lang.tr("all", None)}</a>
+            <a href={"/local"}>{lang.tr("local", None)}</a>
+            <a href={"/communities"}>{lang.tr("communities", None)}</a>
+            <a href={"/about"}>{lang.tr("about", None)}</a>
+        </>
+    };
+
     render::rsx! {
         <>
             <render::html::HTML5Doctype />
@@ -300,12 +309,17 @@ pub fn HTPageAdvanced<'a, HeadItems: render::Render, Children: render::Render>(
                 </head>
                 <body>
                     <header class={"mainHeader"}>
-                        <div class={"left actionList"}>
+                        <div class={"left"}>
+                            <details class={"leftLinksMobile"}>
+                                <summary>{()}</summary>
+                                <div>
+                                    {left_links.clone()}
+                                </div>
+                            </details>
                             <a href={"/"} class={"siteName"}>{"lotide"}</a>
-                            <a href={"/all"}>{lang.tr("all", None)}</a>
-                            <a href={"/local"}>{lang.tr("local", None)}</a>
-                            <a href={"/communities"}>{lang.tr("communities", None)}</a>
-                            <a href={"/about"}>{lang.tr("about", None)}</a>
+                            <div class={"actionList leftLinks"}>
+                                {left_links}
+                            </div>
                         </div>
                         <div class={"right actionList"}>
                             {
