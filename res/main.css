@@ -48,7 +48,7 @@ body {
 	font-weight: bold;
 	font-size: 1.2em;
 	margin-right: 1em;
-	margin-left: 1em;
+	margin-left: 1.4em;
 }
 
 .leftLinksMobile {
@@ -61,6 +61,7 @@ body {
 
 .leftLinksMobile > summary {
 	margin-left: 8px;
+	list-style: none;
 }
 
 .leftLinksMobile > div {

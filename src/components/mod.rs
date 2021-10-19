@@ -311,7 +311,7 @@ pub fn HTPageAdvanced<'a, HeadItems: render::Render, Children: render::Render>(
                     <header class={"mainHeader"}>
                         <div class={"left"}>
                             <details class={"leftLinksMobile"}>
-                                <summary>{()}</summary>
+                                <summary>{hitide_icons::HAMBURGER_MENU.img()}</summary>
                                 <div>
                                     {left_links.clone()}
                                 </div>
