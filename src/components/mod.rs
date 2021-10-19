@@ -291,6 +291,7 @@ pub fn HTPageAdvanced<'a, HeadItems: render::Render, Children: render::Render>(
             <html>
                 <head>
                     <meta charset={"utf-8"} />
+                    <meta name={"viewport"} content={"width=device-width, initial-scale=1"} />
                     <link rel={"stylesheet"} href={"/static/main.css"} />
                     <title>{title}</title>
                     {head_items}
