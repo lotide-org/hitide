@@ -7,7 +7,8 @@ use crate::components::{
     Comment, CommunityLink, Content, HTPage, IconExt, MaybeFillTextArea, TimeAgo, UserLink,
 };
 use crate::resp_types::{
-    JustUser, RespCommunityInfoMaybeYour, RespList, RespPostCommentInfo, RespPostInfo,
+    JustContentHTML, JustUser, RespCommunityInfoMaybeYour, RespList, RespPostCommentInfo,
+    RespPostInfo,
 };
 use crate::util::author_is_me;
 use serde_derive::{Deserialize, Serialize};
@@ -32,6 +33,7 @@ async fn page_post(
         ctx,
         None,
         None,
+        None,
     )
     .await
 }
@@ -44,6 +46,7 @@ async fn page_post_inner(
     ctx: Arc<crate::RouteContext>,
     display_error: Option<String>,
     prev_values: Option<&HashMap<Cow<'_, str>, serde_json::Value>>,
+    display_preview: Option<&str>,
 ) -> Result<hyper::Response<hyper::Body>, crate::Error> {
     let lang = crate::get_lang_for_headers(headers);
 
@@ -274,11 +277,19 @@ async fn page_post_inner(
                                     </label>
                                 </div>
                                 <button r#type={"submit"}>{lang.tr("comment_submit", None)}</button>
+                                <button r#type={"submit"} name={"preview"}>{lang.tr("preview", None)}</button>
                             </form>
                         })
                     } else {
                         None
                     }
+                }
+                {
+                    display_preview.map(|html| {
+                        render::rsx! {
+                            <div class={"preview"}>{render::raw!(html)}</div>
+                        }
+                    })
                 }
                 <div class={"sortOptions"}>
                     <span>{lang.tr("sort", None)}</span>
@@ -637,9 +648,65 @@ async fn handler_post_submit_reply(
                 ctx,
                 Some(error),
                 Some(&body_values),
+                None,
             )
             .await;
         }
+    }
+
+    if body_values.contains_key("preview") {
+        let md = body_values
+            .get("content_markdown")
+            .and_then(|x| x.as_str())
+            .unwrap_or("");
+        let preview_res = res_to_error(
+            ctx.http_client
+                .request(for_client(
+                    hyper::Request::post(format!(
+                        "{}/api/unstable/misc/render_markdown",
+                        ctx.backend_host
+                    ))
+                    .body(
+                        serde_json::to_vec(&serde_json::json!({ "content_markdown": md }))?.into(),
+                    )?,
+                    &req_parts.headers,
+                    &cookies,
+                )?)
+                .await?,
+        )
+        .await;
+        return match preview_res {
+            Ok(preview_res) => {
+                let preview_res = hyper::body::to_bytes(preview_res.into_body()).await?;
+                let preview_res: JustContentHTML = serde_json::from_slice(&preview_res)?;
+
+                page_post_inner(
+                    post_id,
+                    &req_parts.headers,
+                    None,
+                    &cookies,
+                    ctx,
+                    None,
+                    Some(&body_values),
+                    Some(&preview_res.content_html),
+                )
+                .await
+            }
+            Err(crate::Error::RemoteError((_, message))) => {
+                page_post_inner(
+                    post_id,
+                    &req_parts.headers,
+                    None,
+                    &cookies,
+                    ctx,
+                    Some(message),
+                    Some(&body_values),
+                    None,
+                )
+                .await
+            }
+            Err(other) => Err(other),
+        };
     }
 
     let api_res = res_to_error(
@@ -667,6 +734,7 @@ async fn handler_post_submit_reply(
                 ctx,
                 Some(message),
                 Some(&body_values),
+                None,
             )
             .await
         }
