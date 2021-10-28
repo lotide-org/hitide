@@ -4,9 +4,9 @@ use std::borrow::{Borrow, Cow};
 use std::collections::HashMap;
 
 use crate::resp_types::{
-    RespCommentInfo, RespCommunityInfoMaybeYour, RespMinimalAuthorInfo, RespMinimalCommentInfo,
+    Content, RespCommentInfo, RespMinimalAuthorInfo, RespMinimalCommentInfo,
     RespMinimalCommunityInfo, RespNotification, RespNotificationInfo, RespPostCommentInfo,
-    RespPostInfo, RespPostListPost, RespThingComment, RespThingInfo, RespUserInfo,
+    RespPostInfo, RespPostListPost, RespThingComment, RespThingInfo,
 };
 use crate::util::{abbreviate_link, author_is_me};
 use crate::PageBaseData;
@@ -54,7 +54,7 @@ pub fn Comment<'a>(
                     <TimeAgo since={chrono::DateTime::parse_from_rfc3339(&comment.created).unwrap()} lang />
                 </small>
                 <div class={"commentContent"}>
-                    <Content src={comment} />
+                    <ContentView src={comment} />
                 </div>
                 {
                     comment.attachments.iter().map(|attachment| {
@@ -208,6 +208,15 @@ impl<'a> HavingContent for RespPostInfo<'a> {
     }
 }
 
+impl<'a> HavingContent for Content<'a> {
+    fn content_text(&self) -> Option<&str> {
+        self.content_text.as_deref()
+    }
+    fn content_html(&self) -> Option<&str> {
+        self.content_html.as_deref()
+    }
+}
+
 #[derive(Clone)]
 pub struct HavingContentRef<'a> {
     content_html: Option<&'a str>,
@@ -223,30 +232,12 @@ impl<'a> HavingContent for HavingContentRef<'a> {
     }
 }
 
-impl<'a> RespUserInfo<'a> {
-    pub fn description(&'a self) -> HavingContentRef<'a> {
-        HavingContentRef {
-            content_html: self.description_html.as_deref(),
-            content_text: self.description_text.as_deref(),
-        }
-    }
-}
-
-impl<'a> RespCommunityInfoMaybeYour<'a> {
-    pub fn description(&'a self) -> HavingContentRef<'a> {
-        HavingContentRef {
-            content_html: self.description_html.as_deref(),
-            content_text: self.description_text.as_deref(),
-        }
-    }
-}
-
 #[derive(Clone)]
-pub struct Content<'a, T: HavingContent + 'a> {
+pub struct ContentView<'a, T: HavingContent + 'a> {
     pub src: &'a T,
 }
 
-impl<'a, T: HavingContent + 'a> render::Render for Content<'a, T> {
+impl<'a, T: HavingContent + 'a> render::Render for ContentView<'a, T> {
     fn render_into<W: std::fmt::Write>(self, writer: &mut W) -> std::fmt::Result {
         match self.src.content_html() {
             Some(html) => {
@@ -441,7 +432,7 @@ impl<'a> render::Render for ThingItem<'a> {
                             <a href={format!("/comments/{}", comment.as_ref().id)}>{lang.tr("comment", None)}</a>
                             {" "}{lang.tr("on", None)}{" "}<a href={format!("/posts/{}", comment.post.id)}>{comment.post.title.as_ref()}</a>{":"}
                         </small>
-                        <Content src={comment} />
+                        <ContentView src={comment} />
                     </li>
                 }).render_into(writer)
             }
@@ -607,7 +598,7 @@ impl<'a> render::Render for NotificationItem<'a> {
                     <>
                         <a href={format!("/comments/{}", reply.id)}>{lang.tr("comment", None)}</a>
                         {" "}{lang.tr("on_your_post", None)}{" "}<a href={format!("/posts/{}", post.id)}>{post.title.as_ref()}</a>{":"}
-                        <Content src={reply} />
+                        <ContentView src={reply} />
                     </>
                 }).render_into(writer)?;
             }
@@ -623,7 +614,7 @@ impl<'a> render::Render for NotificationItem<'a> {
                         <a href={format!("/comments/{}", comment.id)}>{lang.tr("your_comment", None)}</a>
                         {" "}{lang.tr("on", None)}{" "}<a href={format!("/posts/{}", post.id)}>{post.title.as_ref()}</a>
                         {":"}
-                        <Content src={reply} />
+                        <ContentView src={reply} />
                     </>
                 }).render_into(writer)?;
             }

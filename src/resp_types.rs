@@ -157,8 +157,7 @@ pub struct RespMinimalCommunityInfo<'a> {
 pub struct RespUserInfo<'a> {
     #[serde(flatten)]
     pub base: RespMinimalAuthorInfo<'a>,
-    pub description_html: Option<Cow<'a, str>>,
-    pub description_text: Option<Cow<'a, str>>,
+    pub description: Content<'a>,
     pub suspended: Option<bool>,
     pub your_note: Option<JustContentText<'a>>,
 }
@@ -214,8 +213,7 @@ pub struct RespCommunityInfoMaybeYour<'a> {
     #[serde(flatten)]
     pub base: RespMinimalCommunityInfo<'a>,
 
-    pub description_html: Option<Cow<'a, str>>,
-    pub description_text: Option<Cow<'a, str>>,
+    pub description: Content<'a>,
     pub feeds: RespCommunityFeeds<'a>,
 
     pub you_are_moderator: Option<bool>,
@@ -236,8 +234,7 @@ pub struct RespInstanceSoftwareInfo<'a> {
 
 #[derive(Deserialize, Debug)]
 pub struct RespInstanceInfo<'a> {
-    #[serde(default)]
-    pub description: Cow<'a, str>,
+    pub description: Content<'a>,
     pub software: RespInstanceSoftwareInfo<'a>,
 }
 
@@ -264,6 +261,13 @@ pub struct RespNotification<'a> {
     pub info: RespNotificationInfo<'a>,
 
     pub unseen: bool,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+pub struct Content<'a> {
+    pub content_text: Option<Cow<'a, str>>,
+    pub content_markdown: Option<Cow<'a, str>>,
+    pub content_html: Option<Cow<'a, str>>,
 }
 
 #[derive(Deserialize, Debug)]
