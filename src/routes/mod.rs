@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use crate::components::{
-    BoolCheckbox, Content, HTPage, MaybeFillInput, NotificationItem, PostItem, ThingItem,
+    BoolCheckbox, ContentView, HTPage, MaybeFillInput, NotificationItem, PostItem, ThingItem,
 };
 use crate::query_types::PostListQuery;
 use crate::resp_types::{
@@ -147,17 +147,7 @@ async fn page_about(
     Ok(html_response(render::html! {
         <HTPage base_data={&base_data} lang={&lang} title={&title}>
             <h1>{title.as_ref()}</h1>
-            {
-                if api_res.description == "" {
-                    None
-                } else {
-                    Some(render::rsx! {
-                        <p>
-                            {Some(api_res.description)}
-                        </p>
-                    })
-                }
-            }
+            <ContentView src={&api_res.description} />
             <p>
                 {
                     lang.tr(
@@ -882,7 +872,7 @@ async fn page_user(
                     None
                 }
             }
-            <Content src={&user.description()} />
+            <ContentView src={&user.description} />
             {
                 if things.items.is_empty() {
                     Some(render::rsx! { <p>{lang.tr("nothing", None)}</p> })
@@ -957,7 +947,7 @@ async fn page_user_edit(
                 <div>
                     <label>
                         {lang.tr("user_edit_description_prompt", None)}<br />
-                        <textarea name={"description"}>{user.description_text.as_deref().unwrap_or("")}</textarea>
+                        <textarea name={"description_markdown"}>{user.description.content_markdown.as_deref().or(user.description.content_html.as_deref()).or(user.description.content_text.as_deref()).unwrap()}</textarea>
                     </label>
                 </div>
                 <div>

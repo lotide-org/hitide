@@ -2,7 +2,7 @@ use super::{
     default_comments_sort, fetch_base_data, for_client, get_cookie_map_for_headers,
     get_cookie_map_for_req, html_response, res_to_error, CookieMap, JustStringID, ReturnToParams,
 };
-use crate::components::{Comment, Content, HTPage, IconExt, MaybeFillTextArea, UserLink};
+use crate::components::{Comment, ContentView, HTPage, IconExt, MaybeFillTextArea, UserLink};
 use crate::resp_types::{JustContentHTML, RespCommentInfo, RespList, RespPostCommentInfo};
 use crate::util::{abbreviate_link, author_is_me};
 use serde_derive::{Deserialize, Serialize};
@@ -161,7 +161,7 @@ async fn page_comment_inner(
                     })
                 }
                 <small><cite><UserLink lang={&lang} user={comment.as_ref().author.as_ref()} /></cite>{":"}</small>
-                <Content src={&comment} />
+                <ContentView src={&comment} />
                 {
                     comment.as_ref().attachments.iter().map(|attachment| {
                         let href = &attachment.url;
@@ -308,7 +308,7 @@ async fn page_comment_delete_inner(
             <p>
                 <small><cite><UserLink lang={&lang} user={comment.author.as_ref()} /></cite>{":"}</small>
                 <br />
-                <Content src={&comment} />
+                <ContentView src={&comment} />
             </p>
             <div id={"delete"}>
                 <h2>{lang.tr("comment_delete_question", None)}</h2>

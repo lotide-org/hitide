@@ -4,7 +4,7 @@ use super::{
     res_to_error, CookieMap,
 };
 use crate::components::{
-    Comment, CommunityLink, Content, HTPage, IconExt, MaybeFillTextArea, TimeAgo, UserLink,
+    Comment, CommunityLink, ContentView, HTPage, IconExt, MaybeFillTextArea, TimeAgo, UserLink,
 };
 use crate::resp_types::{
     JustContentHTML, JustUser, RespCommunityInfoMaybeYour, RespList, RespPostCommentInfo,
@@ -240,7 +240,7 @@ async fn page_post_inner(
                 })
             }
             <div class={"postContent"}>
-                <Content src={&post} />
+                <ContentView src={&post} />
             </div>
             {
                 if author_is_me(&post.as_ref().author, &base_data.login) || (post.local && base_data.is_site_admin()) {
