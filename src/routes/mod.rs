@@ -947,7 +947,7 @@ async fn page_user_edit(
                 <div>
                     <label>
                         {lang.tr("user_edit_description_prompt", None)}<br />
-                        <textarea name={"description"}>{user.description.content_markdown.as_deref().or(user.description.content_html.as_deref()).or(user.description.content_text.as_deref()).unwrap()}</textarea>
+                        <textarea name={"description_markdown"}>{user.description.content_markdown.as_deref().or(user.description.content_html.as_deref()).or(user.description.content_text.as_deref()).unwrap()}</textarea>
                     </label>
                 </div>
                 <div>
