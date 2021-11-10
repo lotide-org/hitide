@@ -241,15 +241,13 @@ impl<'a, T: HavingContent + 'a> render::Render for ContentView<'a, T> {
     fn render_into<W: std::fmt::Write>(self, writer: &mut W) -> std::fmt::Result {
         match self.src.content_html() {
             Some(html) => {
-                writer.write_str("<div>")?;
-                render::raw!(html).render_into(writer)?;
-                writer.write_str("</div>")?;
+                (render::rsx! { <div class={"contentView"}>{render::raw!(html)}</div> })
+                    .render_into(writer)?;
             }
             None => {
                 if let Some(text) = self.src.content_text() {
-                    writer.write_str("<div>")?;
-                    text.render_into(writer)?;
-                    writer.write_str("</div>")?;
+                    (render::rsx! { <div class={"contentView"}>{text}</div> })
+                        .render_into(writer)?;
                 }
             }
         }

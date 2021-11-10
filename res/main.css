@@ -4,6 +4,7 @@
 
 body {
 	margin: 8px;
+	font-family: sans-serif;
 }
 .mainHeader {
 	margin: -8px -8px 0 -8px;
@@ -186,6 +187,10 @@ textarea {
 p {
 	margin-top: 0;
 	margin-bottom: 16px;
+}
+
+.contentView {
+	font-family: serif;
 }
 
 .communitySidebar, .leftLinks {
