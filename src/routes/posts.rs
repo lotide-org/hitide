@@ -118,29 +118,30 @@ async fn page_post_inner(
     let replies_api_res = hyper::body::to_bytes(replies_api_res.into_body()).await?;
     let replies: RespList<RespPostCommentInfo> = serde_json::from_slice(&replies_api_res)?;
 
-    let is_community_moderator = if base_data.login.is_some() {
-        let api_res = res_to_error(
-            ctx.http_client
-                .request(for_client(
-                    hyper::Request::get(format!(
-                        "{}/api/unstable/communities/{}?include_your=true",
-                        ctx.backend_host,
-                        post.as_ref().community.id,
-                    ))
-                    .body(Default::default())?,
-                    headers,
-                    cookies,
-                )?)
-                .await?,
-        )
-        .await?;
-        let api_res = hyper::body::to_bytes(api_res.into_body()).await?;
+    let is_community_moderator = !post.as_ref().community.deleted
+        && if base_data.login.is_some() {
+            let api_res = res_to_error(
+                ctx.http_client
+                    .request(for_client(
+                        hyper::Request::get(format!(
+                            "{}/api/unstable/communities/{}?include_your=true",
+                            ctx.backend_host,
+                            post.as_ref().community.id,
+                        ))
+                        .body(Default::default())?,
+                        headers,
+                        cookies,
+                    )?)
+                    .await?,
+            )
+            .await?;
+            let api_res = hyper::body::to_bytes(api_res.into_body()).await?;
 
-        let info: RespCommunityInfoMaybeYour = serde_json::from_slice(&api_res)?;
-        info.you_are_moderator.unwrap()
-    } else {
-        false
-    };
+            let info: RespCommunityInfoMaybeYour = serde_json::from_slice(&api_res)?;
+            info.you_are_moderator.unwrap()
+        } else {
+            false
+        };
 
     let title = post.as_ref().as_ref().title.as_ref();
 

@@ -142,19 +142,26 @@ impl<'community> render::Render for CommunityLink<'community> {
     fn render_into<W: std::fmt::Write>(self, writer: &mut W) -> std::fmt::Result {
         let community = &self.community;
 
-        let href = format!("/communities/{}", community.id);
-        (render::rsx! {
-            <a href={&href}>
-            {
-                (if community.local {
-                    community.name.as_ref().into()
-                } else {
-                    Cow::Owned(format!("{}@{}", community.name, community.host))
-                }).as_ref()
-            }
-            </a>
-        })
-        .render_into(writer)
+        if community.deleted {
+            (render::rsx! {
+                <strong>{"[deleted]"}</strong>
+            })
+            .render_into(writer)
+        } else {
+            let href = format!("/communities/{}", community.id);
+            (render::rsx! {
+                <a href={&href}>
+                {
+                    (if community.local {
+                        community.name.as_ref().into()
+                    } else {
+                        Cow::Owned(format!("{}@{}", community.name, community.host))
+                    }).as_ref()
+                }
+                </a>
+            })
+            .render_into(writer)
+        }
     }
 }
 

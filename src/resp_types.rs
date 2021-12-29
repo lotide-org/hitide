@@ -151,6 +151,7 @@ pub struct RespMinimalCommunityInfo<'a> {
     pub local: bool,
     pub host: Cow<'a, str>,
     pub remote_url: Option<Cow<'a, str>>,
+    pub deleted: bool,
 }
 
 #[derive(Deserialize, Debug)]

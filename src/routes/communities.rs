@@ -385,6 +385,17 @@ async fn page_community(
                     None
                 }
             }
+            {
+                if community_info.you_are_moderator == Some(true) {
+                    Some(render::rsx! {
+                        <p>
+                            <a href={format!("/communities/{}/delete", community_id)}>{lang.tr("community_delete_link", None)}</a>
+                        </p>
+                    })
+                } else {
+                    None
+                }
+            }
         </>
     };
 
@@ -602,6 +613,80 @@ async fn handler_communities_edit_submit(
             )
             .body("Successfully edited.".into())?),
     }
+}
+
+async fn page_community_delete(
+    params: (i64,),
+    ctx: Arc<crate::RouteContext>,
+    req: hyper::Request<hyper::Body>,
+) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+    let (community_id,) = params;
+
+    let lang = crate::get_lang_for_req(&req);
+    let cookies = get_cookie_map_for_req(&req)?;
+
+    let base_data =
+        fetch_base_data(&ctx.backend_host, &ctx.http_client, req.headers(), &cookies).await?;
+
+    let api_res = res_to_error(
+        ctx.http_client
+            .request(for_client(
+                hyper::Request::get(format!(
+                    "{}/api/unstable/communities/{}",
+                    ctx.backend_host, community_id
+                ))
+                .body(Default::default())?,
+                req.headers(),
+                &cookies,
+            )?)
+            .await?,
+    )
+    .await?;
+    let api_res = hyper::body::to_bytes(api_res.into_body()).await?;
+
+    let community: RespCommunityInfoMaybeYour = serde_json::from_slice(&api_res)?;
+
+    Ok(html_response(render::html! {
+        <HTPage base_data={&base_data} lang={&lang} title={&lang.tr("community_delete_title", None)}>
+            <h1>{community.as_ref().name.as_ref()}</h1>
+            <h2>{lang.tr("community_delete_question", None)}</h2>
+            <form method={"POST"} action={format!("/communities/{}/delete/confirm", community.as_ref().id)}>
+                <a href={format!("/communities/{}/", community.as_ref().id)}>{lang.tr("no_cancel", None)}</a>
+                {" "}
+                <button r#type={"submit"}>{lang.tr("delete_yes", None)}</button>
+            </form>
+        </HTPage>
+    }))
+}
+
+async fn handler_community_delete_confirm(
+    params: (i64,),
+    ctx: Arc<crate::RouteContext>,
+    req: hyper::Request<hyper::Body>,
+) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+    let (community_id,) = params;
+
+    let cookies = get_cookie_map_for_req(&req)?;
+
+    res_to_error(
+        ctx.http_client
+            .request(for_client(
+                hyper::Request::delete(format!(
+                    "{}/api/unstable/communities/{}",
+                    ctx.backend_host, community_id,
+                ))
+                .body("".into())?,
+                req.headers(),
+                &cookies,
+            )?)
+            .await?,
+    )
+    .await?;
+
+    Ok(hyper::Response::builder()
+        .status(hyper::StatusCode::SEE_OTHER)
+        .header(hyper::header::LOCATION, "/")
+        .body("Successfully deleted.".into())?)
 }
 
 async fn handler_community_follow(
@@ -1418,6 +1503,16 @@ pub fn route_communities() -> crate::RouteNode<()> {
                             "submit",
                             crate::RouteNode::new()
                                 .with_handler_async("POST", handler_communities_edit_submit),
+                        ),
+                )
+                .with_child(
+                    "delete",
+                    crate::RouteNode::new()
+                        .with_handler_async("GET", page_community_delete)
+                        .with_child(
+                            "confirm",
+                            crate::RouteNode::new()
+                                .with_handler_async("POST", handler_community_delete_confirm),
                         ),
                 )
                 .with_child(
