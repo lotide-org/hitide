@@ -243,17 +243,26 @@ async fn page_post_inner(
             <div class={"postContent"}>
                 <ContentView src={&post} />
             </div>
-            {
-                if author_is_me(&post.as_ref().author, &base_data.login) || (post.local && base_data.is_site_admin()) {
-                    Some(render::rsx! {
-                        <p>
+            <div class={"actionList"}>
+                {
+                    if author_is_me(&post.as_ref().author, &base_data.login) || (post.local && base_data.is_site_admin()) {
+                        Some(render::rsx! {
                             <a href={format!("/posts/{}/delete", post_id)}>{lang.tr("delete", None)}</a>
-                        </p>
-                    })
-                } else {
-                    None
+                        })
+                    } else {
+                        None
+                    }
                 }
-            }
+                {
+                    if base_data.login.is_some() && !author_is_me(&post.as_ref().author, &base_data.login) {
+                        Some(render::rsx! {
+                            <a href={format!("/posts/{}/flag", post_id)}>{lang.tr("action_flag", None)}</a>
+                        })
+                    } else {
+                        None
+                    }
+                }
+            </div>
             <div>
                 <h2>{lang.tr("comments", None)}</h2>
                 {

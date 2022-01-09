@@ -5,6 +5,7 @@ about_text1 = lotide is an attempt to build a federated forum. Users can create 
 about_text2 = For more information or to view the source code, check out the
 about_sourcehut = SourceHut page
 about_versions = This instance is running hitide { $hitide_version } on { $backend_name } { $backend_version }.
+action_flag = flag
 add = Add
 add_by_remote_id = Add by ID:
 all = All
