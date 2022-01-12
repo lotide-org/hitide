@@ -4,12 +4,13 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use crate::components::{
-    BoolCheckbox, ContentView, HTPage, MaybeFillInput, NotificationItem, PostItem, ThingItem,
+    BoolCheckbox, ContentView, FlagItem, HTPage, MaybeFillInput, NotificationItem, PostItem,
+    ThingItem,
 };
-use crate::query_types::PostListQuery;
+use crate::query_types::{FlagListQuery, PostListQuery};
 use crate::resp_types::{
-    JustStringID, RespInstanceInfo, RespList, RespNotification, RespPostListPost, RespThingInfo,
-    RespUserInfo,
+    JustStringID, RespFlagInfo, RespInstanceInfo, RespList, RespNotification, RespPostListPost,
+    RespThingInfo, RespUserInfo,
 };
 use crate::PageBaseData;
 
@@ -1347,6 +1348,103 @@ async fn page_all_inner(
     }))
 }
 
+async fn page_flags(
+    _: (),
+    ctx: Arc<crate::RouteContext>,
+    req: hyper::Request<hyper::Body>,
+) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+    use futures_util::TryFutureExt;
+
+    let cookies = get_cookie_map_for_req(&req)?;
+
+    let base_data =
+        fetch_base_data(&ctx.backend_host, &ctx.http_client, req.headers(), &cookies).await?;
+
+    let lang = crate::get_lang_for_headers(req.headers());
+
+    #[derive(Deserialize)]
+    struct Query {
+        to_this_site_admin: Option<bool>,
+        to_community: Option<i64>,
+    }
+
+    let query: Query = serde_urlencoded::from_str(req.uri().query().unwrap_or(""))?;
+
+    let api_res = res_to_error(
+        ctx.http_client
+            .request(for_client(
+                hyper::Request::get(format!(
+                    "{}/api/unstable/flags?{}",
+                    ctx.backend_host,
+                    serde_urlencoded::to_string(&FlagListQuery {
+                        to_this_site_admin: query.to_this_site_admin,
+                        to_community: query.to_community,
+                    })?,
+                ))
+                .body(Default::default())?,
+                req.headers(),
+                &cookies,
+            )?)
+            .await?,
+    )
+    .map_err(crate::Error::from)
+    .and_then(|api_res| hyper::body::to_bytes(api_res.into_body()).map_err(crate::Error::from))
+    .await;
+
+    let title = match query {
+        Query {
+            to_this_site_admin: Some(true),
+            to_community: None,
+        } => lang.tr("flags_title_site_admin", None),
+        Query {
+            to_this_site_admin: None,
+            to_community: Some(_),
+        } => lang.tr("flags_title_community", None),
+        _ => lang.tr("flags_title_other", None),
+    };
+
+    match api_res {
+        Err(crate::Error::RemoteError((status, message))) => {
+            let mut res = html_response(render::html! {
+                <HTPage base_data={&base_data} lang={&lang} title={&title}>
+                    <h1>{title.as_ref()}</h1>
+                    <div class={"errorBox"}>{message}</div>
+                </HTPage>
+            });
+
+            *res.status_mut() = status;
+
+            Ok(res)
+        }
+        Err(other) => Err(other),
+        Ok(api_res) => {
+            let api_res: RespList<RespFlagInfo<'_>> = serde_json::from_slice(&api_res)?;
+
+            Ok(html_response(render::html! {
+                <HTPage base_data={&base_data} lang={&lang} title={&title}>
+                    <h1>{title.as_ref()}</h1>
+                    {
+                        if api_res.items.is_empty() {
+                            Some(render::rsx! {
+                                <p>
+                                    {lang.tr("nothing", None)}
+                                </p>
+                            })
+                        } else {
+                            None
+                        }
+                    }
+                    <ul>
+                    {api_res.items.iter().map(|flag| {
+                        FlagItem { flag, in_community: query.to_community.is_some(), lang: &lang }
+                    }).collect::<Vec<_>>()}
+                    </ul>
+                </HTPage>
+            }))
+        }
+    }
+}
+
 async fn page_local(
     _: (),
     ctx: Arc<crate::RouteContext>,
@@ -1435,6 +1533,10 @@ pub fn route_root() -> crate::RouteNode<()> {
         )
         .with_child("comments", comments::route_comments())
         .with_child("communities", communities::route_communities())
+        .with_child(
+            "flags",
+            crate::RouteNode::new().with_handler_async("GET", page_flags),
+        )
         .with_child("forgot_password", forgot_password::route_forgot_password())
         .with_child(
             "local",

@@ -14,3 +14,9 @@ pub struct PostListQuery<'a> {
     pub limit: Option<u8>,
     pub page: Option<&'a str>,
 }
+
+#[derive(Serialize)]
+pub struct FlagListQuery {
+    pub to_this_site_admin: Option<bool>,
+    pub to_community: Option<i64>,
+}

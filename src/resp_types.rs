@@ -2,6 +2,27 @@ use serde_derive::Deserialize;
 use std::borrow::Cow;
 
 #[derive(Deserialize, Debug)]
+#[serde(tag = "type")]
+#[serde(rename_all = "snake_case")]
+pub enum RespFlagDetails<'a> {
+    Post {
+        #[serde(borrow)]
+        post: RespPostListPost<'a>,
+    },
+}
+
+#[derive(Deserialize, Debug)]
+pub struct RespFlagInfo<'a> {
+    pub id: i64,
+    pub flagger: RespMinimalAuthorInfo<'a>,
+    pub created_local: Cow<'a, str>,
+    pub content: Option<JustContentText<'a>>,
+    #[serde(borrow)]
+    #[serde(flatten)]
+    pub details: RespFlagDetails<'a>,
+}
+
+#[derive(Deserialize, Debug)]
 pub struct RespMinimalAuthorInfo<'a> {
     pub id: i64,
     pub username: Cow<'a, str>,
