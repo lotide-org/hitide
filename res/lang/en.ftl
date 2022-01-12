@@ -31,6 +31,7 @@ community_delete_link = Delete Community
 community_delete_question = Delete this community?
 community_edit = Customize Community
 community_edit_link = Customize
+community_flags_link = Flags
 community_remote_note = This is a remote community, information on this page may be incomplete.
 delete = delete
 delete_yes = Yes, delete

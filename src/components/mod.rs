@@ -359,6 +359,13 @@ pub fn HTPageAdvanced<'a, HeadItems: render::Render, Children: render::Render>(
                                             <a href={format!("/users/{}", login.user.id)}>
                                                 {hitide_icons::PERSON.img()}
                                             </a>
+                                            {
+                                                base_data.is_site_admin().then(|| {
+                                                    render::rsx! {
+                                                        <a href={"/flags?to_this_site_admin=true"}>{hitide_icons::FLAG.img()}</a>
+                                                    }
+                                                })
+                                            }
                                             <form method={"POST"} action={"/logout"} class={"inline"}>
                                                 <button type={"submit"} class={"iconbutton"}>
                                                     {hitide_icons::LOGOUT.img()}

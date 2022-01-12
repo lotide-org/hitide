@@ -363,9 +363,14 @@ async fn page_community(
             {
                 if community_info.you_are_moderator == Some(true) {
                     Some(render::rsx! {
-                        <p>
-                            <a href={format!("/communities/{}/edit", community_id)}>{lang.tr("community_edit_link", None)}</a>
-                        </p>
+                        <>
+                            <p>
+                                <a href={format!("/communities/{}/edit", community_id)}>{lang.tr("community_edit_link", None)}</a>
+                            </p>
+                            <p>
+                                <a href={format!("/flags?to_community={}", community_id)}>{lang.tr("community_flags_link", None)}</a>
+                            </p>
+                        </>
                     })
                 } else {
                     None
