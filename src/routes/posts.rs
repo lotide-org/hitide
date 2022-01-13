@@ -243,17 +243,26 @@ async fn page_post_inner(
             <div class={"postContent"}>
                 <ContentView src={&post} />
             </div>
-            {
-                if author_is_me(&post.as_ref().author, &base_data.login) || (post.local && base_data.is_site_admin()) {
-                    Some(render::rsx! {
-                        <p>
+            <div class={"actionList"}>
+                {
+                    if author_is_me(&post.as_ref().author, &base_data.login) || (post.local && base_data.is_site_admin()) {
+                        Some(render::rsx! {
                             <a href={format!("/posts/{}/delete", post_id)}>{lang.tr("delete", None)}</a>
-                        </p>
-                    })
-                } else {
-                    None
+                        })
+                    } else {
+                        None
+                    }
                 }
-            }
+                {
+                    if base_data.login.is_some() && !author_is_me(&post.as_ref().author, &base_data.login) {
+                        Some(render::rsx! {
+                            <a href={format!("/posts/{}/flag", post_id)}>{lang.tr("action_flag", None)}</a>
+                        })
+                    } else {
+                        None
+                    }
+                }
+            </div>
             <div>
                 <h2>{lang.tr("comments", None)}</h2>
                 {
@@ -400,6 +409,106 @@ async fn handler_post_delete_confirm(
         .status(hyper::StatusCode::SEE_OTHER)
         .header(hyper::header::LOCATION, "/")
         .body("Successfully deleted.".into())?)
+}
+
+async fn page_post_flag(
+    params: (i64,),
+    ctx: Arc<crate::RouteContext>,
+    req: hyper::Request<hyper::Body>,
+) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+    let (post_id,) = params;
+
+    let lang = crate::get_lang_for_req(&req);
+    let cookies = get_cookie_map_for_req(&req)?;
+
+    let base_data =
+        fetch_base_data(&ctx.backend_host, &ctx.http_client, req.headers(), &cookies).await?;
+
+    let api_res = res_to_error(
+        ctx.http_client
+            .request(for_client(
+                hyper::Request::get(format!(
+                    "{}/api/unstable/posts/{}",
+                    ctx.backend_host, post_id
+                ))
+                .body(Default::default())?,
+                req.headers(),
+                &cookies,
+            )?)
+            .await?,
+    )
+    .await?;
+    let api_res = hyper::body::to_bytes(api_res.into_body()).await?;
+
+    let post: RespPostInfo = serde_json::from_slice(&api_res)?;
+
+    Ok(html_response(render::html! {
+        <HTPage base_data={&base_data} lang={&lang} title={&lang.tr("post_flag_title", None)}>
+            <h1>{post.as_ref().as_ref().title.as_ref()}</h1>
+            <h2>{lang.tr("post_flag_question", None)}</h2>
+            <form method={"POST"} action={format!("/posts/{}/flag/submit", post.as_ref().as_ref().id)}>
+                <div>
+                    <strong>{lang.tr("post_flag_target_prompt", None)}</strong>
+                </div>
+                <div><label><input type={"checkbox"} name={"to_site_admin"} />{" "}{lang.tr("post_flag_target_choice_site_admin", None)}</label></div>
+                <div><label><input type={"checkbox"} name={"to_community"} />{" "}{lang.tr("post_flag_target_choice_community", None)}</label></div>
+                {
+                    (post.as_ref().author.as_ref().map(|x| x.local) == Some(false)).then(|| render::rsx! {
+                        <div><label><input type={"checkbox"} name={"to_remote_site_admin"} />{" "}{lang.tr("post_flag_target_choice_remote_site_admin", None)}</label></div>
+                    })
+                }
+                <div>
+                    <label>
+                        {lang.tr("flag_comment_prompt", None)}<br />
+                        <textarea name={"content_text"}>{""}</textarea>
+                    </label>
+                </div>
+                <a href={format!("/posts/{}", post.as_ref().as_ref().id)}>{lang.tr("no_cancel", None)}</a>
+                {" "}
+                <button r#type={"submit"}>{lang.tr("submit", None)}</button>
+            </form>
+        </HTPage>
+    }))
+}
+
+async fn handler_post_flag_submit(
+    params: (i64,),
+    ctx: Arc<crate::RouteContext>,
+    req: hyper::Request<hyper::Body>,
+) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+    let (post_id,) = params;
+
+    let (req_parts, body) = req.into_parts();
+
+    let cookies = get_cookie_map_for_headers(&req_parts.headers)?;
+
+    let body = hyper::body::to_bytes(body).await?;
+    let mut body: serde_json::map::Map<String, serde_json::Value> =
+        serde_urlencoded::from_bytes(&body)?;
+
+    for key in ["to_community", "to_site_admin", "to_remote_site_admin"] {
+        body.insert(key.to_owned(), body.contains_key(key).into());
+    }
+
+    res_to_error(
+        ctx.http_client
+            .request(for_client(
+                hyper::Request::post(format!(
+                    "{}/api/unstable/posts/{}/flags",
+                    ctx.backend_host, post_id
+                ))
+                .body(serde_json::to_vec(&body)?.into())?,
+                &req_parts.headers,
+                &cookies,
+            )?)
+            .await?,
+    )
+    .await?;
+
+    Ok(hyper::Response::builder()
+        .status(hyper::StatusCode::SEE_OTHER)
+        .header(hyper::header::LOCATION, format!("/posts/{}", post_id))
+        .body("Successfully flagged.".into())?)
 }
 
 async fn handler_post_like(
@@ -759,6 +868,16 @@ pub fn route_posts() -> crate::RouteNode<()> {
                         "confirm",
                         crate::RouteNode::new()
                             .with_handler_async("POST", handler_post_delete_confirm),
+                    ),
+            )
+            .with_child(
+                "flag",
+                crate::RouteNode::new()
+                    .with_handler_async("GET", page_post_flag)
+                    .with_child(
+                        "submit",
+                        crate::RouteNode::new()
+                            .with_handler_async("POST", handler_post_flag_submit),
                     ),
             )
             .with_child(

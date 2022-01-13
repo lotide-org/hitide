@@ -4,9 +4,9 @@ use std::borrow::{Borrow, Cow};
 use std::collections::HashMap;
 
 use crate::resp_types::{
-    Content, RespCommentInfo, RespMinimalAuthorInfo, RespMinimalCommentInfo,
-    RespMinimalCommunityInfo, RespNotification, RespNotificationInfo, RespPostCommentInfo,
-    RespPostInfo, RespPostListPost, RespThingComment, RespThingInfo,
+    Content, RespCommentInfo, RespFlagDetails, RespFlagInfo, RespMinimalAuthorInfo,
+    RespMinimalCommentInfo, RespMinimalCommunityInfo, RespNotification, RespNotificationInfo,
+    RespPostCommentInfo, RespPostInfo, RespPostListPost, RespThingComment, RespThingInfo,
 };
 use crate::util::{abbreviate_link, author_is_me};
 use crate::PageBaseData;
@@ -264,6 +264,29 @@ impl<'a, T: HavingContent + 'a> render::Render for ContentView<'a, T> {
 }
 
 #[render::component]
+pub fn FlagItem<'a>(flag: &'a RespFlagInfo<'a>, in_community: bool, lang: &'a crate::Translator) {
+    let RespFlagDetails::Post { post } = &flag.details;
+
+    render::rsx! {
+        <li class={"flagItem"}>
+            <div class={"flaggedContent"}>
+                <PostItemContent post={post} in_community no_user={false} lang />
+            </div>
+            {lang.tr("flagged_by", None)}{" "}<UserLink user={Some(&flag.flagger)} lang />
+            {
+                flag.content.as_ref().map(|content| {
+                    render::rsx! {
+                        <blockquote>
+                            {content.content_text.as_ref()}
+                        </blockquote>
+                    }
+                })
+            }
+        </li>
+    }
+}
+
+#[render::component]
 pub fn HTPage<'a, Children: render::Render>(
     base_data: &'a PageBaseData,
     lang: &'a crate::Translator,
@@ -336,6 +359,13 @@ pub fn HTPageAdvanced<'a, HeadItems: render::Render, Children: render::Render>(
                                             <a href={format!("/users/{}", login.user.id)}>
                                                 {hitide_icons::PERSON.img()}
                                             </a>
+                                            {
+                                                base_data.is_site_admin().then(|| {
+                                                    render::rsx! {
+                                                        <a href={"/flags?to_this_site_admin=true"}>{hitide_icons::FLAG.img()}</a>
+                                                    }
+                                                })
+                                            }
                                             <form method={"POST"} action={"/logout"} class={"inline"}>
                                                 <button type={"submit"} class={"iconbutton"}>
                                                     {hitide_icons::LOGOUT.img()}
@@ -370,10 +400,24 @@ pub fn PostItem<'a>(
     no_user: bool,
     lang: &'a crate::Translator,
 ) {
+    render::rsx! {
+        <li class={if post.as_ref().sticky { "sticky" } else { "" }}>
+            <PostItemContent post in_community no_user lang />
+        </li>
+    }
+}
+
+#[render::component]
+pub fn PostItemContent<'a>(
+    post: &'a RespPostListPost<'a>,
+    in_community: bool,
+    no_user: bool,
+    lang: &'a crate::Translator,
+) {
     let post_href = format!("/posts/{}", post.as_ref().as_ref().id);
 
     render::rsx! {
-        <li class={if post.as_ref().sticky { "sticky" } else { "" }}>
+        <>
             <div class={"titleLine"}>
                 <a href={post_href.clone()}>
                     {post.as_ref().as_ref().title.as_ref()}
@@ -413,7 +457,7 @@ pub fn PostItem<'a>(
                 {" | "}
                 <a href={post_href}>{lang.tr("post_comments_count", Some(&fluent::fluent_args!["count" => post.replies_count_total])).into_owned()}</a>
             </small>
-        </li>
+        </>
     }
 }
 

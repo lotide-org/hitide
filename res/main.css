@@ -133,6 +133,7 @@ body {
 	border: 1px solid #0d47a1;
 	border-radius: .5em;
 	padding: .5em;
+	margin-bottom: .5em;
 }
 
 .votebox {
@@ -195,6 +196,10 @@ p {
 
 .communitySidebar, .leftLinks {
 	display: none;
+}
+
+.flaggedContent {
+	margin-left: 2em;
 }
 
 @media (min-width: 768px) {
