@@ -486,8 +486,8 @@ async fn handler_post_flag_submit(
     let mut body: serde_json::map::Map<String, serde_json::Value> =
         serde_urlencoded::from_bytes(&body)?;
 
-    for key in ["to_community", "to_site_admin", "to_remote_site_admin"] {
-        body.insert(key.to_owned(), body.contains_key(key).into());
+    for key in &["to_community", "to_site_admin", "to_remote_site_admin"] {
+        body.insert((*key).to_owned(), body.contains_key(*key).into());
     }
 
     res_to_error(
