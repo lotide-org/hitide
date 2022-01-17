@@ -4,6 +4,7 @@ RUN apt-get update \
 	&& rm -rf /var/lib/apt/lists/*
 WORKDIR /usr/src/hitide
 COPY Cargo.* ./
+COPY build.rs ./
 COPY src ./src
 COPY res ./res
 COPY icons ./icons
