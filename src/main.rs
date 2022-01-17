@@ -2,17 +2,19 @@
 
 use crate::resp_types::RespLoginInfo;
 use serde_derive::{Deserialize, Serialize};
-use std::borrow::Cow;
 use std::collections::HashMap;
 use std::sync::Arc;
 use trout::hyper::RoutingFailureExtHyper;
 
 mod components;
 mod config;
+mod lang;
 mod query_types;
 mod resp_types;
 mod routes;
 mod util;
+
+pub use lang::Translator;
 
 use self::config::Config;
 
@@ -35,11 +37,11 @@ impl SortType {
         }
     }
 
-    pub fn lang_key(&self) -> &'static str {
+    pub fn lang_key(&self) -> lang::LangKey<'static> {
         match self {
-            SortType::Hot => "sort_hot",
-            SortType::New => "sort_new",
-            SortType::Top => "sort_top",
+            SortType::Hot => lang::sort_hot(),
+            SortType::New => lang::sort_new(),
+            SortType::Top => lang::sort_top(),
         }
     }
 }
@@ -116,40 +118,6 @@ lazy_static::lazy_static! {
     };
 }
 
-pub struct Translator {
-    bundle: fluent::concurrent::FluentBundle<&'static fluent::FluentResource>,
-}
-impl Translator {
-    pub fn tr<'a>(
-        &'a self,
-        key: &'static str,
-        args: Option<&'a fluent::FluentArgs>,
-    ) -> Cow<'a, str> {
-        let pattern = self.bundle.get_message(key).and_then(|msg| msg.value);
-
-        let pattern = match pattern {
-            Some(pattern) => pattern,
-            None => {
-                log::error!("Missing message in translation: {}", key);
-                return Cow::Borrowed(key);
-            }
-        };
-
-        let mut errors = Vec::with_capacity(0);
-        let out = self.bundle.format_pattern(pattern, args, &mut errors);
-        if !errors.is_empty() {
-            log::error!("Errors in translation: {:?}", errors);
-        }
-
-        out
-    }
-}
-impl std::fmt::Debug for Translator {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "Translator")
-    }
-}
-
 pub fn get_lang_for_headers(headers: &hyper::header::HeaderMap) -> Translator {
     let default = unic_langid::langid!("en");
     let languages = match headers
@@ -183,7 +151,7 @@ pub fn get_lang_for_headers(headers: &hyper::header::HeaderMap) -> Translator {
         }
     }
 
-    Translator { bundle }
+    Translator::new(bundle)
 }
 
 pub fn get_lang_for_req(req: &hyper::Request<hyper::Body>) -> Translator {

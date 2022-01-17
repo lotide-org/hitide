@@ -7,6 +7,7 @@ use crate::components::{
     BoolCheckbox, ContentView, FlagItem, HTPage, MaybeFillInput, NotificationItem, PostItem,
     ThingItem,
 };
+use crate::lang;
 use crate::query_types::{FlagListQuery, PostListQuery};
 use crate::resp_types::{
     JustStringID, RespFlagInfo, RespInstanceInfo, RespList, RespNotification, RespPostListPost,
@@ -143,7 +144,7 @@ async fn page_about(
     let api_res = hyper::body::to_bytes(api_res.into_body()).await?;
     let api_res: RespInstanceInfo = serde_json::from_slice(&api_res)?;
 
-    let title = lang.tr("about_title", None);
+    let title = lang.tr(&lang::ABOUT_TITLE);
 
     Ok(html_response(render::html! {
         <HTPage base_data={&base_data} lang={&lang} title={&title}>
@@ -152,24 +153,23 @@ async fn page_about(
             <p>
                 {
                     lang.tr(
-                        "about_versions",
-                        Some(&fluent::fluent_args![
-                            "hitide_version" => env!("CARGO_PKG_VERSION"),
-                            "backend_name" => api_res.software.name,
-                            "backend_version" => api_res.software.version
-                        ])
+                        &lang::about_versions(
+                            env!("CARGO_PKG_VERSION"),
+                            api_res.software.name,
+                            api_res.software.version
+                        )
                     )
                 }
             </p>
-            <h2>{lang.tr("about_what_is", None)}</h2>
+            <h2>{lang.tr(&lang::about_what_is())}</h2>
             <p>
-                {lang.tr("about_text1", None)}
+                {lang.tr(&lang::about_text1())}
                 {" "}<a href={"https://activitypub.rocks"}>{"ActivityPub"}</a>{"."}
             </p>
             <p>
-                {lang.tr("about_text2", None)}
+                {lang.tr(&lang::about_text2())}
                 {" "}
-                <a href={"https://sr.ht/~vpzom/lotide/"}>{lang.tr("about_sourcehut", None)}</a>{"."}
+                <a href={"https://sr.ht/~vpzom/lotide/"}>{lang.tr(&lang::about_sourcehut())}</a>{"."}
             </p>
         </HTPage>
     }))
@@ -200,7 +200,7 @@ async fn page_login_inner(
     )
     .await?;
 
-    let title = lang.tr("login", None);
+    let title = lang.tr(&lang::LOGIN);
 
     Ok(html_response(render::html! {
         <HTPage base_data={&base_data} lang={&lang} title={&title}>
@@ -214,26 +214,26 @@ async fn page_login_inner(
             <form method={"POST"} action={"/login/submit"}>
                 <table>
                     <tr>
-                        <td><label for={"input_username"}>{lang.tr("username_prompt", None)}</label></td>
+                        <td><label for={"input_username"}>{lang.tr(&lang::username_prompt())}</label></td>
                         <td>
                             <MaybeFillInput values={&prev_values} r#type={"text"} name={"username"} required={true} id={"input_username"} />
                         </td>
                     </tr>
                     <tr>
-                        <td><label for={"input_password"}>{lang.tr("password_prompt", None)}</label></td>
+                        <td><label for={"input_password"}>{lang.tr(&lang::password_prompt())}</label></td>
                         <td>
                             <MaybeFillInput values={&prev_values} r#type={"password"} name={"password"} required={true} id={"input_password"} />
                         </td>
                     </tr>
                 </table>
-                <button r#type={"submit"}>{lang.tr("login", None)}</button>
+                <button r#type={"submit"}>{lang.tr(&lang::login())}</button>
             </form>
             <br />
             <p>
-                {lang.tr("or_start", None)}{" "}<a href={"/signup"}>{lang.tr("login_signup_link", None)}</a>
+                {lang.tr(&lang::or_start())}{" "}<a href={"/signup"}>{lang.tr(&lang::login_signup_link())}</a>
             </p>
             <p>
-                <a href={"/forgot_password"}>{lang.tr("forgot_password", None)}</a>
+                <a href={"/forgot_password"}>{lang.tr(&lang::forgot_password())}</a>
             </p>
         </HTPage>
     }))
@@ -415,7 +415,7 @@ async fn page_lookup(
                 .body("Redirecting…".into())?)
         }
         api_res => {
-            let title = lang.tr("lookup_title", None);
+            let title = lang.tr(&lang::LOOKUP_TITLE);
             Ok(html_response(render::html! {
                 <HTPage base_data={&base_data} lang={&lang} title={&title}>
                     <h1>{title.as_ref()}</h1>
@@ -427,7 +427,7 @@ async fn page_lookup(
                             None => None,
                             Some(Ok(_)) => {
                                 // non-empty case is handled above
-                                Some(render::rsx! { <p>{lang.tr("lookup_nothing", None)}</p> })
+                                Some(render::rsx! { <p>{lang.tr(&lang::LOOKUP_NOTHING)}</p> })
                             },
                             Some(Err(display_error)) => {
                                 Some(render::rsx! {
@@ -462,7 +462,7 @@ async fn page_new_community_inner(
     let lang = crate::get_lang_for_headers(headers);
     let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, headers, cookies).await?;
 
-    let title = lang.tr("community_create", None);
+    let title = lang.tr(&lang::COMMUNITY_CREATE);
 
     Ok(html_response(render::html! {
         <HTPage base_data={&base_data} lang={&lang} title={&title}>
@@ -477,11 +477,11 @@ async fn page_new_community_inner(
             <form method={"POST"} action={"/new_community/submit"}>
                 <div>
                     <label>
-                        {lang.tr("name_prompt", None)}{" "}<MaybeFillInput values={&prev_values} r#type={"text"} name={"name"} required={true} id={"input_name"} />
+                        {lang.tr(&lang::name_prompt())}{" "}<MaybeFillInput values={&prev_values} r#type={"text"} name={"name"} required={true} id={"input_name"} />
                     </label>
                 </div>
                 <div>
-                    <button r#type={"submit"}>{lang.tr("community_create_submit", None)}</button>
+                    <button r#type={"submit"}>{lang.tr(&lang::community_create_submit())}</button>
                 </div>
             </form>
         </HTPage>
@@ -582,7 +582,7 @@ async fn page_notifications(
     let base_data =
         fetch_base_data(&ctx.backend_host, &ctx.http_client, req.headers(), &cookies).await?;
 
-    let title = lang.tr("notifications", None);
+    let title = lang.tr(&lang::NOTIFICATIONS);
 
     match api_res {
         Err(crate::Error::RemoteError((_, message))) => {
@@ -606,7 +606,7 @@ async fn page_notifications(
                     <h1>{title.as_ref()}</h1>
                     {
                         if notifications.is_empty() {
-                            Some(render::rsx! { <p>{lang.tr("nothing", None)}</p> })
+                            Some(render::rsx! { <p>{lang.tr(&lang::NOTHING)}</p> })
                         } else {
                             None
                         }
@@ -643,7 +643,7 @@ async fn page_signup_inner(
 
     let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, headers, &cookies).await?;
 
-    let title = lang.tr("register", None);
+    let title = lang.tr(&lang::REGISTER);
 
     Ok(html_response(render::html! {
         <HTPage base_data={&base_data} lang={&lang} title={&title}>
@@ -657,25 +657,25 @@ async fn page_signup_inner(
             <form method={"POST"} action={"/signup/submit"}>
                 <table>
                     <tr>
-                        <td><label for={"input_username"}>{lang.tr("username_prompt", None)}</label></td>
+                        <td><label for={"input_username"}>{lang.tr(&lang::username_prompt())}</label></td>
                         <td>
                             <MaybeFillInput values={&prev_values} r#type={"text"} name={"username"} required={true} id={"input_username"} />
                         </td>
                     </tr>
                     <tr>
-                        <td><label for={"input_password"}>{lang.tr("password_prompt", None)}</label></td>
+                        <td><label for={"input_password"}>{lang.tr(&lang::password_prompt())}</label></td>
                         <td>
                             <MaybeFillInput values={&prev_values} r#type={"password"} name={"password"} required={true} id={"input_password"} />
                         </td>
                     </tr>
                     <tr>
-                        <td><label for={"input_email_address"}>{lang.tr("signup_email_address_prompt", None)}</label></td>
+                        <td><label for={"input_email_address"}>{lang.tr(&lang::signup_email_address_prompt())}</label></td>
                         <td>
                             <MaybeFillInput values={&prev_values} r#type={"email"} name={"email_address"} required={false} id={"input_email_address"} />
                         </td>
                     </tr>
                 </table>
-                <button r#type={"submit"}>{lang.tr("register", None)}</button>
+                <button r#type={"submit"}>{lang.tr(&lang::register())}</button>
             </form>
         </HTPage>
     }))
@@ -796,9 +796,9 @@ async fn page_user(
                 } else if let Some(remote_url) = &user.as_ref().remote_url {
                     Some(render::rsx! {
                         <div class={"infoBox"}>
-                            {lang.tr("user_remote_note", None)}
+                            {lang.tr(&lang::USER_REMOTE_NOTE)}
                             {" "}
-                            <a href={remote_url.as_ref()}>{lang.tr("view_at_source", None)}{" ↗"}</a>
+                            <a href={remote_url.as_ref()}>{lang.tr(&lang::VIEW_AT_SOURCE)}{" ↗"}</a>
                         </div>
                     })
                 } else {
@@ -813,10 +813,10 @@ async fn page_user(
                                 if user.suspended == Some(true) {
                                     Some(render::rsx! {
                                         <div class={"infoBox"}>
-                                            {lang.tr("user_suspended_note", None)}
+                                            {lang.tr(&lang::USER_SUSPENDED_NOTE)}
                                             {" "}
                                             <form method={"POST"} action={format!("/users/{}/suspend/undo", user_id)} class={"inline"}>
-                                                <button type={"submit"}>{lang.tr("user_suspend_undo", None)}</button>
+                                                <button type={"submit"}>{lang.tr(&lang::USER_SUSPEND_UNDO)}</button>
                                             </form>
                                         </div>
                                     })
@@ -828,7 +828,7 @@ async fn page_user(
                                 if user.suspended == Some(false) {
                                     Some(render::rsx! {
                                         <div>
-                                            <a href={format!("/users/{}/suspend", user_id)}>{lang.tr("user_suspend", None)}</a>
+                                            <a href={format!("/users/{}/suspend", user_id)}>{lang.tr(&lang::USER_SUSPEND)}</a>
                                             </div>
                                     })
                                 } else {
@@ -845,7 +845,7 @@ async fn page_user(
                 user.your_note.as_ref().map(|your_note| {
                     render::rsx! {
                         <div>
-                            {lang.tr("your_note", None)}{" ("}<a href={format!("/users/{}/your_note/edit", user_id)}>{lang.tr("edit", None)}</a>{"):"}
+                            {lang.tr(&lang::YOUR_NOTE)}{" ("}<a href={format!("/users/{}/your_note/edit", user_id)}>{lang.tr(&lang::EDIT)}</a>{"):"}
                             <pre>{your_note.content_text.as_ref()}</pre>
                         </div>
                     }
@@ -855,7 +855,7 @@ async fn page_user(
                 if user.your_note.is_none() && base_data.login.is_some() {
                     Some(render::rsx! {
                         <div>
-                            <a href={format!("/users/{}/your_note/edit", user_id)}>{lang.tr("your_note_add", None)}</a>
+                            <a href={format!("/users/{}/your_note/edit", user_id)}>{lang.tr(&lang::YOUR_NOTE_ADD)}</a>
                         </div>
                     })
                 } else {
@@ -865,7 +865,7 @@ async fn page_user(
             {
                 if let Some(login) = &base_data.login {
                     if login.user.id == user_id {
-                        Some(render::rsx! { <a href={format!("/users/{}/edit", user_id)}>{lang.tr("edit", None)}</a> })
+                        Some(render::rsx! { <a href={format!("/users/{}/edit", user_id)}>{lang.tr(&lang::EDIT)}</a> })
                     } else {
                         None
                     }
@@ -876,7 +876,7 @@ async fn page_user(
             <ContentView src={&user.description} />
             {
                 if things.items.is_empty() {
-                    Some(render::rsx! { <p>{lang.tr("nothing", None)}</p> })
+                    Some(render::rsx! { <p>{lang.tr(&lang::NOTHING)}</p> })
                 } else {
                     None
                 }
@@ -906,7 +906,7 @@ async fn page_user_edit(
     let base_data =
         fetch_base_data(&ctx.backend_host, &ctx.http_client, req.headers(), &cookies).await?;
 
-    let title = lang.tr("user_edit_title", None);
+    let title = lang.tr(&lang::USER_EDIT_TITLE);
 
     let is_me = match &base_data.login {
         None => false,
@@ -917,7 +917,7 @@ async fn page_user_edit(
         let mut res = html_response(render::html! {
             <HTPage base_data={&base_data} lang={&lang} title={&title}>
                 <h1>{title.as_ref()}</h1>
-                <div class={"errorBox"}>{lang.tr("user_edit_not_you", None)}</div>
+                <div class={"errorBox"}>{lang.tr(&lang::user_edit_not_you())}</div>
             </HTPage>
         });
 
@@ -947,23 +947,23 @@ async fn page_user_edit(
             <form method={"POST"} action={format!("/users/{}/edit/submit", user_id)}>
                 <div>
                     <label>
-                        {lang.tr("user_edit_description_prompt", None)}<br />
+                        {lang.tr(&lang::user_edit_description_prompt())}<br />
                         <textarea name={"description_markdown"}>{user.description.content_markdown.as_deref().or(user.description.content_html.as_deref()).or(user.description.content_text.as_deref()).unwrap()}</textarea>
                     </label>
                 </div>
                 <div>
                     <label>
-                        {lang.tr("user_edit_password_prompt", None)}<br />
+                        {lang.tr(&lang::user_edit_password_prompt())}<br />
                         <input name={"password"} type={"password"} value={""} autocomplete={"new-password"} />
                     </label>
                 </div>
                 <div>
                     <label>
                         <BoolCheckbox name={"is_bot"} value={user.base.is_bot} />
-                        {lang.tr("user_edit_is_bot_checkbox_label", None)}<br />
+                        {lang.tr(&lang::user_edit_is_bot_checkbox_label())}<br />
                     </label>
                 </div>
-                <button type={"submit"}>{lang.tr("user_edit_submit", None)}</button>
+                <button type={"submit"}>{lang.tr(&lang::user_edit_submit())}</button>
             </form>
         </HTPage>
     }))
@@ -1024,18 +1024,18 @@ async fn page_user_suspend(
     let base_data =
         fetch_base_data(&ctx.backend_host, &ctx.http_client, req.headers(), &cookies).await?;
 
-    let title = lang.tr("user_suspend_title", None);
+    let title = lang.tr(&lang::USER_SUSPEND_TITLE);
 
     Ok(html_response(render::html! {
         <HTPage base_data={&base_data} lang={&lang} title={&title}>
             <h1>{title.as_ref()}</h1>
             <p>
-                {lang.tr("user_suspend_question", None)}
+                {lang.tr(&lang::user_suspend_question())}
             </p>
             <form method={"POST"} action={format!("/users/{}/suspend/submit", user_id)}>
-                <a href={format!("/users/{}", user_id)}>{lang.tr("no_cancel", None)}</a>
+                <a href={format!("/users/{}", user_id)}>{lang.tr(&lang::no_cancel())}</a>
                 {" "}
-                <button type={"submit"}>{lang.tr("user_suspend_yes", None)}</button>
+                <button type={"submit"}>{lang.tr(&lang::user_suspend_yes())}</button>
             </form>
         </HTPage>
     }))
@@ -1131,7 +1131,7 @@ async fn page_user_your_note_edit(
     let user = hyper::body::to_bytes(user.into_body()).await?;
     let user: RespUserInfo<'_> = serde_json::from_slice(&user)?;
 
-    let title = lang.tr("your_note_edit", None);
+    let title = lang.tr(&lang::YOUR_NOTE_EDIT);
 
     Ok(html_response(render::html! {
         <HTPage base_data={&base_data} lang={&lang} title={&title}>
@@ -1142,7 +1142,7 @@ async fn page_user_your_note_edit(
                         {user.your_note.map(|x| x.content_text)}
                     </textarea>
                 </div>
-                <button type={"submit"}>{lang.tr("save", None)}</button>
+                <button type={"submit"}>{lang.tr(&lang::save())}</button>
             </form>
         </HTPage>
     }))
@@ -1235,11 +1235,11 @@ async fn page_home(
                 if api_res.items.is_empty() {
                     Some(render::rsx! {
                         <p>
-                            {lang.tr("nothing", None)}
+                            {lang.tr(&lang::NOTHING)}
                             {" "}
-                            {lang.tr("home_follow_prompt1", None)}
+                            {lang.tr(&lang::HOME_FOLLOW_PROMPT1)}
                             {" "}
-                            <a href={"/communities"}>{lang.tr("home_follow_prompt2", None)}</a>
+                            <a href={"/communities"}>{lang.tr(&lang::HOME_FOLLOW_PROMPT2)}</a>
                         </p>
                     })
                 } else {
@@ -1255,7 +1255,7 @@ async fn page_home(
                 api_res.next_page.map(|next_page| {
                     render::rsx! {
                         <a href={format!("/?page={}", next_page)}>
-                            {lang.tr("posts_page_next", None)}
+                            {lang.tr(&lang::POSTS_PAGE_NEXT)}
                         </a>
                     }
                 })
@@ -1318,12 +1318,12 @@ async fn page_all_inner(
 
     Ok(html_response(render::html! {
         <HTPage base_data={base_data} lang={&lang} title={"lotide"}>
-            <h1>{lang.tr("all_title", None)}</h1>
+            <h1>{lang.tr(&lang::all_title())}</h1>
             {
                 if api_res.items.is_empty() {
                     Some(render::rsx! {
                         <p>
-                            {lang.tr("nothing_yet", None)}
+                            {lang.tr(&lang::NOTHING_YET)}
                         </p>
                     })
                 } else {
@@ -1339,7 +1339,7 @@ async fn page_all_inner(
                 api_res.next_page.map(|next_page| {
                     render::rsx! {
                         <a href={format!("/all?page={}", next_page)}>
-                            {lang.tr("posts_page_next", None)}
+                            {lang.tr(&lang::POSTS_PAGE_NEXT)}
                         </a>
                     }
                 })
@@ -1395,12 +1395,12 @@ async fn page_flags(
         Query {
             to_this_site_admin: Some(true),
             to_community: None,
-        } => lang.tr("flags_title_site_admin", None),
+        } => lang.tr(&lang::FLAGS_TITLE_SITE_ADMIN),
         Query {
             to_this_site_admin: None,
             to_community: Some(_),
-        } => lang.tr("flags_title_community", None),
-        _ => lang.tr("flags_title_other", None),
+        } => lang.tr(&lang::FLAGS_TITLE_COMMUNITY),
+        _ => lang.tr(&lang::FLAGS_TITLE_OTHER),
     };
 
     match api_res {
@@ -1427,7 +1427,7 @@ async fn page_flags(
                         if api_res.items.is_empty() {
                             Some(render::rsx! {
                                 <p>
-                                    {lang.tr("nothing", None)}
+                                    {lang.tr(&lang::NOTHING)}
                                 </p>
                             })
                         } else {
@@ -1490,12 +1490,12 @@ async fn page_local(
 
     Ok(html_response(render::html! {
         <HTPage base_data={&base_data} lang={&lang} title={"lotide"}>
-            <h1>{lang.tr("local_title", None)}</h1>
+            <h1>{lang.tr(&lang::local_title())}</h1>
             {
                 if api_res.items.is_empty() {
                     Some(render::rsx! {
                         <p>
-                            {lang.tr("nothing_yet", None)}
+                            {lang.tr(&lang::NOTHING_YET)}
                         </p>
                     })
                 } else {
@@ -1511,7 +1511,7 @@ async fn page_local(
                 api_res.next_page.map(|next_page| {
                     render::rsx! {
                         <a href={format!("/local?page={}", next_page)}>
-                            {lang.tr("posts_page_next", None)}
+                            {lang.tr(&lang::POSTS_PAGE_NEXT)}
                         </a>
                     }
                 })

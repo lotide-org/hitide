@@ -3,6 +3,7 @@ use super::{
     get_cookie_map_for_req, html_response, res_to_error, CookieMap, JustStringID, ReturnToParams,
 };
 use crate::components::{Comment, ContentView, HTPage, IconExt, MaybeFillTextArea, UserLink};
+use crate::lang;
 use crate::resp_types::{JustContentHTML, RespCommentInfo, RespList, RespPostCommentInfo};
 use crate::util::{abbreviate_link, author_is_me};
 use serde_derive::{Deserialize, Serialize};
@@ -112,7 +113,7 @@ async fn page_comment_inner(
     let replies_api_res = hyper::body::to_bytes(replies_api_res.into_body()).await?;
     let replies: RespList<RespPostCommentInfo<'_>> = serde_json::from_slice(&replies_api_res)?;
 
-    let title = lang.tr("comment", None);
+    let title = lang.tr(&lang::COMMENT);
 
     Ok(html_response(render::html! {
         <HTPage base_data={&base_data} lang={&lang} title={&title}>
@@ -120,7 +121,7 @@ async fn page_comment_inner(
                 comment.post.as_ref().map(|post| {
                     render::rsx! {
                         <p>
-                            {lang.tr("to_post", None)}{" "}<a href={format!("/posts/{}", post.id)}>{post.title.as_ref()}</a>
+                            {lang.tr(&lang::TO_POST)}{" "}<a href={format!("/posts/{}", post.id)}>{post.title.as_ref()}</a>
                         </p>
                     }
                 })
@@ -155,7 +156,7 @@ async fn page_comment_inner(
                     comment.parent.as_ref().map(|parent| {
                         render::rsx! {
                             <div>
-                                <small><a href={format!("/comments/{}", parent.id)}>{"<- "}{lang.tr("to_parent", None)}</a></small>
+                                <small><a href={format!("/comments/{}", parent.id)}>{"<- "}{lang.tr(&lang::TO_PARENT)}</a></small>
                             </div>
                         }
                     })
@@ -167,7 +168,7 @@ async fn page_comment_inner(
                         let href = &attachment.url;
                         render::rsx! {
                             <div>
-                                <strong>{lang.tr("comment_attachment_prefix", None)}</strong>
+                                <strong>{lang.tr(&lang::COMMENT_ATTACHMENT_PREFIX)}</strong>
                                 {" "}
                                 <em><a href={href.as_ref()}>{abbreviate_link(href)}{" ↗"}</a></em>
                             </div>
@@ -180,7 +181,7 @@ async fn page_comment_inner(
                 {
                     if author_is_me(&comment.as_ref().author, &base_data.login) {
                         Some(render::rsx! {
-                            <a href={format!("/comments/{}/delete", comment.as_ref().as_ref().id)}>{lang.tr("delete", None)}</a>
+                            <a href={format!("/comments/{}/delete", comment.as_ref().as_ref().id)}>{lang.tr(&lang::DELETE)}</a>
                         })
                     } else {
                         None
@@ -203,13 +204,13 @@ async fn page_comment_inner(
                             </div>
                             <div>
                                 <label>
-                                    {lang.tr("comment_reply_image_prompt", None)}
+                                    {lang.tr(&lang::COMMENT_REPLY_IMAGE_PROMPT)}
                                     {" "}
                                     <input type={"file"} accept={"image/*"} name={"attachment_media"} />
                                 </label>
                             </div>
-                            <button r#type={"submit"}>{lang.tr("reply_submit", None)}</button>
-                            <button r#type={"submit"} name={"preview"}>{lang.tr("preview", None)}</button>
+                            <button r#type={"submit"}>{lang.tr(&lang::REPLY_SUBMIT)}</button>
+                            <button r#type={"submit"} name={"preview"}>{lang.tr(&lang::PREVIEW)}</button>
                         </form>
                     })
                 } else {
@@ -224,11 +225,11 @@ async fn page_comment_inner(
                 })
             }
             <div class={"sortOptions"}>
-                <span>{lang.tr("sort", None)}</span>
+                <span>{lang.tr(&lang::sort())}</span>
                 {
                     crate::SortType::VALUES.iter()
                         .map(|value| {
-                            let name = lang.tr(value.lang_key(), None);
+                            let name = lang.tr(&value.lang_key()).into_owned();
                             if query.sort == *value {
                                 render::rsx! { <span>{name}</span> }
                             } else {
@@ -250,7 +251,7 @@ async fn page_comment_inner(
             {
                 replies.next_page.as_ref().map(|next_page| {
                     render::rsx! {
-                        <a href={format!("/comments/{}?sort={}&page={}", comment.base.base.id, query.sort.as_str(), next_page)}>{"-> "}{lang.tr("view_more_comments", None)}</a>
+                        <a href={format!("/comments/{}?sort={}&page={}", comment.base.base.id, query.sort.as_str(), next_page)}>{"-> "}{lang.tr(&lang::VIEW_MORE_COMMENTS)}</a>
                     }
                 })
             }
@@ -301,7 +302,7 @@ async fn page_comment_delete_inner(
     let api_res = hyper::body::to_bytes(api_res.into_body()).await?;
     let comment: RespPostCommentInfo<'_> = serde_json::from_slice(&api_res)?;
 
-    let title = lang.tr("comment_delete_title", None);
+    let title = lang.tr(&lang::COMMENT_DELETE_TITLE);
 
     Ok(html_response(render::html! {
         <HTPage base_data={&base_data} lang={&lang} title={&title}>
@@ -311,7 +312,7 @@ async fn page_comment_delete_inner(
                 <ContentView src={&comment} />
             </p>
             <div id={"delete"}>
-                <h2>{lang.tr("comment_delete_question", None)}</h2>
+                <h2>{lang.tr(&lang::comment_delete_question())}</h2>
                 {
                     display_error.map(|msg| {
                         render::rsx! {
@@ -327,9 +328,9 @@ async fn page_comment_delete_inner(
                             }
                         })
                     }
-                    <a href={format!("/comments/{}/", comment.as_ref().id)}>{lang.tr("no_cancel", None)}</a>
+                    <a href={format!("/comments/{}/", comment.as_ref().id)}>{lang.tr(&lang::no_cancel())}</a>
                     {" "}
-                    <button r#type={"submit"}>{lang.tr("delete_yes", None)}</button>
+                    <button r#type={"submit"}>{lang.tr(&lang::delete_yes())}</button>
                 </form>
             </div>
         </HTPage>
@@ -532,7 +533,7 @@ async fn handler_comment_submit_reply(
                 match stream.get_ref().content_type() {
                     None => {
                         error = Some(
-                            lang.tr("comment_reply_attachment_missing_content_type", None)
+                            lang.tr(&lang::comment_reply_attachment_missing_content_type())
                                 .into_owned(),
                         );
                     }
@@ -577,7 +578,7 @@ async fn handler_comment_submit_reply(
             } else {
                 let name = field.name().unwrap();
                 if name == "href" && body_values.contains_key("href") && body_values["href"] != "" {
-                    error = Some(lang.tr("post_new_href_conflict", None).into_owned());
+                    error = Some(lang.tr(&lang::post_new_href_conflict()).into_owned());
                 } else {
                     let name = name.to_owned();
                     let value = field.text().await?;

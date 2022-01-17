@@ -1,6 +1,7 @@
 use crate::components::{
     CommunityLink, ContentView, HTPage, HTPageAdvanced, MaybeFillInput, MaybeFillTextArea, PostItem,
 };
+use crate::lang;
 use crate::query_types::PostListQuery;
 use crate::resp_types::{
     JustContentHTML, JustStringID, RespCommunityInfoMaybeYour, RespList, RespMinimalAuthorInfo,
@@ -93,12 +94,12 @@ async fn page_communities(
 
     let title = if let Some(local) = query.local {
         if local {
-            lang.tr("communities_local_more", None)
+            lang.tr(&lang::COMMUNITIES_LOCAL_MORE)
         } else {
-            lang.tr("communities_remote_more", None)
+            lang.tr(&lang::COMMUNITIES_REMOTE_MORE)
         }
     } else {
-        lang.tr("communities", None)
+        lang.tr(&lang::COMMUNITIES)
     };
 
     Ok(html_response(render::html! {
@@ -111,7 +112,7 @@ async fn page_communities(
             {
                 if query.local.is_some() {
                     Some(render::rsx! {
-                        <a href={"/communities"}>{lang.tr("communities_all_view", None)}</a>
+                        <a href={"/communities"}>{lang.tr(&lang::COMMUNITIES_ALL_VIEW)}</a>
                     })
                 } else {
                     None
@@ -124,7 +125,7 @@ async fn page_communities(
                             {
                                 if query.local.is_none() {
                                     Some(render::rsx! {
-                                        <h2>{lang.tr("local", None)}</h2>
+                                        <h2>{lang.tr(&lang::LOCAL)}</h2>
                                     })
                                 } else {
                                     None
@@ -132,7 +133,7 @@ async fn page_communities(
                             }
                             {
                                 if base_data.login.is_some() {
-                                    Some(render::rsx! { <a href={"/new_community"}>{lang.tr("community_create", None)}</a> })
+                                    Some(render::rsx! { <a href={"/new_community"}>{lang.tr(&lang::COMMUNITY_CREATE)}</a> })
                                 } else {
                                     None
                                 }
@@ -152,7 +153,7 @@ async fn page_communities(
                                 local_communities.next_page.as_ref().map(|next_page| {
                                     render::rsx! {
                                         <a href={format!("/communities?local=true&page={}", next_page)}>
-                                            {lang.tr("communities_page_next", None)}
+                                            {lang.tr(&lang::COMMUNITIES_PAGE_NEXT)}
                                         </a>
                                     }
                                 })
@@ -170,7 +171,7 @@ async fn page_communities(
                             {
                                 if query.local.is_none() {
                                     Some(render::rsx! {
-                                        <h2>{lang.tr("remote", None)}</h2>
+                                        <h2>{lang.tr(&lang::REMOTE)}</h2>
                                     })
                                 } else {
                                     None
@@ -178,11 +179,11 @@ async fn page_communities(
                             }
                             <form method={"GET"} action={"/lookup"}>
                                 <label>
-                                    {lang.tr("add_by_remote_id", None)}{" "}
+                                    {lang.tr(&lang::ADD_BY_REMOTE_ID)}{" "}
                                     <input r#type={"text"} name={"query"} placeholder={"group@example.com"} />
                                 </label>
                                 {" "}
-                                <button r#type={"submit"}>{lang.tr("fetch", None)}</button>
+                                <button r#type={"submit"}>{lang.tr(&lang::FETCH)}</button>
                             </form>
                             <ul>
                                 {
@@ -199,7 +200,7 @@ async fn page_communities(
                                 remote_communities.next_page.as_ref().map(|next_page| {
                                     render::rsx! {
                                         <a href={format!("/communities?local=false&page={}", next_page)}>
-                                            {lang.tr("communities_page_next", None)}
+                                            {lang.tr(&lang::COMMUNITIES_PAGE_NEXT)}
                                         </a>
                                     }
                                 })
@@ -312,9 +313,9 @@ async fn page_community(
                 } else if let Some(remote_url) = &community_info.as_ref().remote_url {
                     Some(render::rsx! {
                         <div class={"infoBox"}>
-                            {lang.tr("community_remote_note", None)}
+                            {lang.tr(&lang::COMMUNITY_REMOTE_NOTE)}
                             {" "}
-                            <a href={remote_url.as_ref()}>{lang.tr("view_at_source", None)}{" ↗"}</a>
+                            <a href={remote_url.as_ref()}>{lang.tr(&lang::VIEW_AT_SOURCE)}{" ↗"}</a>
                         </div>
                     })
                 } else {
@@ -328,21 +329,21 @@ async fn page_community(
                             Some(RespYourFollow { accepted: true }) => {
                                 render::rsx! {
                                     <form method={"POST"} action={format!("/communities/{}/unfollow", community_id)}>
-                                        <button type={"submit"}>{lang.tr("follow_undo", None)}</button>
+                                        <button type={"submit"}>{lang.tr(&lang::FOLLOW_UNDO)}</button>
                                     </form>
                                 }
                             },
                             Some(RespYourFollow { accepted: false }) => {
                                 render::rsx! {
                                     <form>
-                                        <button disabled={""}>{lang.tr("follow_request_sent", None)}</button>
+                                        <button disabled={""}>{lang.tr(&lang::FOLLOW_REQUEST_SENT)}</button>
                                     </form>
                                 }
                             },
                             None => {
                                 render::rsx! {
                                     <form method={"POST"} action={format!("/communities/{}/follow", community_id)}>
-                                        <button type={"submit"}>{lang.tr("follow", None)}</button>
+                                        <button type={"submit"}>{lang.tr(&lang::FOLLOW)}</button>
                                     </form>
                                 }
                             }
@@ -358,17 +359,17 @@ async fn page_community(
     let details_content = render::rsx! {
         <>
             <p>
-                <a href={&new_post_url}>{lang.tr("post_new", None)}</a>
+                <a href={&new_post_url}>{lang.tr(&lang::POST_NEW)}</a>
             </p>
             {
                 if community_info.you_are_moderator == Some(true) {
                     Some(render::rsx! {
                         <>
                             <p>
-                                <a href={format!("/communities/{}/edit", community_id)}>{lang.tr("community_edit_link", None)}</a>
+                                <a href={format!("/communities/{}/edit", community_id)}>{lang.tr(&lang::COMMUNITY_EDIT_LINK)}</a>
                             </p>
                             <p>
-                                <a href={format!("/flags?to_community={}", community_id)}>{lang.tr("community_flags_link", None)}</a>
+                                <a href={format!("/flags?to_community={}", community_id)}>{lang.tr(&lang::COMMUNITY_FLAGS_LINK)}</a>
                             </p>
                         </>
                     })
@@ -382,7 +383,7 @@ async fn page_community(
                     Some(render::rsx! {
                         <p>
                             <a href={format!("/communities/{}/moderators", community_id)}>
-                                {lang.tr("moderators", None)}
+                                {lang.tr(&lang::MODERATORS)}
                             </a>
                         </p>
                     })
@@ -394,7 +395,7 @@ async fn page_community(
                 if community_info.you_are_moderator == Some(true) {
                     Some(render::rsx! {
                         <p>
-                            <a href={format!("/communities/{}/delete", community_id)}>{lang.tr("community_delete_link", None)}</a>
+                            <a href={format!("/communities/{}/delete", community_id)}>{lang.tr(&lang::COMMUNITY_DELETE_LINK)}</a>
                         </p>
                     })
                 } else {
@@ -425,11 +426,11 @@ async fn page_community(
                 {details_content}
             </div>
             <div class={"sortOptions"}>
-                <span>{lang.tr("sort", None)}</span>
+                <span>{lang.tr(&lang::sort())}</span>
                 {
                     crate::SortType::VALUES.iter()
                         .map(|value| {
-                            let name = lang.tr(value.lang_key(), None);
+                            let name = lang.tr(&value.lang_key()).into_owned();
                             if query.sort == *value {
                                 render::rsx! { <span>{name}</span> }
                             } else {
@@ -443,19 +444,19 @@ async fn page_community(
                         .then(|| {
                             render::rsx! {
                                 <div class={"timeframeOptions"}>
-                                    <span>{lang.tr("post_timeframe", None)}</span>
+                                    <span>{lang.tr(&lang::POST_TIMEFRAME)}</span>
                                     {
                                         [
-                                            ("timeframe_all", None),
-                                            ("timeframe_year", Some("P1Y")),
-                                            ("timeframe_month", Some("P1M")),
-                                            ("timeframe_week", Some("P1W")),
-                                            ("timeframe_day", Some("P1D")),
-                                            ("timeframe_hour", Some("PT1H")),
+                                            (lang::TIMEFRAME_ALL, None),
+                                            (lang::TIMEFRAME_YEAR, Some("P1Y")),
+                                            (lang::TIMEFRAME_MONTH, Some("P1M")),
+                                            (lang::TIMEFRAME_WEEK, Some("P1W")),
+                                            (lang::TIMEFRAME_DAY, Some("P1D")),
+                                            (lang::TIMEFRAME_HOUR, Some("PT1H")),
                                         ]
                                             .iter()
                                             .map(|(key, interval)| {
-                                                let name = lang.tr(key, None);
+                                                let name = lang.tr(key);
                                                 if query.created_within.as_deref() == *interval {
                                                     render::rsx! { <span>{name}</span> }
                                                 } else {
@@ -475,7 +476,7 @@ async fn page_community(
             </div>
             {
                 if posts.items.is_empty() {
-                    Some(render::rsx! { <p>{lang.tr("nothing", None)}</p> })
+                    Some(render::rsx! { <p>{lang.tr(&lang::NOTHING)}</p> })
                 } else {
                     None
                 }
@@ -489,7 +490,7 @@ async fn page_community(
                 if let Some(next_page) = &posts.next_page {
                     Some(render::rsx! {
                         <a href={format!("/communities/{}?sort={}&page={}", community_id, query.sort.as_str(), next_page)}>
-                            {lang.tr("posts_page_next", None)}
+                            {lang.tr(&lang::POSTS_PAGE_NEXT)}
                         </a>
                     })
                 } else {
@@ -542,7 +543,7 @@ async fn page_community_edit_inner(
     let community_info: RespCommunityInfoMaybeYour =
         { serde_json::from_slice(&community_info_api_res)? };
 
-    let title = lang.tr("community_edit", None);
+    let title = lang.tr(&lang::COMMUNITY_EDIT);
 
     Ok(html_response(render::html! {
         <HTPage base_data={&base_data} lang={&lang} title={&title}>
@@ -557,11 +558,11 @@ async fn page_community_edit_inner(
             }
             <form method={"POST"} action={format!("/communities/{}/edit/submit", community_id)}>
                 <label>
-                    {lang.tr("description", None)}{":"}<br />
+                    {lang.tr(&lang::description())}{":"}<br />
                     <MaybeFillTextArea values={&prev_values} name={"description_markdown"} default_value={Some(community_info.description.content_markdown.as_deref().or(community_info.description.content_html.as_deref()).or(community_info.description.content_text.as_deref()).unwrap())} />
                 </label>
                 <div>
-                    <button r#type={"submit"}>{lang.tr("submit", None)}</button>
+                    <button r#type={"submit"}>{lang.tr(&lang::submit())}</button>
                 </div>
             </form>
         </HTPage>
@@ -652,13 +653,13 @@ async fn page_community_delete(
     let community: RespCommunityInfoMaybeYour = serde_json::from_slice(&api_res)?;
 
     Ok(html_response(render::html! {
-        <HTPage base_data={&base_data} lang={&lang} title={&lang.tr("community_delete_title", None)}>
+        <HTPage base_data={&base_data} lang={&lang} title={&lang.tr(&lang::community_delete_title())}>
             <h1>{community.as_ref().name.as_ref()}</h1>
-            <h2>{lang.tr("community_delete_question", None)}</h2>
+            <h2>{lang.tr(&lang::community_delete_question())}</h2>
             <form method={"POST"} action={format!("/communities/{}/delete/confirm", community.as_ref().id)}>
-                <a href={format!("/communities/{}/", community.as_ref().id)}>{lang.tr("no_cancel", None)}</a>
+                <a href={format!("/communities/{}/", community.as_ref().id)}>{lang.tr(&lang::no_cancel())}</a>
                 {" "}
-                <button r#type={"submit"}>{lang.tr("delete_yes", None)}</button>
+                <button r#type={"submit"}>{lang.tr(&lang::delete_yes())}</button>
             </form>
         </HTPage>
     }))
@@ -794,7 +795,7 @@ async fn page_community_moderators_inner(
     let api_res = hyper::body::to_bytes(api_res.into_body()).await?;
     let api_res: Vec<RespMinimalAuthorInfo> = serde_json::from_slice(&api_res)?;
 
-    let title = lang.tr("moderators", None);
+    let title = lang.tr(&lang::MODERATORS);
 
     Ok(html_response(render::html! {
         <HTPage base_data={&base_data} lang={&lang} title={&title}>
@@ -819,7 +820,7 @@ async fn page_community_moderators_inner(
                                                 {" "}
                                                 <form class={"inline"} method={"POST"} action={format!("/communities/{}/moderators/remove", community_id)}>
                                                     <input type={"hidden"} name={"user"} value={user.id.to_string()} />
-                                                    <button type={"submit"}>{lang.tr("remove", None)}</button>
+                                                    <button type={"submit"}>{lang.tr(&lang::REMOVE)}</button>
                                                 </form>
                                             </>
                                         })
@@ -837,7 +838,7 @@ async fn page_community_moderators_inner(
                 if community_info.you_are_moderator == Some(true) {
                     Some(render::rsx! {
                         <div>
-                            <h2>{lang.tr("community_add_moderator", None)}</h2>
+                            <h2>{lang.tr(&lang::COMMUNITY_ADD_MODERATOR)}</h2>
                             {
                                 display_error_add.map(|msg| {
                                     render::rsx! {
@@ -847,11 +848,11 @@ async fn page_community_moderators_inner(
                             }
                             <form method={"POST"} action={format!("/communities/{}/moderators/add", community_id)}>
                                 <label>
-                                    {lang.tr("local_user_name_prompt", None)}{" "}
+                                    {lang.tr(&lang::LOCAL_USER_NAME_PROMPT)}{" "}
                                     <input type={"text"} name={"username"} />
                                 </label>
                                 {" "}
-                                <button type={"submit"}>{lang.tr("add", None)}</button>
+                                <button type={"submit"}>{lang.tr(&lang::ADD)}</button>
                             </form>
                         </div>
                     })
@@ -916,7 +917,7 @@ async fn handler_community_moderators_add(
 
             match user_list.items.first() {
                 None => Err(crate::Error::InternalUserError(
-                    lang.tr("no_such_local_user", None).into_owned(),
+                    lang.tr(&lang::no_such_local_user()).into_owned(),
                 )),
                 Some(target_user) => {
                     res_to_error(
@@ -1199,7 +1200,8 @@ async fn page_community_new_post_inner(
 
     let submit_url = format!("/communities/{}/new_post/submit", community_id);
 
-    let title = lang.tr("post_new", None);
+    let title_key = lang::post_new();
+    let title = lang.tr(&title_key);
 
     Ok(html_response(render::html! {
         <HTPage base_data={&base_data} lang={&lang} title={&title}>
@@ -1215,7 +1217,7 @@ async fn page_community_new_post_inner(
                 <table>
                     <tr>
                         <td>
-                            <label for={"input_title"}>{lang.tr("title", None)}{":"}</label>
+                            <label for={"input_title"}>{lang.tr(&lang::title())}{":"}</label>
                         </td>
                         <td>
                             <MaybeFillInput values={&prev_values} r#type={"text"} name={"title"} required={true} id={"input_title"} />
@@ -1223,7 +1225,7 @@ async fn page_community_new_post_inner(
                     </tr>
                     <tr>
                         <td>
-                            <label for={"input_url"}>{lang.tr("url", None)}{":"}</label>
+                            <label for={"input_url"}>{lang.tr(&lang::url())}{":"}</label>
                         </td>
                         <td>
                             <MaybeFillInput values={&prev_values} r#type={"text"} name={"href"} required={false} id={"input_url"} />
@@ -1231,7 +1233,7 @@ async fn page_community_new_post_inner(
                     </tr>
                     <tr>
                         <td>
-                            <label for={"input_image"}>{lang.tr("post_new_image_prompt", None)}</label>
+                            <label for={"input_image"}>{lang.tr(&lang::post_new_image_prompt())}</label>
                         </td>
                         <td>
                             <input id={"input_image"} type={"file"} accept={"image/*"} name={"href_media"} />
@@ -1239,13 +1241,13 @@ async fn page_community_new_post_inner(
                     </tr>
                 </table>
                 <label>
-                    {lang.tr("text_with_markdown", None)}{":"}
+                    {lang.tr(&lang::text_with_markdown())}{":"}
                     <br />
                     <MaybeFillTextArea values={&prev_values} name={"content_markdown"} default_value={None} />
                 </label>
                 <div>
-                    <button r#type={"submit"}>{lang.tr("submit", None)}</button>
-                    <button r#type={"submit"} name={"preview"}>{lang.tr("preview", None)}</button>
+                    <button r#type={"submit"}>{lang.tr(&lang::submit())}</button>
+                    <button r#type={"submit"} name={"preview"}>{lang.tr(&lang::preview())}</button>
                 </div>
             </form>
             {
@@ -1317,12 +1319,12 @@ async fn handler_communities_new_post_submit(
                 }
 
                 if body_values.contains_key("href") && body_values["href"] != "" {
-                    error = Some(lang.tr("post_new_href_conflict", None).into_owned());
+                    error = Some(lang.tr(&lang::post_new_href_conflict()).into_owned());
                 } else {
                     match stream.get_ref().content_type() {
                         None => {
                             error =
-                                Some(lang.tr("post_new_missing_content_type", None).into_owned());
+                                Some(lang.tr(&lang::post_new_missing_content_type()).into_owned());
                         }
                         Some(mime) => {
                             log::debug!("will upload media");
@@ -1367,7 +1369,7 @@ async fn handler_communities_new_post_submit(
             } else {
                 let name = field.name().unwrap();
                 if name == "href" && body_values.contains_key("href") && body_values["href"] != "" {
-                    error = Some(lang.tr("post_new_href_conflict", None).into_owned());
+                    error = Some(lang.tr(&lang::post_new_href_conflict()).into_owned());
                 } else {
                     let name = name.to_owned();
                     let value = field.text().await?;

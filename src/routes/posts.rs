@@ -6,6 +6,7 @@ use super::{
 use crate::components::{
     Comment, CommunityLink, ContentView, HTPage, IconExt, MaybeFillTextArea, TimeAgo, UserLink,
 };
+use crate::lang;
 use crate::resp_types::{
     JustContentHTML, JustUser, RespCommunityInfoMaybeYour, RespList, RespPostCommentInfo,
     RespPostInfo,
@@ -151,7 +152,7 @@ async fn page_post_inner(
                 if post.approved {
                     None
                 } else {
-                    Some(render::rsx! { <div class={"infoBox"}>{lang.tr("post_not_approved", None)}</div> })
+                    Some(render::rsx! { <div class={"infoBox"}>{lang.tr(&lang::post_not_approved()).into_owned()}</div> })
                 }
             }
             <h1>{title}</h1>
@@ -182,7 +183,7 @@ async fn page_post_inner(
                     }
                 }
                 <a href={format!("/posts/{}/likes", post_id)}>
-                    <em>{lang.tr("score", Some(&fluent::fluent_args!["score" => post.score]))}</em>
+                    <em>{lang.tr(&lang::score(post.score))}</em>
                 </a>
                 {" "}
                 {
@@ -193,13 +194,13 @@ async fn page_post_inner(
                                     if post.approved {
                                         render::rsx! {
                                             <form method={"POST"} action={format!("/communities/{}/posts/{}/unapprove", post.as_ref().community.id, post_id)}>
-                                                <button type={"submit"}>{lang.tr("post_approve_undo", None)}</button>
+                                                <button type={"submit"}>{lang.tr(&lang::post_approve_undo()).into_owned()}</button>
                                             </form>
                                         }
                                     } else {
                                         render::rsx! {
                                             <form method={"POST"} action={format!("/communities/{}/posts/{}/approve", post.as_ref().community.id, post_id)}>
-                                                <button type={"submit"}>{lang.tr("post_approve", None)}</button>
+                                                <button type={"submit"}>{lang.tr(&lang::post_approve()).into_owned()}</button>
                                             </form>
                                         }
                                     }
@@ -208,13 +209,13 @@ async fn page_post_inner(
                                     if post.as_ref().sticky {
                                         render::rsx! {
                                             <form method={"POST"} action={format!("/communities/{}/posts/{}/make_unsticky", post.as_ref().community.id, post_id)}>
-                                                <button type={"submit"}>{lang.tr("post_make_not_sticky", None)}</button>
+                                                <button type={"submit"}>{lang.tr(&lang::post_make_not_sticky()).into_owned()}</button>
                                             </form>
                                         }
                                     } else {
                                         render::rsx! {
                                             <form method={"POST"} action={format!("/communities/{}/posts/{}/make_sticky", post.as_ref().community.id, post_id)}>
-                                                <button type={"submit"}>{lang.tr("post_make_sticky", None)}</button>
+                                                <button type={"submit"}>{lang.tr(&lang::post_make_sticky()).into_owned()}</button>
                                             </form>
                                         }
                                     }
@@ -228,10 +229,10 @@ async fn page_post_inner(
             </div>
             <br />
             <p>
-                {lang.tr("submitted", None)}
+                {lang.tr(&lang::submitted())}
                 {" "}<TimeAgo since={chrono::DateTime::parse_from_rfc3339(&post.as_ref().created)?} lang={&lang} />
-                {" "}{lang.tr("by", None)}{" "}<UserLink lang={&lang} user={post.as_ref().author.as_ref()} />
-                {" "}{lang.tr("to", None)}{" "}<CommunityLink community={&post.as_ref().community} />
+                {" "}{lang.tr(&lang::by())}{" "}<UserLink lang={&lang} user={post.as_ref().author.as_ref()} />
+                {" "}{lang.tr(&lang::to())}{" "}<CommunityLink community={&post.as_ref().community} />
             </p>
             {
                 post.as_ref().href.as_ref().map(|href| {
@@ -247,7 +248,7 @@ async fn page_post_inner(
                 {
                     if author_is_me(&post.as_ref().author, &base_data.login) || (post.local && base_data.is_site_admin()) {
                         Some(render::rsx! {
-                            <a href={format!("/posts/{}/delete", post_id)}>{lang.tr("delete", None)}</a>
+                            <a href={format!("/posts/{}/delete", post_id)}>{lang.tr(&lang::delete()).into_owned()}</a>
                         })
                     } else {
                         None
@@ -256,7 +257,7 @@ async fn page_post_inner(
                 {
                     if base_data.login.is_some() && !author_is_me(&post.as_ref().author, &base_data.login) {
                         Some(render::rsx! {
-                            <a href={format!("/posts/{}/flag", post_id)}>{lang.tr("action_flag", None)}</a>
+                            <a href={format!("/posts/{}/flag", post_id)}>{lang.tr(&lang::action_flag()).into_owned()}</a>
                         })
                     } else {
                         None
@@ -264,7 +265,7 @@ async fn page_post_inner(
                 }
             </div>
             <div>
-                <h2>{lang.tr("comments", None)}</h2>
+                <h2>{lang.tr(&lang::comments())}</h2>
                 {
                     display_error.map(|msg| {
                         render::rsx! {
@@ -281,13 +282,13 @@ async fn page_post_inner(
                                 </div>
                                 <div>
                                     <label>
-                                        {lang.tr("comment_reply_image_prompt", None)}
+                                        {lang.tr(&lang::comment_reply_image_prompt()).into_owned()}
                                         {" "}
                                         <input type={"file"} accept={"image/*"} name={"attachment_media"} />
                                     </label>
                                 </div>
-                                <button r#type={"submit"}>{lang.tr("comment_submit", None)}</button>
-                                <button r#type={"submit"} name={"preview"}>{lang.tr("preview", None)}</button>
+                                <button r#type={"submit"}>{lang.tr(&lang::comment_submit()).into_owned()}</button>
+                                <button r#type={"submit"} name={"preview"}>{lang.tr(&lang::preview()).into_owned()}</button>
                             </form>
                         })
                     } else {
@@ -302,11 +303,11 @@ async fn page_post_inner(
                     })
                 }
                 <div class={"sortOptions"}>
-                    <span>{lang.tr("sort", None)}</span>
+                    <span>{lang.tr(&lang::sort())}</span>
                     {
                         crate::SortType::VALUES.iter()
                             .map(|value| {
-                                let name = lang.tr(value.lang_key(), None);
+                                let name = lang.tr(&value.lang_key()).into_owned();
                                 if query.sort == *value {
                                     render::rsx! { <span>{name}</span> }
                                 } else {
@@ -328,7 +329,7 @@ async fn page_post_inner(
                 {
                     replies.next_page.map(|next_page| {
                         render::rsx! {
-                            <a href={format!("/posts/{}?page={}", post_id, next_page)}>{"-> "}{lang.tr("view_more_comments", None)}</a>
+                            <a href={format!("/posts/{}?page={}", post_id, next_page)}>{"-> "}{lang.tr(&lang::view_more_comments()).into_owned()}</a>
                         }
                     })
                 }
@@ -369,13 +370,13 @@ async fn page_post_delete(
     let post: RespPostInfo = serde_json::from_slice(&api_res)?;
 
     Ok(html_response(render::html! {
-        <HTPage base_data={&base_data} lang={&lang} title={&lang.tr("post_delete_title", None)}>
+        <HTPage base_data={&base_data} lang={&lang} title={&lang.tr(&lang::post_delete_title())}>
             <h1>{post.as_ref().as_ref().title.as_ref()}</h1>
-            <h2>{lang.tr("post_delete_question", None)}</h2>
+            <h2>{lang.tr(&lang::post_delete_question())}</h2>
             <form method={"POST"} action={format!("/posts/{}/delete/confirm", post.as_ref().as_ref().id)}>
-                <a href={format!("/posts/{}/", post.as_ref().as_ref().id)}>{lang.tr("no_cancel", None)}</a>
+                <a href={format!("/posts/{}/", post.as_ref().as_ref().id)}>{lang.tr(&lang::no_cancel())}</a>
                 {" "}
-                <button r#type={"submit"}>{lang.tr("delete_yes", None)}</button>
+                <button r#type={"submit"}>{lang.tr(&lang::delete_yes())}</button>
             </form>
         </HTPage>
     }))
@@ -443,29 +444,29 @@ async fn page_post_flag(
     let post: RespPostInfo = serde_json::from_slice(&api_res)?;
 
     Ok(html_response(render::html! {
-        <HTPage base_data={&base_data} lang={&lang} title={&lang.tr("post_flag_title", None)}>
+        <HTPage base_data={&base_data} lang={&lang} title={&lang.tr(&lang::post_flag_title())}>
             <h1>{post.as_ref().as_ref().title.as_ref()}</h1>
-            <h2>{lang.tr("post_flag_question", None)}</h2>
+            <h2>{lang.tr(&lang::post_flag_question())}</h2>
             <form method={"POST"} action={format!("/posts/{}/flag/submit", post.as_ref().as_ref().id)}>
                 <div>
-                    <strong>{lang.tr("post_flag_target_prompt", None)}</strong>
+                    <strong>{lang.tr(&lang::post_flag_target_prompt())}</strong>
                 </div>
-                <div><label><input type={"checkbox"} name={"to_site_admin"} />{" "}{lang.tr("post_flag_target_choice_site_admin", None)}</label></div>
-                <div><label><input type={"checkbox"} name={"to_community"} />{" "}{lang.tr("post_flag_target_choice_community", None)}</label></div>
+                <div><label><input type={"checkbox"} name={"to_site_admin"} />{" "}{lang.tr(&lang::post_flag_target_choice_site_admin())}</label></div>
+                <div><label><input type={"checkbox"} name={"to_community"} />{" "}{lang.tr(&lang::post_flag_target_choice_community())}</label></div>
                 {
                     (post.as_ref().author.as_ref().map(|x| x.local) == Some(false)).then(|| render::rsx! {
-                        <div><label><input type={"checkbox"} name={"to_remote_site_admin"} />{" "}{lang.tr("post_flag_target_choice_remote_site_admin", None)}</label></div>
+                        <div><label><input type={"checkbox"} name={"to_remote_site_admin"} />{" "}{lang.tr(&lang::post_flag_target_choice_remote_site_admin()).into_owned()}</label></div>
                     })
                 }
                 <div>
                     <label>
-                        {lang.tr("flag_comment_prompt", None)}<br />
+                        {lang.tr(&lang::flag_comment_prompt())}<br />
                         <textarea name={"content_text"}>{""}</textarea>
                     </label>
                 </div>
-                <a href={format!("/posts/{}", post.as_ref().as_ref().id)}>{lang.tr("no_cancel", None)}</a>
+                <a href={format!("/posts/{}", post.as_ref().as_ref().id)}>{lang.tr(&lang::no_cancel())}</a>
                 {" "}
-                <button r#type={"submit"}>{lang.tr("submit", None)}</button>
+                <button r#type={"submit"}>{lang.tr(&lang::submit())}</button>
             </form>
         </HTPage>
     }))
@@ -572,10 +573,10 @@ async fn page_post_likes(
     let api_res: RespList<JustUser> = serde_json::from_slice(&api_res)?;
 
     Ok(html_response(render::html! {
-        <HTPage base_data={&base_data} lang={&lang} title={&lang.tr("likes", None)}>
+        <HTPage base_data={&base_data} lang={&lang} title={&lang.tr(&lang::likes())}>
         {
             if api_res.items.is_empty() {
-                Some(render::rsx! { <p>{lang.tr("post_likes_nothing", None)}</p> })
+                Some(render::rsx! { <p>{lang.tr(&lang::post_likes_nothing()).into_owned()}</p> })
             } else {
                 None
             }
@@ -586,7 +587,7 @@ async fn page_post_likes(
             } else {
                 Some(render::rsx! {
                     <>
-                        <p>{lang.tr("liked_by", None)}</p>
+                        <p>{lang.tr(&lang::liked_by()).into_owned()}</p>
                         <ul>
                             {
                                 api_res.items.iter().map(|like| {
@@ -596,7 +597,7 @@ async fn page_post_likes(
                             }
                             {
                                 if api_res.next_page.is_some() {
-                                    Some(render::rsx! { <li>{lang.tr("and_more", None)}</li> })
+                                    Some(render::rsx! { <li>{lang.tr(&lang::and_more()).into_owned()}</li> })
                                 } else {
                                     None
                                 }
@@ -700,7 +701,7 @@ async fn handler_post_submit_reply(
                 match stream.get_ref().content_type() {
                     None => {
                         error = Some(
-                            lang.tr("comment_reply_attachment_missing_content_type", None)
+                            lang.tr(&lang::comment_reply_attachment_missing_content_type())
                                 .into_owned(),
                         );
                     }

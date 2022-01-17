@@ -3,6 +3,7 @@ pub mod timeago;
 use std::borrow::{Borrow, Cow};
 use std::collections::HashMap;
 
+use crate::lang;
 use crate::resp_types::{
     Content, RespCommentInfo, RespFlagDetails, RespFlagInfo, RespMinimalAuthorInfo,
     RespMinimalCommentInfo, RespMinimalCommunityInfo, RespNotification, RespNotificationInfo,
@@ -61,7 +62,7 @@ pub fn Comment<'a>(
                         let href = &attachment.url;
                         render::rsx! {
                             <div>
-                                <strong>{lang.tr("comment_attachment_prefix", None)}</strong>
+                                <strong>{lang.tr(&lang::COMMENT_ATTACHMENT_PREFIX)}</strong>
                                 {" "}
                                 <em><a href={href.as_ref()}>{abbreviate_link(href)}{" ↗"}</a></em>
                             </div>
@@ -73,7 +74,7 @@ pub fn Comment<'a>(
                     {
                         if base_data.login.is_some() {
                             Some(render::rsx! {
-                                <a href={format!("/comments/{}?sort={}", comment.as_ref().id, sort.as_str())}>{lang.tr("reply", None)}</a>
+                                <a href={format!("/comments/{}?sort={}", comment.as_ref().id, sort.as_str())}>{lang.tr(&lang::REPLY)}</a>
                             })
                         } else {
                             None
@@ -82,7 +83,7 @@ pub fn Comment<'a>(
                     {
                         if author_is_me(&comment.author, &base_data.login) || (comment.local && base_data.is_site_admin()) {
                             Some(render::rsx! {
-                                <a href={format!("/comments/{}/delete", comment.as_ref().id)}>{lang.tr("delete", None)}</a>
+                                <a href={format!("/comments/{}/delete", comment.as_ref().id)}>{lang.tr(&lang::DELETE)}</a>
                             })
                         } else {
                             None
@@ -111,7 +112,7 @@ pub fn Comment<'a>(
                                 {
                                     replies.next_page.as_ref().map(|next_page| {
                                         render::rsx! {
-                                            <a href={format!("/comments/{}?sort={}&page={}", comment.base.id, sort.as_str(), next_page)}>{"-> "}{lang.tr("view_more_comments", None)}</a>
+                                            <a href={format!("/comments/{}?sort={}&page={}", comment.base.id, sort.as_str(), next_page)}>{"-> "}{lang.tr(&lang::VIEW_MORE_COMMENTS)}</a>
                                         }
                                     })
                                 }
@@ -125,7 +126,7 @@ pub fn Comment<'a>(
             {
                 if comment.replies.is_none() {
                     Some(render::rsx! {
-                        <ul><li><a href={format!("/comments/{}", comment.as_ref().id)}>{"-> "}{lang.tr("view_more_comments", None)}</a></li></ul>
+                        <ul><li><a href={format!("/comments/{}", comment.as_ref().id)}>{"-> "}{lang.tr(&lang::VIEW_MORE_COMMENTS)}</a></li></ul>
                     })
                 } else {
                     None
@@ -272,7 +273,7 @@ pub fn FlagItem<'a>(flag: &'a RespFlagInfo<'a>, in_community: bool, lang: &'a cr
             <div class={"flaggedContent"}>
                 <PostItemContent post={post} in_community no_user={false} lang />
             </div>
-            {lang.tr("flagged_by", None)}{" "}<UserLink user={Some(&flag.flagger)} lang />
+            {lang.tr(&lang::FLAGGED_BY)}{" "}<UserLink user={Some(&flag.flagger)} lang />
             {
                 flag.content.as_ref().map(|content| {
                     render::rsx! {
@@ -308,10 +309,10 @@ pub fn HTPageAdvanced<'a, HeadItems: render::Render, Children: render::Render>(
 ) {
     let left_links = render::rsx! {
         <>
-            <a href={"/all"}>{lang.tr("all", None)}</a>
-            <a href={"/local"}>{lang.tr("local", None)}</a>
-            <a href={"/communities"}>{lang.tr("communities", None)}</a>
-            <a href={"/about"}>{lang.tr("about", None)}</a>
+            <a href={"/all"}>{lang.tr(&lang::ALL)}</a>
+            <a href={"/local"}>{lang.tr(&lang::LOCAL)}</a>
+            <a href={"/communities"}>{lang.tr(&lang::COMMUNITIES)}</a>
+            <a href={"/about"}>{lang.tr(&lang::ABOUT)}</a>
         </>
     };
 
@@ -378,7 +379,7 @@ pub fn HTPageAdvanced<'a, HeadItems: render::Render, Children: render::Render>(
                             {
                                 if base_data.login.is_none() {
                                     Some(render::rsx! {
-                                        <a href={"/login"}>{lang.tr("login", None)}</a>
+                                        <a href={"/login"}>{lang.tr(&lang::LOGIN)}</a>
                                     })
                                 } else {
                                     None
@@ -431,7 +432,7 @@ pub fn PostItemContent<'a>(
                 }
             </div>
             <small>
-                {lang.tr("submitted", None)}
+                {lang.tr(&lang::SUBMITTED)}
                 {" "}
                 <TimeAgo since={chrono::DateTime::parse_from_rfc3339(&post.as_ref().created).unwrap()} lang />
                 {
@@ -440,7 +441,7 @@ pub fn PostItemContent<'a>(
                     } else {
                         Some(render::rsx! {
                             <>
-                                {" "}{lang.tr("by", None)}{" "}<UserLink lang user={post.as_ref().author.as_ref()} />
+                                {" "}{lang.tr(&lang::BY)}{" "}<UserLink lang user={post.as_ref().author.as_ref()} />
                             </>
                         })
                     }
@@ -448,14 +449,14 @@ pub fn PostItemContent<'a>(
                 {
                     if !in_community {
                         Some(render::rsx! {
-                            <>{" "}{lang.tr("to", None)}{" "}<CommunityLink community={&post.as_ref().community} /></>
+                            <>{" "}{lang.tr(&lang::TO)}{" "}<CommunityLink community={&post.as_ref().community} /></>
                         })
                     } else {
                         None
                     }
                 }
                 {" | "}
-                <a href={post_href}>{lang.tr("post_comments_count", Some(&fluent::fluent_args!["count" => post.replies_count_total])).into_owned()}</a>
+                <a href={post_href}>{lang.tr(&lang::post_comments_count(post.replies_count_total)).into_owned()}</a>
             </small>
         </>
     }
@@ -478,8 +479,8 @@ impl<'a> render::Render for ThingItem<'a> {
                 (render::rsx! {
                     <li>
                         <small>
-                            <a href={format!("/comments/{}", comment.as_ref().id)}>{lang.tr("comment", None)}</a>
-                            {" "}{lang.tr("on", None)}{" "}<a href={format!("/posts/{}", comment.post.id)}>{comment.post.title.as_ref()}</a>{":"}
+                            <a href={format!("/comments/{}", comment.as_ref().id)}>{lang.tr(&lang::comment())}</a>
+                            {" "}{lang.tr(&lang::on())}{" "}<a href={format!("/posts/{}", comment.post.id)}>{comment.post.title.as_ref()}</a>{":"}
                         </small>
                         <ContentView src={comment} />
                     </li>
@@ -511,7 +512,7 @@ impl<'user> render::Render for UserLink<'user> {
                         }
                         {
                             if user.is_bot {
-                                Some(format!(" [{}]", self.lang.tr("user_bot_tag", None)))
+                                Some(format!(" [{}]", self.lang.tr(&lang::user_bot_tag())))
                             } else {
                                 None
                             }
@@ -645,8 +646,8 @@ impl<'a> render::Render for NotificationItem<'a> {
             RespNotificationInfo::PostReply { reply, post } => {
                 (render::rsx! {
                     <>
-                        <a href={format!("/comments/{}", reply.id)}>{lang.tr("comment", None)}</a>
-                        {" "}{lang.tr("on_your_post", None)}{" "}<a href={format!("/posts/{}", post.id)}>{post.title.as_ref()}</a>{":"}
+                        <a href={format!("/comments/{}", reply.id)}>{lang.tr(&lang::comment())}</a>
+                        {" "}{lang.tr(&lang::on_your_post())}{" "}<a href={format!("/posts/{}", post.id)}>{post.title.as_ref()}</a>{":"}
                         <ContentView src={reply} />
                     </>
                 }).render_into(writer)?;
@@ -658,10 +659,10 @@ impl<'a> render::Render for NotificationItem<'a> {
             } => {
                 (render::rsx! {
                     <>
-                        {lang.tr("reply_to", None)}
+                        {lang.tr(&lang::reply_to())}
                         {" "}
-                        <a href={format!("/comments/{}", comment.id)}>{lang.tr("your_comment", None)}</a>
-                        {" "}{lang.tr("on", None)}{" "}<a href={format!("/posts/{}", post.id)}>{post.title.as_ref()}</a>
+                        <a href={format!("/comments/{}", comment.id)}>{lang.tr(&lang::your_comment())}</a>
+                        {" "}{lang.tr(&lang::on())}{" "}<a href={format!("/posts/{}", post.id)}>{post.title.as_ref()}</a>
                         {":"}
                         <ContentView src={reply} />
                     </>

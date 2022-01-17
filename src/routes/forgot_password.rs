@@ -1,3 +1,4 @@
+use crate::lang;
 use crate::routes::{
     fetch_base_data, for_client, get_cookie_map_for_headers, get_cookie_map_for_req, html_response,
     res_to_error, CookieMap, HTPage,
@@ -25,13 +26,13 @@ async fn page_forgot_password_inner(
     let lang = crate::get_lang_for_headers(headers);
     let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, headers, cookies).await?;
 
-    let title = lang.tr("forgot_password", None);
+    let title = lang.tr(&lang::FORGOT_PASSWORD);
 
     Ok(html_response(render::html! {
         <HTPage base_data={&base_data} lang={&lang} title={&title}>
             <h1>{title.as_ref()}</h1>
             <form method={"POST"} action={"/forgot_password/submit"}>
-                <p>{lang.tr("forgot_password_info", None)}</p>
+                <p>{lang.tr(&lang::forgot_password_info())}</p>
                 {
                     display_error.map(|msg| {
                         render::rsx! {
@@ -41,12 +42,12 @@ async fn page_forgot_password_inner(
                 }
                 <div>
                     <label>
-                        {lang.tr("forgot_password_email_prompt", None)}
+                        {lang.tr(&lang::forgot_password_email_prompt())}
                         {" "}
                         <input type={"email"} name={"email_address"} required={"required"} />
                     </label>
                 </div>
-                <button type={"submit"}>{lang.tr("submit", None)}</button>
+                <button type={"submit"}>{lang.tr(&lang::submit())}</button>
             </form>
         </HTPage>
     }))
@@ -71,13 +72,13 @@ async fn page_forgot_password_code_inner(
     let lang = crate::get_lang_for_headers(headers);
     let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, headers, cookies).await?;
 
-    let title = lang.tr("forgot_password", None);
+    let title = lang.tr(&lang::FORGOT_PASSWORD);
 
     Ok(html_response(render::html! {
         <HTPage base_data={&base_data} lang={&lang} title={&title}>
             <h1>{title.as_ref()}</h1>
             <form method={"POST"} action={"/forgot_password/code/submit"}>
-                <p>{lang.tr("forgot_password_code_info", None)}</p>
+                <p>{lang.tr(&lang::forgot_password_code_info())}</p>
                 {
                     display_error.map(|msg| {
                         render::rsx! {
@@ -87,12 +88,12 @@ async fn page_forgot_password_code_inner(
                 }
                 <div>
                     <label>
-                        {lang.tr("forgot_password_code_prompt", None)}
+                        {lang.tr(&lang::forgot_password_code_prompt())}
                         {" "}
                         <input type={"text"} name={"key"} required={"required"} />
                     </label>
                 </div>
-                <button type={"submit"}>{lang.tr("submit", None)}</button>
+                <button type={"submit"}>{lang.tr(&lang::submit())}</button>
             </form>
         </HTPage>
     }))
@@ -108,7 +109,7 @@ async fn page_forgot_password_code_reset_inner(
     let lang = crate::get_lang_for_headers(headers);
     let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, headers, cookies).await?;
 
-    let title = lang.tr("forgot_password", None);
+    let title = lang.tr(&lang::FORGOT_PASSWORD);
 
     Ok(html_response(render::html! {
         <HTPage base_data={&base_data} lang={&lang} title={&title}>
@@ -124,12 +125,12 @@ async fn page_forgot_password_code_reset_inner(
                 <input type={"hidden"} name={"key"} value={key} />
                 <div>
                     <label>
-                        {lang.tr("forgot_password_new_password_prompt", None)}
+                        {lang.tr(&lang::forgot_password_new_password_prompt())}
                         {" "}
                         <input type={"password"} name={"new_password"} required={"required"} />
                     </label>
                 </div>
-                <button type={"submit"}>{lang.tr("submit", None)}</button>
+                <button type={"submit"}>{lang.tr(&lang::submit())}</button>
             </form>
         </HTPage>
     }))
@@ -185,14 +186,14 @@ async fn handler_forgot_password_code_submit(
 
                 let lang = crate::get_lang_for_headers(&req_parts.headers);
 
-                let title = lang.tr("forgot_password", None);
+                let title = lang.tr(&lang::forgot_password()).into_owned();
 
                 Ok(html_response(render::html! {
                     <HTPage base_data={&base_data} lang={&lang} title={&title}>
                         <h1>{title.as_ref()}</h1>
                         <p>
-                            {lang.tr("forgot_password_complete", None)}{" "}
-                            <a href={"/login"}>{lang.tr("login", None)}</a>
+                            {lang.tr(&lang::forgot_password_complete())}{" "}
+                            <a href={"/login"}>{lang.tr(&lang::login())}</a>
                         </p>
                     </HTPage>
                 }))
