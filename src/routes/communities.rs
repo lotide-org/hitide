@@ -1498,47 +1498,56 @@ async fn handler_communities_new_post_submit(
 
 pub fn route_communities() -> crate::RouteNode<()> {
     crate::RouteNode::new()
-        .with_handler_async("GET", page_communities)
+        .with_handler_async(hyper::Method::GET, page_communities)
         .with_child_parse::<i64, _>(
             crate::RouteNode::new()
-                .with_handler_async("GET", page_community)
+                .with_handler_async(hyper::Method::GET, page_community)
                 .with_child(
                     "edit",
                     crate::RouteNode::new()
-                        .with_handler_async("GET", page_community_edit)
+                        .with_handler_async(hyper::Method::GET, page_community_edit)
                         .with_child(
                             "submit",
-                            crate::RouteNode::new()
-                                .with_handler_async("POST", handler_communities_edit_submit),
+                            crate::RouteNode::new().with_handler_async(
+                                hyper::Method::POST,
+                                handler_communities_edit_submit,
+                            ),
                         ),
                 )
                 .with_child(
                     "delete",
                     crate::RouteNode::new()
-                        .with_handler_async("GET", page_community_delete)
+                        .with_handler_async(hyper::Method::GET, page_community_delete)
                         .with_child(
                             "confirm",
-                            crate::RouteNode::new()
-                                .with_handler_async("POST", handler_community_delete_confirm),
+                            crate::RouteNode::new().with_handler_async(
+                                hyper::Method::POST,
+                                handler_community_delete_confirm,
+                            ),
                         ),
                 )
                 .with_child(
                     "follow",
-                    crate::RouteNode::new().with_handler_async("POST", handler_community_follow),
+                    crate::RouteNode::new()
+                        .with_handler_async(hyper::Method::POST, handler_community_follow),
                 )
                 .with_child(
                     "moderators",
                     crate::RouteNode::new()
-                        .with_handler_async("GET", page_community_moderators)
+                        .with_handler_async(hyper::Method::GET, page_community_moderators)
                         .with_child(
                             "add",
-                            crate::RouteNode::new()
-                                .with_handler_async("POST", handler_community_moderators_add),
+                            crate::RouteNode::new().with_handler_async(
+                                hyper::Method::POST,
+                                handler_community_moderators_add,
+                            ),
                         )
                         .with_child(
                             "remove",
-                            crate::RouteNode::new()
-                                .with_handler_async("POST", handler_community_moderators_remove),
+                            crate::RouteNode::new().with_handler_async(
+                                hyper::Method::POST,
+                                handler_community_moderators_remove,
+                            ),
                         ),
                 )
                 .with_child(
@@ -1547,40 +1556,49 @@ pub fn route_communities() -> crate::RouteNode<()> {
                         crate::RouteNode::new()
                             .with_child(
                                 "approve",
-                                crate::RouteNode::new()
-                                    .with_handler_async("POST", handler_community_post_approve),
+                                crate::RouteNode::new().with_handler_async(
+                                    hyper::Method::POST,
+                                    handler_community_post_approve,
+                                ),
                             )
                             .with_child(
                                 "make_sticky",
-                                crate::RouteNode::new()
-                                    .with_handler_async("POST", handler_community_post_make_sticky),
+                                crate::RouteNode::new().with_handler_async(
+                                    hyper::Method::POST,
+                                    handler_community_post_make_sticky,
+                                ),
                             )
                             .with_child(
                                 "make_unsticky",
                                 crate::RouteNode::new().with_handler_async(
-                                    "POST",
+                                    hyper::Method::POST,
                                     handler_community_post_make_unsticky,
                                 ),
                             )
                             .with_child(
                                 "unapprove",
-                                crate::RouteNode::new()
-                                    .with_handler_async("POST", handler_community_post_unapprove),
+                                crate::RouteNode::new().with_handler_async(
+                                    hyper::Method::POST,
+                                    handler_community_post_unapprove,
+                                ),
                             ),
                     ),
                 )
                 .with_child(
                     "unfollow",
-                    crate::RouteNode::new().with_handler_async("POST", handler_community_unfollow),
+                    crate::RouteNode::new()
+                        .with_handler_async(hyper::Method::POST, handler_community_unfollow),
                 )
                 .with_child(
                     "new_post",
                     crate::RouteNode::new()
-                        .with_handler_async("GET", page_community_new_post)
+                        .with_handler_async(hyper::Method::GET, page_community_new_post)
                         .with_child(
                             "submit",
-                            crate::RouteNode::new()
-                                .with_handler_async("POST", handler_communities_new_post_submit),
+                            crate::RouteNode::new().with_handler_async(
+                                hyper::Method::POST,
+                                handler_communities_new_post_submit,
+                            ),
                         ),
                 ),
         )

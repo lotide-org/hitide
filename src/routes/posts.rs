@@ -860,42 +860,44 @@ async fn handler_post_submit_reply(
 pub fn route_posts() -> crate::RouteNode<()> {
     crate::RouteNode::new().with_child_parse::<i64, _>(
         crate::RouteNode::new()
-            .with_handler_async("GET", page_post)
+            .with_handler_async(hyper::Method::GET, page_post)
             .with_child(
                 "delete",
                 crate::RouteNode::new()
-                    .with_handler_async("GET", page_post_delete)
+                    .with_handler_async(hyper::Method::GET, page_post_delete)
                     .with_child(
                         "confirm",
                         crate::RouteNode::new()
-                            .with_handler_async("POST", handler_post_delete_confirm),
+                            .with_handler_async(hyper::Method::POST, handler_post_delete_confirm),
                     ),
             )
             .with_child(
                 "flag",
                 crate::RouteNode::new()
-                    .with_handler_async("GET", page_post_flag)
+                    .with_handler_async(hyper::Method::GET, page_post_flag)
                     .with_child(
                         "submit",
                         crate::RouteNode::new()
-                            .with_handler_async("POST", handler_post_flag_submit),
+                            .with_handler_async(hyper::Method::POST, handler_post_flag_submit),
                     ),
             )
             .with_child(
                 "like",
-                crate::RouteNode::new().with_handler_async("POST", handler_post_like),
+                crate::RouteNode::new().with_handler_async(hyper::Method::POST, handler_post_like),
             )
             .with_child(
                 "likes",
-                crate::RouteNode::new().with_handler_async("GET", page_post_likes),
+                crate::RouteNode::new().with_handler_async(hyper::Method::GET, page_post_likes),
             )
             .with_child(
                 "unlike",
-                crate::RouteNode::new().with_handler_async("POST", handler_post_unlike),
+                crate::RouteNode::new()
+                    .with_handler_async(hyper::Method::POST, handler_post_unlike),
             )
             .with_child(
                 "submit_reply",
-                crate::RouteNode::new().with_handler_async("POST", handler_post_submit_reply),
+                crate::RouteNode::new()
+                    .with_handler_async(hyper::Method::POST, handler_post_submit_reply),
             ),
     )
 }

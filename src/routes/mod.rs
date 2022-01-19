@@ -1522,65 +1522,67 @@ async fn page_local(
 
 pub fn route_root() -> crate::RouteNode<()> {
     crate::RouteNode::new()
-        .with_handler_async("GET", page_home)
+        .with_handler_async(hyper::Method::GET, page_home)
         .with_child(
             "about",
-            crate::RouteNode::new().with_handler_async("GET", page_about),
+            crate::RouteNode::new().with_handler_async(hyper::Method::GET, page_about),
         )
         .with_child(
             "all",
-            crate::RouteNode::new().with_handler_async("GET", page_all),
+            crate::RouteNode::new().with_handler_async(hyper::Method::GET, page_all),
         )
         .with_child("comments", comments::route_comments())
         .with_child("communities", communities::route_communities())
         .with_child(
             "flags",
-            crate::RouteNode::new().with_handler_async("GET", page_flags),
+            crate::RouteNode::new().with_handler_async(hyper::Method::GET, page_flags),
         )
         .with_child("forgot_password", forgot_password::route_forgot_password())
         .with_child(
             "local",
-            crate::RouteNode::new().with_handler_async("GET", page_local),
+            crate::RouteNode::new().with_handler_async(hyper::Method::GET, page_local),
         )
         .with_child(
             "login",
             crate::RouteNode::new()
-                .with_handler_async("GET", page_login)
+                .with_handler_async(hyper::Method::GET, page_login)
                 .with_child(
                     "submit",
-                    crate::RouteNode::new().with_handler_async("POST", handler_login_submit),
+                    crate::RouteNode::new()
+                        .with_handler_async(hyper::Method::POST, handler_login_submit),
                 ),
         )
         .with_child(
             "logout",
-            crate::RouteNode::new().with_handler_async("POST", handler_logout),
+            crate::RouteNode::new().with_handler_async(hyper::Method::POST, handler_logout),
         )
         .with_child(
             "lookup",
-            crate::RouteNode::new().with_handler_async("GET", page_lookup),
+            crate::RouteNode::new().with_handler_async(hyper::Method::GET, page_lookup),
         )
         .with_child(
             "new_community",
             crate::RouteNode::new()
-                .with_handler_async("GET", page_new_community)
+                .with_handler_async(hyper::Method::GET, page_new_community)
                 .with_child(
                     "submit",
                     crate::RouteNode::new()
-                        .with_handler_async("POST", handler_new_community_submit),
+                        .with_handler_async(hyper::Method::POST, handler_new_community_submit),
                 ),
         )
         .with_child(
             "notifications",
-            crate::RouteNode::new().with_handler_async("GET", page_notifications),
+            crate::RouteNode::new().with_handler_async(hyper::Method::GET, page_notifications),
         )
         .with_child("posts", posts::route_posts())
         .with_child(
             "signup",
             crate::RouteNode::new()
-                .with_handler_async("GET", page_signup)
+                .with_handler_async(hyper::Method::GET, page_signup)
                 .with_child(
                     "submit",
-                    crate::RouteNode::new().with_handler_async("POST", handler_signup_submit),
+                    crate::RouteNode::new()
+                        .with_handler_async(hyper::Method::POST, handler_signup_submit),
                 ),
         )
         .with_child("static", r#static::route_static())
@@ -1588,40 +1590,48 @@ pub fn route_root() -> crate::RouteNode<()> {
             "users",
             crate::RouteNode::new().with_child_parse::<i64, _>(
                 crate::RouteNode::new()
-                    .with_handler_async("GET", page_user)
+                    .with_handler_async(hyper::Method::GET, page_user)
                     .with_child(
                         "edit",
                         crate::RouteNode::new()
-                            .with_handler_async("GET", page_user_edit)
+                            .with_handler_async(hyper::Method::GET, page_user_edit)
                             .with_child(
                                 "submit",
-                                crate::RouteNode::new()
-                                    .with_handler_async("POST", handler_user_edit_submit),
+                                crate::RouteNode::new().with_handler_async(
+                                    hyper::Method::POST,
+                                    handler_user_edit_submit,
+                                ),
                             ),
                     )
                     .with_child(
                         "suspend",
                         crate::RouteNode::new()
-                            .with_handler_async("GET", page_user_suspend)
+                            .with_handler_async(hyper::Method::GET, page_user_suspend)
                             .with_child(
                                 "submit",
-                                crate::RouteNode::new()
-                                    .with_handler_async("POST", handler_user_suspend_submit),
+                                crate::RouteNode::new().with_handler_async(
+                                    hyper::Method::POST,
+                                    handler_user_suspend_submit,
+                                ),
                             )
                             .with_child(
                                 "undo",
-                                crate::RouteNode::new()
-                                    .with_handler_async("POST", handler_user_suspend_undo),
+                                crate::RouteNode::new().with_handler_async(
+                                    hyper::Method::POST,
+                                    handler_user_suspend_undo,
+                                ),
                             ),
                     )
                     .with_child(
                         "your_note/edit",
                         crate::RouteNode::new()
-                            .with_handler_async("GET", page_user_your_note_edit)
+                            .with_handler_async(hyper::Method::GET, page_user_your_note_edit)
                             .with_child(
                                 "submit",
-                                crate::RouteNode::new()
-                                    .with_handler_async("POST", handler_user_your_note_edit_submit),
+                                crate::RouteNode::new().with_handler_async(
+                                    hyper::Method::POST,
+                                    handler_user_your_note_edit_submit,
+                                ),
                             ),
                     ),
             ),

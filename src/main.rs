@@ -4,7 +4,7 @@ use crate::resp_types::RespLoginInfo;
 use serde_derive::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
-use trout::hyper::RoutingFailureExtHyper;
+use trout::http02::RoutingFailureExtHttp;
 
 mod components;
 mod config;

@@ -12,7 +12,7 @@ license = "AGPL-3.0-or-later"
 
 [dependencies]
 render = { git = "https://github.com/vpzomtrrfrt/render.rs", rev = "ec18ff5f" }
-trout = "0.2.0"
+trout = "0.4.0"
 hyper = "0.13.6"
 hyper-tls = "0.4.1"
 tokio = { version = "0.2.21", features = ["macros"] }

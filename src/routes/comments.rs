@@ -697,28 +697,33 @@ async fn handler_comment_submit_reply(
 pub fn route_comments() -> crate::RouteNode<()> {
     crate::RouteNode::new().with_child_parse::<i64, _>(
         crate::RouteNode::new()
-            .with_handler_async("GET", page_comment)
+            .with_handler_async(hyper::Method::GET, page_comment)
             .with_child(
                 "delete",
                 crate::RouteNode::new()
-                    .with_handler_async("GET", page_comment_delete)
+                    .with_handler_async(hyper::Method::GET, page_comment_delete)
                     .with_child(
                         "confirm",
-                        crate::RouteNode::new()
-                            .with_handler_async("POST", handler_comment_delete_confirm),
+                        crate::RouteNode::new().with_handler_async(
+                            hyper::Method::POST,
+                            handler_comment_delete_confirm,
+                        ),
                     ),
             )
             .with_child(
                 "like",
-                crate::RouteNode::new().with_handler_async("POST", handler_comment_like),
+                crate::RouteNode::new()
+                    .with_handler_async(hyper::Method::POST, handler_comment_like),
             )
             .with_child(
                 "unlike",
-                crate::RouteNode::new().with_handler_async("POST", handler_comment_unlike),
+                crate::RouteNode::new()
+                    .with_handler_async(hyper::Method::POST, handler_comment_unlike),
             )
             .with_child(
                 "submit_reply",
-                crate::RouteNode::new().with_handler_async("POST", handler_comment_submit_reply),
+                crate::RouteNode::new()
+                    .with_handler_async(hyper::Method::POST, handler_comment_submit_reply),
             ),
     )
 }

@@ -288,19 +288,22 @@ async fn handler_forgot_password_submit(
 
 pub fn route_forgot_password() -> crate::RouteNode<()> {
     crate::RouteNode::new()
-        .with_handler_async("GET", page_forgot_password)
+        .with_handler_async(hyper::Method::GET, page_forgot_password)
         .with_child(
             "code",
             crate::RouteNode::new()
-                .with_handler_async("GET", page_forgot_password_code)
+                .with_handler_async(hyper::Method::GET, page_forgot_password_code)
                 .with_child(
                     "submit",
-                    crate::RouteNode::new()
-                        .with_handler_async("POST", handler_forgot_password_code_submit),
+                    crate::RouteNode::new().with_handler_async(
+                        hyper::Method::POST,
+                        handler_forgot_password_code_submit,
+                    ),
                 ),
         )
         .with_child(
             "submit",
-            crate::RouteNode::new().with_handler_async("POST", handler_forgot_password_submit),
+            crate::RouteNode::new()
+                .with_handler_async(hyper::Method::POST, handler_forgot_password_submit),
         )
 }

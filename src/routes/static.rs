@@ -4,8 +4,9 @@ use std::sync::Arc;
 const FILE_MAIN_CSS: &[u8] = include_bytes!("../../res/main.css");
 
 pub fn route_static() -> crate::RouteNode<()> {
-    crate::RouteNode::new()
-        .with_child_str(crate::RouteNode::new().with_handler_async("GET", handler_static_get))
+    crate::RouteNode::new().with_child_str(
+        crate::RouteNode::new().with_handler_async(hyper::Method::GET, handler_static_get),
+    )
 }
 
 async fn handler_static_get(
