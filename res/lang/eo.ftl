@@ -22,7 +22,6 @@ communities = Komunumoj
 communities_all_view = Vidi Ĉiujn
 communities_local_more = Pli Lokaj Komunumoj
 communities_remote_more = Pli Foraj Komunumoj
-communiies_page_next = Vidi Pli
 community_add_moderator = Aldoni Kontrolanton
 community_create = Krei Komunumon
 community_create_submit = Krei
@@ -72,7 +71,7 @@ post_approve_undo = Forpreni el komunumo
 post_comments_count =
     { $count } { $count ->
         [one] komento
-        *[other] komentoj
+       *[other] komentoj
     }
 post_delete_question = Ĉu vi volas forigi ĉi tiun poŝton?
 post_delete_title = Forigi Poŝton
@@ -87,15 +86,16 @@ post_not_approved = Ĉi tiu poŝto ne estas aprobita per la komunumo.
 preview = Antaŭprezenti
 register = Registriĝi
 remote = Fora
-remove = remove
+remove = forigi
 reply = respondi
 reply_submit = Respondi
 reply_to = Respondo al
 save = Konservi
-score = { $score } { $score ->
-    [one] ŝatanto
-    *[other] ŝatantoj
-}
+score =
+    { $score } { $score ->
+        [one] ŝatanto
+       *[other] ŝatantoj
+    }
 signup_email_address_prompt = Retpoŝtadreso (nedeviga):
 sort = Ordigi:
 sort_hot = furora
@@ -106,37 +106,37 @@ text_with_markdown = Teksto (markdown estas permesita)
 timeago_years =
     antaŭ { $years } { $years ->
         [one] jaro
-        *[other] jaroj
+       *[other] jaroj
     }
 timeago_months =
     antaŭ { $months } { $months ->
         [one] monato
-        *[other] monatoj
+       *[other] monatoj
     }
 timeago_weeks =
     antaŭ { $weeks } { $weeks ->
         [one] semajno
-        *[other] semajnoj
+       *[other] semajnoj
     }
 timeago_days =
     antaŭ { $days } { $days ->
         [one] tago
-        *[other] tagoj
+       *[other] tagoj
     }
 timeago_hours =
     antaŭ { $hours } { $hours ->
         [one] horo
-        *[other] horoj
+       *[other] horoj
     }
 timeago_minutes =
     antaŭ { $minutes } { $minutes ->
         [one] minuto
-        *[other] minutoj
+       *[other] minutoj
     }
 timeago_seconds =
     antaŭ { $seconds } { $seconds ->
         [one] sekundo
-        *[other] sekundoj
+       *[other] sekundoj
     }
 timeago_now = nune
 timeago_future = estontece
@@ -167,3 +167,29 @@ your_comment = via komento
 your_note = Propra Noto
 your_note_add = Aldoni Propra Noto
 your_note_edit = Redakti Propra Noto
+action_flag = raporti
+comment_reply_attachment_missing_content_type = Mankas Content-Type por bildo-alŝuto
+community_delete_question = Forigi ĉi tiun komunumon?
+post_flag_title = Raporti Poŝton
+post_flag_question = Raporti ĉi tiu poŝton?
+post_timeframe = Poŝtoj el:
+post_flag_target_prompt = Sendi raporton al:
+post_flag_target_choice_community = Komunumo
+post_flag_target_choice_remote_site_admin = Administranto de retejo de aŭtoro
+post_flag_target_choice_site_admin = Administranto de via retejo
+timeframe_hour = lasta horo
+communities_page_next = Vidi Pli
+community_delete_link = Forigi Komunumon
+community_delete_title = Forigi Komunumon
+community_flags_link = Raportoj
+flag_comment_prompt = Aldoni komenton:
+flagged_by = Raportita de
+flags_title_community = Raportoj por ĉi tiu komunumo
+flags_title_other = Raportoj
+flags_title_site_admin = Raportoj por administrantoj de ĉi tiu retejo
+sort_top = supro
+timeframe_all = ĉiam
+timeframe_day = lasta tago
+timeframe_month = lasta monato
+timeframe_week = lasta semajno
+timeframe_year = lasta jaro
