@@ -170,6 +170,7 @@ impl<'a> AsRef<RespSomePostInfo<'a>> for RespPostInfo<'a> {
 pub struct RespPollInfo<'a> {
     pub multiple: bool,
     pub options: Vec<RespPollOption<'a>>,
+    pub your_vote: Option<RespPollYourVote>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -177,6 +178,11 @@ pub struct RespPollOption<'a> {
     pub id: i64,
     pub name: Cow<'a, str>,
     pub votes: u32,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct RespPollYourVote {
+    pub options: Vec<JustID>,
 }
 
 #[derive(Deserialize, Debug)]

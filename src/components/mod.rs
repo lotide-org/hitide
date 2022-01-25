@@ -675,39 +675,76 @@ impl<'a> render::Render for NotificationItem<'a> {
     }
 }
 
-#[render::component]
-pub fn PollView<'a>(poll: &'a RespPollInfo<'a>, action: String, lang: &'a crate::Translator) {
-    render::rsx! {
-        <div>
-            <form method={"post"} action={action}>
-                {
-                    if poll.multiple {
-                        poll.options.iter().map(|option| {
-                            render::rsx! {
-                                <div>
-                                    <label>
-                                        <input type={"checkbox"} name={option.id.to_string()} />{" "}
-                                        {option.name.as_ref()}
-                                    </label>
-                                </div>
+pub struct PollView<'a> {
+    pub poll: &'a RespPollInfo<'a>,
+    pub action: String,
+    pub lang: &'a crate::Translator,
+}
+impl<'a> render::Render for PollView<'a> {
+    fn render_into<W: std::fmt::Write>(self, writer: &mut W) -> std::fmt::Result {
+        let PollView { poll, action, lang } = &self;
+
+        if let Some(your_vote) = &poll.your_vote {
+            let full_width_votes = f64::from(if poll.multiple {
+                poll.options.iter().map(|x| x.votes).max().unwrap_or(0)
+            } else {
+                poll.options.iter().map(|x| x.votes).sum()
+            });
+
+            render::rsx! {
+                <div>
+                    <table class={"pollResults"}>
+                        {
+                            poll.options.iter().map(|option| {
+                                let selected = your_vote.options.iter().any(|x| x.id == option.id);
+                                render::rsx! {
+                                    <tr class={if selected { "selected" } else { "" }}>
+                                        <td class={"count"}>
+                                            <div class={"background"} style={format!("width: {}%", f64::from(option.votes) * 100.0 / full_width_votes)}>{""}</div>
+                                            {option.votes}
+                                        </td>
+                                        <td>{option.name.as_ref()}</td>
+                                    </tr>
+                                }
+                            }).collect::<Vec<_>>()
+                        }
+                    </table>
+                </div>
+            }.render_into(writer)
+        } else {
+            render::rsx! {
+                <div>
+                    <form method={"post"} action={action}>
+                        {
+                            if poll.multiple {
+                                poll.options.iter().map(|option| {
+                                    render::rsx! {
+                                        <div>
+                                            <label>
+                                                <input type={"checkbox"} name={option.id.to_string()} />{" "}
+                                                {option.name.as_ref()}
+                                            </label>
+                                        </div>
+                                    }
+                                }).collect::<Vec<_>>()
+                            } else {
+                                poll.options.iter().map(|option| {
+                                    render::rsx! {
+                                        <div>
+                                            <label>
+                                                <input type={"radio"} name={"choice"} value={option.id.to_string()} />{" "}
+                                                {option.name.as_ref()}
+                                            </label>
+                                        </div>
+                                    }
+                                }).collect::<Vec<_>>()
                             }
-                        }).collect::<Vec<_>>()
-                    } else {
-                        poll.options.iter().map(|option| {
-                            render::rsx! {
-                                <div>
-                                    <label>
-                                        <input type={"radio"} name={"choice"} value={option.id.to_string()} />{" "}
-                                        {option.name.as_ref()}
-                                    </label>
-                                </div>
-                            }
-                        }).collect::<Vec<_>>()
-                    }
-                }
-                <input type={"submit"} value={lang.tr(&lang::POLL_SUBMIT)} />
-            </form>
-        </div>
+                        }
+                        <input type={"submit"} value={lang.tr(&lang::POLL_SUBMIT)} />
+                    </form>
+                </div>
+            }.render_into(writer)
+        }
     }
 }
 

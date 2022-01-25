@@ -202,6 +202,39 @@ p {
 	margin-left: 2em;
 }
 
+.pollResults {
+	min-width: 300px;
+}
+
+.pollResults tr {
+	position: relative;
+}
+
+.pollResults tr > td {
+	padding-left: .5em;
+	padding-right: .5em;
+}
+
+.pollResults tr > .count {
+	width: 3em;
+	text-align: right;
+	font-weight: bold;
+}
+
+.pollResults tr .background {
+	background-color: #9E9E9E;
+	border-radius: .5em;
+
+	position: absolute;
+	height: 100%;
+	z-index: -1;
+	left: 0;
+}
+
+.pollResults tr.selected .background {
+	background-color: #00BCD4;
+}
+
 @media (min-width: 768px) {
 	.communityDetailsMobile, .leftLinksMobile {
 		display: none !important;
