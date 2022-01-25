@@ -157,12 +157,26 @@ pub struct RespPostInfo<'a> {
     pub score: i64,
     pub local: bool,
     pub your_vote: Option<Empty>,
+    pub poll: Option<RespPollInfo<'a>>,
 }
 
 impl<'a> AsRef<RespSomePostInfo<'a>> for RespPostInfo<'a> {
     fn as_ref(&self) -> &RespSomePostInfo<'a> {
         &self.base
     }
+}
+
+#[derive(Deserialize, Debug)]
+pub struct RespPollInfo<'a> {
+    pub multiple: bool,
+    pub options: Vec<RespPollOption<'a>>,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct RespPollOption<'a> {
+    pub id: i64,
+    pub name: Cow<'a, str>,
+    pub votes: u32,
 }
 
 #[derive(Deserialize, Debug)]

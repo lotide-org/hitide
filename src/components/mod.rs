@@ -7,7 +7,8 @@ use crate::lang;
 use crate::resp_types::{
     Content, RespCommentInfo, RespFlagDetails, RespFlagInfo, RespMinimalAuthorInfo,
     RespMinimalCommentInfo, RespMinimalCommunityInfo, RespNotification, RespNotificationInfo,
-    RespPostCommentInfo, RespPostInfo, RespPostListPost, RespThingComment, RespThingInfo,
+    RespPollInfo, RespPostCommentInfo, RespPostInfo, RespPostListPost, RespThingComment,
+    RespThingInfo,
 };
 use crate::util::{abbreviate_link, author_is_me};
 use crate::PageBaseData;
@@ -671,6 +672,42 @@ impl<'a> render::Render for NotificationItem<'a> {
         }
 
         write!(writer, "</li>")
+    }
+}
+
+#[render::component]
+pub fn PollView<'a>(poll: &'a RespPollInfo<'a>, action: String, lang: &'a crate::Translator) {
+    render::rsx! {
+        <div>
+            <form method={"post"} action={action}>
+                {
+                    if poll.multiple {
+                        poll.options.iter().map(|option| {
+                            render::rsx! {
+                                <div>
+                                    <label>
+                                        <input type={"checkbox"} name={option.id.to_string()} />{" "}
+                                        {option.name.as_ref()}
+                                    </label>
+                                </div>
+                            }
+                        }).collect::<Vec<_>>()
+                    } else {
+                        poll.options.iter().map(|option| {
+                            render::rsx! {
+                                <div>
+                                    <label>
+                                        <input type={"radio"} name={"choice"} value={option.id.to_string()} />{" "}
+                                        {option.name.as_ref()}
+                                    </label>
+                                </div>
+                            }
+                        }).collect::<Vec<_>>()
+                    }
+                }
+                <input type={"submit"} value={lang.tr(&lang::POLL_SUBMIT)} />
+            </form>
+        </div>
     }
 }
 

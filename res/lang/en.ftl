@@ -76,6 +76,7 @@ notifications = Notifications
 on = on
 on_your_post = on your post
 or_start = Or
+poll_submit = Submit
 password_prompt = Password:
 posts_page_next = View More
 post_approve = Approve
