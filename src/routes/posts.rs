@@ -645,8 +645,10 @@ async fn handler_post_poll_submit(
 
     let body = if let Some(choice) = body.get("choice") {
         let choice = choice
-            .as_i64()
-            .ok_or(crate::Error::InternalStrStatic("wrong type for choice"))?;
+            .as_str()
+            .ok_or(crate::Error::InternalStrStatic("wrong type for choice"))?
+            .parse()
+            .map_err(|_| crate::Error::InternalStrStatic("Invalid choice"))?;
 
         PollVoteBody::Single { option: choice }
     } else {
