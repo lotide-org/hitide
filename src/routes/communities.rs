@@ -14,6 +14,7 @@ use crate::routes::{
 use serde_derive::{Deserialize, Serialize};
 use std::borrow::Cow;
 use std::collections::HashMap;
+use std::ops::Deref;
 use std::sync::Arc;
 
 async fn page_communities(
@@ -1245,6 +1246,33 @@ async fn page_community_new_post_inner(
                     <br />
                     <MaybeFillTextArea values={&prev_values} name={"content_markdown"} default_value={None} />
                 </label>
+                <br />
+                <input id={"pollEnableCheckbox"} type={"checkbox"} name={"poll_enabled"} />
+                <label for={"pollEnableCheckbox"}>
+                    {" "}
+                    {lang.tr(&lang::new_post_poll())}
+                </label>
+                <br />
+                <div class={"pollArea"}>
+                    <div>
+                        <label>
+                            <input type={"checkbox"} name={"poll_multiple"} />
+                            {" "}
+                            {lang.tr(&lang::poll_new_multiple())}
+                        </label>
+                    </div>
+                    {lang.tr(&lang::poll_new_options_prompt())}
+                    <ul>
+                        {
+                            (0..4).map(|idx| {
+                                render::rsx! {
+                                    <li><input type={"text"} name={format!("poll_option_{}", idx)} /></li>
+                                }
+                            })
+                            .collect::<Vec<_>>()
+                        }
+                    </ul>
+                </div>
                 <div>
                     <button r#type={"submit"}>{lang.tr(&lang::submit())}</button>
                     <button r#type={"submit"} name={"preview"}>{lang.tr(&lang::preview())}</button>
@@ -1451,6 +1479,28 @@ async fn handler_communities_new_post_submit(
     }
     if body_values.get("href").and_then(|x| x.as_str()) == Some("") {
         body_values.remove("href");
+    }
+
+    if body_values.remove("poll_enabled").is_some() {
+        let options: Vec<serde_json::Value> = (0..4)
+            .filter_map(|idx| {
+                let value = body_values.remove(format!("poll_option_{}", idx).deref());
+                if value == Some(serde_json::json!("")) {
+                    None
+                } else {
+                    value
+                }
+            })
+            .collect();
+        let multiple = body_values.remove("poll_multiple").is_some();
+
+        body_values.insert(
+            "poll".into(),
+            serde_json::json!({
+                "options": options,
+                "multiple": multiple,
+            }),
+        );
     }
 
     let api_res = res_to_error(

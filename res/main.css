@@ -235,6 +235,14 @@ p {
 	background-color: #00BCD4;
 }
 
+#pollEnableCheckbox:not(:checked) ~ .pollArea {
+	display: none;
+}
+
+.pollArea {
+	margin-left: 1em;
+}
+
 @media (min-width: 768px) {
 	.communityDetailsMobile, .leftLinksMobile {
 		display: none !important;
