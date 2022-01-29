@@ -77,6 +77,7 @@ notifications = Notifications
 on = on
 on_your_post = on your post
 or_start = Or
+poll_new_closes_prompt = Closes in:
 poll_new_multiple = Allow multiple choices
 poll_new_options_prompt = Options:
 poll_submit = Submit
@@ -126,6 +127,9 @@ sort_top = top
 submit = Submit
 submitted = Submitted
 text_with_markdown = Text (markdown supported)
+time_input_minutes = minutes
+time_input_hours = hours
+time_input_days = days
 timeago_years =
     { $years } { $years ->
         [one] year

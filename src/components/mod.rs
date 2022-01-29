@@ -544,7 +544,7 @@ impl<I: serde_json::value::Index> GetIndex<I, serde_json::Value> for serde_json:
     }
 }
 
-fn maybe_fill_value<'a, 'b, M: GetIndex<&'b str, serde_json::Value>>(
+pub fn maybe_fill_value<'a, 'b, M: GetIndex<&'b str, serde_json::Value>>(
     values: &'a Option<&'a M>,
     name: &'b str,
     default_value: Option<&'a str>,
@@ -583,6 +583,59 @@ pub fn MaybeFillInput<'a, M: GetIndex<&'a str, serde_json::Value>>(
                 value
                 id
             />
+        }
+    }
+}
+
+#[render::component]
+pub fn MaybeFillCheckbox<'a, M: GetIndex<&'a str, serde_json::Value>>(
+    values: &'a Option<&'a M>,
+    name: &'a str,
+    id: &'a str,
+) {
+    let checked = values.map(|x| x.get(name).is_some()).unwrap_or(false);
+    log::debug!(
+        "MaybeFillCheckbox {} checked={} (values? {})",
+        name,
+        checked,
+        values.is_some()
+    );
+    if checked {
+        render::rsx! {
+            <input
+                type={"checkbox"}
+                name
+                id
+                checked={""}
+            />
+        }
+    } else {
+        render::rsx! {
+            <input
+                type={"checkbox"}
+                name
+                id
+            />
+        }
+    }
+}
+
+#[render::component]
+pub fn MaybeFillOption<'a, M: GetIndex<&'a str, serde_json::Value>, Children: render::Render>(
+    values: &'a Option<&'a M>,
+    name: &'a str,
+    value: &'a str,
+    children: Children,
+) {
+    let selected_value = maybe_fill_value(values, name, None);
+
+    if selected_value == value {
+        render::rsx! {
+            <option value={value} selected={""}>{children}</option>
+        }
+    } else {
+        render::rsx! {
+            <option value={value}>{children}</option>
         }
     }
 }

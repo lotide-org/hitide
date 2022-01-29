@@ -1,5 +1,6 @@
 use crate::components::{
-    CommunityLink, ContentView, HTPage, HTPageAdvanced, MaybeFillInput, MaybeFillTextArea, PostItem,
+    maybe_fill_value, CommunityLink, ContentView, HTPage, HTPageAdvanced, MaybeFillCheckbox,
+    MaybeFillInput, MaybeFillOption, MaybeFillTextArea, PostItem,
 };
 use crate::lang;
 use crate::query_types::PostListQuery;
@@ -1204,6 +1205,8 @@ async fn page_community_new_post_inner(
     let title_key = lang::post_new();
     let title = lang.tr(&title_key);
 
+    let poll_option_names: Vec<_> = (0..4).map(|idx| format!("poll_option_{}", idx)).collect();
+
     Ok(html_response(render::html! {
         <HTPage base_data={&base_data} lang={&lang} title={&title}>
             <h1>{title.as_ref()}</h1>
@@ -1247,7 +1250,7 @@ async fn page_community_new_post_inner(
                     <MaybeFillTextArea values={&prev_values} name={"content_markdown"} default_value={None} />
                 </label>
                 <br />
-                <input id={"pollEnableCheckbox"} type={"checkbox"} name={"poll_enabled"} />
+                <MaybeFillCheckbox values={&prev_values} id={"pollEnableCheckbox"} name={"poll_enabled"} />
                 <label for={"pollEnableCheckbox"}>
                     {" "}
                     {lang.tr(&lang::new_post_poll())}
@@ -1256,7 +1259,7 @@ async fn page_community_new_post_inner(
                 <div class={"pollArea"}>
                     <div>
                         <label>
-                            <input type={"checkbox"} name={"poll_multiple"} />
+                            <MaybeFillCheckbox values={&prev_values} name={"poll_multiple"} id={"poll_multiple"} />
                             {" "}
                             {lang.tr(&lang::poll_new_multiple())}
                         </label>
@@ -1264,14 +1267,24 @@ async fn page_community_new_post_inner(
                     {lang.tr(&lang::poll_new_options_prompt())}
                     <ul>
                         {
-                            (0..4).map(|idx| {
+                            poll_option_names.iter().map(|name| {
                                 render::rsx! {
-                                    <li><input type={"text"} name={format!("poll_option_{}", idx)} /></li>
+                                    <li><MaybeFillInput values={&prev_values} r#type={"text"} name={&name} id={&name} required={false} /></li>
                                 }
                             })
                             .collect::<Vec<_>>()
                         }
                     </ul>
+                    <div>
+                        {lang.tr(&lang::poll_new_closes_prompt())}
+                        {" "}
+                        <input type={"number"} name={"poll_duration_value"} required={""} value={maybe_fill_value(&prev_values, "poll_duration_value", Some("10"))} />
+                        <select name={"poll_duration_unit"}>
+                            <MaybeFillOption values={&prev_values} name={"poll_duration_unit"} value={"m"}>{lang.tr(&lang::time_input_minutes())}</MaybeFillOption>
+                            <MaybeFillOption values={&prev_values} name={"poll_duration_unit"} value={"h"}>{lang.tr(&lang::time_input_hours())}</MaybeFillOption>
+                            <MaybeFillOption values={&prev_values} name={"poll_duration_unit"} value={"d"}>{lang.tr(&lang::time_input_days())}</MaybeFillOption>
+                        </select>
+                    </div>
                 </div>
                 <div>
                     <button r#type={"submit"}>{lang.tr(&lang::submit())}</button>
@@ -1312,7 +1325,7 @@ async fn handler_communities_new_post_submit(
 
     let mut multipart = multer::Multipart::new(body, boundary);
 
-    let mut body_values: HashMap<Cow<'_, str>, serde_json::Value> = HashMap::new();
+    let mut body_values_src: HashMap<Cow<'_, str>, serde_json::Value> = HashMap::new();
     {
         let mut error = None;
 
@@ -1346,7 +1359,7 @@ async fn handler_communities_new_post_submit(
                     continue;
                 }
 
-                if body_values.contains_key("href") && body_values["href"] != "" {
+                if body_values_src.contains_key("href") && body_values_src["href"] != "" {
                     error = Some(lang.tr(&lang::post_new_href_conflict()).into_owned());
                 } else {
                     match stream.get_ref().content_type() {
@@ -1383,7 +1396,7 @@ async fn handler_communities_new_post_submit(
                                     let res = hyper::body::to_bytes(res.into_body()).await?;
                                     let res: JustStringID = serde_json::from_slice(&res)?;
 
-                                    body_values.insert(
+                                    body_values_src.insert(
                                         "href".into(),
                                         format!("local-media://{}", res.id).into(),
                                     );
@@ -1396,12 +1409,15 @@ async fn handler_communities_new_post_submit(
                 }
             } else {
                 let name = field.name().unwrap();
-                if name == "href" && body_values.contains_key("href") && body_values["href"] != "" {
+                if name == "href"
+                    && body_values_src.contains_key("href")
+                    && body_values_src["href"] != ""
+                {
                     error = Some(lang.tr(&lang::post_new_href_conflict()).into_owned());
                 } else {
                     let name = name.to_owned();
                     let value = field.text().await?;
-                    body_values.insert(name.into(), value.into());
+                    body_values_src.insert(name.into(), value.into());
                 }
             }
         }
@@ -1413,12 +1429,18 @@ async fn handler_communities_new_post_submit(
                 &cookies,
                 ctx,
                 Some(error),
-                Some(&body_values),
+                Some(&body_values_src),
                 None,
             )
             .await;
         }
     }
+
+    let body_values_src = body_values_src;
+    let mut body_values: HashMap<_, _> = body_values_src
+        .iter()
+        .map(|(key, value)| (Cow::Borrowed(key.as_ref()), Cow::Borrowed(value)))
+        .collect();
 
     if body_values.contains_key("preview") {
         let md = body_values
@@ -1452,7 +1474,7 @@ async fn handler_communities_new_post_submit(
                     &cookies,
                     ctx,
                     None,
-                    Some(&body_values),
+                    Some(&body_values_src),
                     Some(&preview_res.content_html),
                 )
                 .await
@@ -1464,7 +1486,7 @@ async fn handler_communities_new_post_submit(
                     &cookies,
                     ctx,
                     Some(message),
-                    Some(&body_values),
+                    Some(&body_values_src),
                     None,
                 )
                 .await
@@ -1473,7 +1495,7 @@ async fn handler_communities_new_post_submit(
         };
     }
 
-    body_values.insert("community".into(), community_id.into());
+    body_values.insert("community".into(), Cow::Owned(community_id.into()));
     if body_values.get("content_markdown").and_then(|x| x.as_str()) == Some("") {
         body_values.remove("content_markdown");
     }
@@ -1482,24 +1504,40 @@ async fn handler_communities_new_post_submit(
     }
 
     if body_values.remove("poll_enabled").is_some() {
-        let options: Vec<serde_json::Value> = (0..4)
+        let options: Vec<_> = (0..4)
             .filter_map(|idx| {
                 let value = body_values.remove(format!("poll_option_{}", idx).deref());
-                if value == Some(serde_json::json!("")) {
+                if value.as_ref().map(|x| x.as_ref()) == Some(&serde_json::json!("")) {
                     None
                 } else {
                     value
                 }
             })
             .collect();
-        let multiple = body_values.remove("poll_multiple").is_some();
+        let multiple: bool = body_values.remove("poll_multiple").is_some();
+
+        let duration_value = body_values.remove("poll_duration_value");
+        let duration_value = duration_value.as_ref().and_then(|x| x.as_str()).ok_or(
+            crate::Error::InternalStrStatic("Missing poll_duration_value"),
+        )?;
+
+        let duration_unit = body_values.remove("poll_duration_unit");
+        let closed_in = match duration_unit.as_ref().and_then(|x| x.as_str()).ok_or(
+            crate::Error::InternalStrStatic("Missing poll_duration_unit"),
+        )? {
+            "m" => format!("PT{}M", duration_value),
+            "h" => format!("PT{}H", duration_value),
+            "d" => format!("P{}D", duration_value),
+            _ => return Err(crate::Error::InternalStrStatic("Unknown duration unit")),
+        };
 
         body_values.insert(
             "poll".into(),
-            serde_json::json!({
+            Cow::Owned(serde_json::json!({
                 "options": options,
                 "multiple": multiple,
-            }),
+                "closed_in": closed_in,
+            })),
         );
     }
 
@@ -1537,7 +1575,7 @@ async fn handler_communities_new_post_submit(
                 &cookies,
                 ctx,
                 Some(message),
-                Some(&body_values),
+                Some(&body_values_src),
                 None,
             )
             .await
