@@ -806,7 +806,7 @@ async fn page_user(
                 }
             }
             {
-                if base_data.is_site_admin() && user.as_ref().local {
+                if user.as_ref().local {
                     Some(render::rsx! {
                         <>
                             {
@@ -815,9 +815,15 @@ async fn page_user(
                                         <div class={"infoBox"}>
                                             {lang.tr(&lang::USER_SUSPENDED_NOTE)}
                                             {" "}
-                                            <form method={"POST"} action={format!("/users/{}/suspend/undo", user_id)} class={"inline"}>
-                                                <button type={"submit"}>{lang.tr(&lang::USER_SUSPEND_UNDO)}</button>
-                                            </form>
+                                            {
+                                                base_data.is_site_admin().then(|| {
+                                                    render::rsx! {
+                                                        <form method={"POST"} action={format!("/users/{}/suspend/undo", user_id)} class={"inline"}>
+                                                            <button type={"submit"}>{lang.tr(&lang::USER_SUSPEND_UNDO)}</button>
+                                                        </form>
+                                                    }
+                                                })
+                                            }
                                         </div>
                                     })
                                 } else {
@@ -826,11 +832,15 @@ async fn page_user(
                             }
                             {
                                 if user.suspended == Some(false) {
-                                    Some(render::rsx! {
-                                        <div>
-                                            <a href={format!("/users/{}/suspend", user_id)}>{lang.tr(&lang::USER_SUSPEND)}</a>
+                                    if base_data.is_site_admin() {
+                                        Some(render::rsx! {
+                                            <div>
+                                                <a href={format!("/users/{}/suspend", user_id)}>{lang.tr(&lang::USER_SUSPEND)}</a>
                                             </div>
-                                    })
+                                        })
+                                    } else {
+                                        None
+                                    }
                                 } else {
                                     None
                                 }
