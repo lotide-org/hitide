@@ -170,6 +170,7 @@ impl<'a> AsRef<RespSomePostInfo<'a>> for RespPostInfo<'a> {
 pub struct RespPollInfo<'a> {
     pub multiple: bool,
     pub options: Vec<RespPollOption<'a>>,
+    pub is_closed: bool,
     pub your_vote: Option<RespPollYourVote>,
 }
 

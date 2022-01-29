@@ -737,7 +737,7 @@ impl<'a> render::Render for PollView<'a> {
     fn render_into<W: std::fmt::Write>(self, writer: &mut W) -> std::fmt::Result {
         let PollView { poll, action, lang } = &self;
 
-        if let Some(your_vote) = &poll.your_vote {
+        if poll.your_vote.is_some() || poll.is_closed {
             let full_width_votes = f64::from(if poll.multiple {
                 poll.options.iter().map(|x| x.votes).max().unwrap_or(0)
             } else {
@@ -749,7 +749,7 @@ impl<'a> render::Render for PollView<'a> {
                     <table class={"pollResults"}>
                         {
                             poll.options.iter().map(|option| {
-                                let selected = your_vote.options.iter().any(|x| x.id == option.id);
+                                let selected = poll.your_vote.as_ref().map(|your_vote| your_vote.options.iter().any(|x| x.id == option.id)).unwrap_or(false);
                                 render::rsx! {
                                     <tr class={if selected { "selected" } else { "" }}>
                                         <td class={"count"}>
