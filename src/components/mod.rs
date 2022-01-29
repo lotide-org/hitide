@@ -744,7 +744,7 @@ impl<'a> render::Render for PollView<'a> {
                 poll.options.iter().map(|x| x.votes).sum()
             });
 
-            render::rsx! {
+            (render::rsx! {
                 <div>
                     <table class={"pollResults"}>
                         {
@@ -763,9 +763,9 @@ impl<'a> render::Render for PollView<'a> {
                         }
                     </table>
                 </div>
-            }.render_into(writer)
+            }).render_into(writer)
         } else {
-            render::rsx! {
+            (render::rsx! {
                 <div>
                     <form method={"post"} action={action}>
                         {
@@ -796,7 +796,7 @@ impl<'a> render::Render for PollView<'a> {
                         <input type={"submit"} value={lang.tr(&lang::POLL_SUBMIT)} />
                     </form>
                 </div>
-            }.render_into(writer)
+            }).render_into(writer)
         }
     }
 }
