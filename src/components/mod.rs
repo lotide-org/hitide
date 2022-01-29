@@ -32,13 +32,13 @@ pub fn Comment<'a>(
                                 if comment.your_vote.is_some() {
                                     render::rsx! {
                                         <form method={"POST"} action={format!("/comments/{}/unlike", comment.as_ref().id)}>
-                                            <button class={"iconbutton"} type={"submit"}>{hitide_icons::UPVOTED.img()}</button>
+                                            <button class={"iconbutton"} type={"submit"}>{hitide_icons::UPVOTED.img(lang.tr(&lang::remove_upvote()).into_owned())}</button>
                                         </form>
                                     }
                                 } else {
                                     render::rsx! {
                                         <form method={"POST"} action={format!("/comments/{}/like", comment.as_ref().id)}>
-                                            <button class={"iconbutton"} type={"submit"}>{hitide_icons::UPVOTE.img()}</button>
+                                            <button class={"iconbutton"} type={"submit"}>{hitide_icons::UPVOTE.img(lang.tr(&lang::upvote()).into_owned())}</button>
                                         </form>
                                     }
                                 }
@@ -320,7 +320,7 @@ pub fn HTPageAdvanced<'a, HeadItems: render::Render, Children: render::Render>(
     render::rsx! {
         <>
             <render::html::HTML5Doctype />
-            <html>
+            <html lang={lang.primary_language().to_string()}>
                 <head>
                     <meta charset={"utf-8"} />
                     <meta name={"viewport"} content={"width=device-width, initial-scale=1"} />
@@ -330,9 +330,9 @@ pub fn HTPageAdvanced<'a, HeadItems: render::Render, Children: render::Render>(
                 </head>
                 <body>
                     <header class={"mainHeader"}>
-                        <div class={"left"}>
+                        <nav aria-label={"Main Navigation"} class={"left"}>
                             <details class={"leftLinksMobile"}>
-                                <summary>{hitide_icons::HAMBURGER_MENU.img()}</summary>
+                                <summary>{hitide_icons::HAMBURGER_MENU.img(lang.tr(&lang::open_menu()).into_owned())}</summary>
                                 <div>
                                     {left_links.clone()}
                                 </div>
@@ -341,8 +341,8 @@ pub fn HTPageAdvanced<'a, HeadItems: render::Render, Children: render::Render>(
                             <div class={"actionList leftLinks"}>
                                 {left_links}
                             </div>
-                        </div>
-                        <div class={"right actionList"}>
+                        </nav>
+                        <nav class={"right actionList"}>
                             {
                                 base_data.login.as_ref().map(|login| {
                                     render::rsx! {
@@ -352,25 +352,25 @@ pub fn HTPageAdvanced<'a, HeadItems: render::Render, Children: render::Render>(
                                             >
                                                 {
                                                     if login.user.has_unread_notifications {
-                                                        hitide_icons::NOTIFICATIONS_SOME.img()
+                                                        hitide_icons::NOTIFICATIONS_SOME.img(lang.tr(&lang::new_notifications()).into_owned())
                                                     } else {
-                                                        hitide_icons::NOTIFICATIONS.img()
+                                                        hitide_icons::NOTIFICATIONS.img(lang.tr(&lang::notifications()).into_owned())
                                                     }
                                                 }
                                             </a>
                                             <a href={format!("/users/{}", login.user.id)}>
-                                                {hitide_icons::PERSON.img()}
+                                                {hitide_icons::PERSON.img(lang.tr(&lang::profile()).into_owned())}
                                             </a>
                                             {
                                                 base_data.is_site_admin().then(|| {
                                                     render::rsx! {
-                                                        <a href={"/flags?to_this_site_admin=true"}>{hitide_icons::FLAG.img()}</a>
+                                                        <a href={"/flags?to_this_site_admin=true"}>{hitide_icons::FLAG.img(lang.tr(&lang::flags()).into_owned())}</a>
                                                     }
                                                 })
                                             }
                                             <form method={"POST"} action={"/logout"} class={"inline"}>
                                                 <button type={"submit"} class={"iconbutton"}>
-                                                    {hitide_icons::LOGOUT.img()}
+                                                    {hitide_icons::LOGOUT.img(lang.tr(&lang::logout()).into_owned())}
                                                 </button>
                                             </form>
                                         </>
@@ -386,9 +386,11 @@ pub fn HTPageAdvanced<'a, HeadItems: render::Render, Children: render::Render>(
                                     None
                                 }
                             }
-                        </div>
+                        </nav>
                     </header>
-                    {children}
+                    <main>
+                        {children}
+                    </main>
                 </body>
             </html>
         </>
@@ -802,13 +804,13 @@ impl<'a> render::Render for PollView<'a> {
 }
 
 pub trait IconExt {
-    fn img(&self) -> render::SimpleElement<()>;
+    fn img<'a>(&self, alt: impl Into<Cow<'a, str>>) -> render::SimpleElement<'a, ()>;
 }
 
 impl IconExt for hitide_icons::Icon {
-    fn img(&self) -> render::SimpleElement<()> {
+    fn img<'a>(&self, alt: impl Into<Cow<'a, str>>) -> render::SimpleElement<'a, ()> {
         render::rsx! {
-            <img src={format!("/static/{}", self.path)} class={if self.dark_invert { "icon darkInvert" } else { "icon" }} />
+            <img src={format!("/static/{}", self.path)} class={if self.dark_invert { "icon darkInvert" } else { "icon" }} alt={alt.into()} />
         }
     }
 }

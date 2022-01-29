@@ -135,13 +135,13 @@ async fn page_comment_inner(
                                     if comment.as_ref().your_vote.is_some() {
                                         render::rsx! {
                                             <form method={"POST"} action={format!("/comments/{}/unlike", comment.as_ref().as_ref().id)}>
-                                                <button type={"submit"} class={"iconbutton"}>{hitide_icons::UPVOTED.img()}</button>
+                                                <button class={"iconbutton"} type={"submit"}>{hitide_icons::UPVOTED.img(lang.tr(&lang::remove_upvote()).into_owned())}</button>
                                             </form>
                                         }
                                     } else {
                                         render::rsx! {
                                             <form method={"POST"} action={format!("/comments/{}/like", comment.as_ref().as_ref().id)}>
-                                                <button type={"submit"} class={"iconbutton"}>{hitide_icons::UPVOTE.img()}</button>
+                                                <button class={"iconbutton"} type={"submit"}>{hitide_icons::UPVOTE.img(lang.tr(&lang::upvote()).into_owned())}</button>
                                             </form>
                                         }
                                     }

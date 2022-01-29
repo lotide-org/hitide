@@ -167,7 +167,7 @@ async fn page_post_inner(
                             render::rsx! {
                                 <>
                                     <form method={"POST"} action={format!("/posts/{}/unlike", post_id)} class={"inline"}>
-                                        <button type={"submit"} class={"iconbutton"}>{hitide_icons::UPVOTED.img()}</button>
+                                        <button type={"submit"} class={"iconbutton"}>{hitide_icons::UPVOTED.img(lang.tr(&lang::remove_upvote()).into_owned())}</button>
                                     </form>
                                     {" "}
                                 </>
@@ -176,7 +176,7 @@ async fn page_post_inner(
                             render::rsx! {
                                 <>
                                     <form method={"POST"} action={format!("/posts/{}/like", post_id)} class={"inline"}>
-                                        <button type={"submit"} class={"iconbutton"}>{hitide_icons::UPVOTE.img()}</button>
+                                        <button type={"submit"} class={"iconbutton"}>{hitide_icons::UPVOTE.img(lang.tr(&lang::upvote()).into_owned())}</button>
                                     </form>
                                     {" "}
                                 </>

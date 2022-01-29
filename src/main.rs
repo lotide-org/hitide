@@ -138,7 +138,7 @@ pub fn get_lang_for_headers(headers: &hyper::header::HeaderMap) -> Translator {
     };
 
     let mut bundle = fluent::concurrent::FluentBundle::new(languages.iter().copied());
-    for lang in languages {
+    for lang in &languages {
         if let Err(errors) = bundle.add_resource(&LANG_MAP[lang]) {
             for err in errors {
                 match err {
@@ -152,7 +152,7 @@ pub fn get_lang_for_headers(headers: &hyper::header::HeaderMap) -> Translator {
         }
     }
 
-    Translator::new(bundle)
+    Translator::new(bundle, languages[0].clone())
 }
 
 pub fn get_lang_for_req(req: &hyper::Request<hyper::Body>) -> Translator {

@@ -2,12 +2,17 @@ use std::borrow::Cow;
 
 pub struct Translator {
     bundle: fluent::concurrent::FluentBundle<&'static fluent::FluentResource>,
+    primary_language: unic_langid::LanguageIdentifier,
 }
 impl Translator {
     pub fn new(
         bundle: fluent::concurrent::FluentBundle<&'static fluent::FluentResource>,
+        primary_language: unic_langid::LanguageIdentifier,
     ) -> Translator {
-        Translator { bundle }
+        Translator {
+            bundle,
+            primary_language,
+        }
     }
 
     pub fn tr<'a>(&'a self, input: &'a LangKey) -> Cow<'a, str> {
@@ -31,6 +36,10 @@ impl Translator {
         }
 
         out
+    }
+
+    pub fn primary_language(&self) -> &unic_langid::LanguageIdentifier {
+        &self.primary_language
     }
 }
 impl std::fmt::Debug for Translator {
