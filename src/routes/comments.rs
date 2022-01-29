@@ -4,7 +4,7 @@ use super::{
 };
 use crate::components::{Comment, ContentView, HTPage, IconExt, MaybeFillTextArea, UserLink};
 use crate::lang;
-use crate::resp_types::{JustContentHTML, RespCommentInfo, RespList, RespPostCommentInfo};
+use crate::resp_types::{JustContentHTML, JustID, RespCommentInfo, RespList, RespPostCommentInfo};
 use crate::util::{abbreviate_link, author_is_me};
 use serde_derive::{Deserialize, Serialize};
 use std::borrow::Cow;
@@ -673,10 +673,18 @@ async fn handler_comment_submit_reply(
     .await;
 
     match api_res {
-        Ok(_) => Ok(hyper::Response::builder()
-            .status(hyper::StatusCode::SEE_OTHER)
-            .header(hyper::header::LOCATION, format!("/comments/{}", comment_id))
-            .body("Successfully posted.".into())?),
+        Ok(api_res) => {
+            let api_res = hyper::body::to_bytes(api_res.into_body()).await?;
+            let api_res: JustID = serde_json::from_slice(&api_res)?;
+
+            Ok(hyper::Response::builder()
+                .status(hyper::StatusCode::SEE_OTHER)
+                .header(
+                    hyper::header::LOCATION,
+                    format!("/comments/{}#comment{}", comment_id, api_res.id),
+                )
+                .body("Successfully posted.".into())?)
+        }
         Err(crate::Error::RemoteError((status, message))) if status.is_client_error() => {
             page_comment_inner(
                 comment_id,

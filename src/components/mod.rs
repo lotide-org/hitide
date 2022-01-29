@@ -23,7 +23,7 @@ pub fn Comment<'a>(
     lang: &'a crate::Translator,
 ) {
     render::rsx! {
-        <li class={"comment"}>
+        <li class={"comment"} id={format!("comment{}", comment.as_ref().id)}>
             {
                 if base_data.login.is_some() {
                     Some(render::rsx! {

@@ -10,7 +10,7 @@ use crate::components::{
 use crate::lang;
 use crate::query_types::PollVoteBody;
 use crate::resp_types::{
-    JustContentHTML, JustUser, RespCommunityInfoMaybeYour, RespList, RespPostCommentInfo,
+    JustContentHTML, JustID, JustUser, RespCommunityInfoMaybeYour, RespList, RespPostCommentInfo,
     RespPostInfo,
 };
 use crate::util::author_is_me;
@@ -947,10 +947,18 @@ async fn handler_post_submit_reply(
             .await
         }
         Err(other) => Err(other),
-        Ok(_) => Ok(hyper::Response::builder()
-            .status(hyper::StatusCode::SEE_OTHER)
-            .header(hyper::header::LOCATION, format!("/posts/{}", post_id))
-            .body("Successfully posted.".into())?),
+        Ok(api_res) => {
+            let api_res = hyper::body::to_bytes(api_res.into_body()).await?;
+            let api_res: JustID = serde_json::from_slice(&api_res)?;
+
+            Ok(hyper::Response::builder()
+                .status(hyper::StatusCode::SEE_OTHER)
+                .header(
+                    hyper::header::LOCATION,
+                    format!("/posts/{}#comment{}", post_id, api_res.id),
+                )
+                .body("Successfully posted.".into())?)
+        }
     }
 }
 
