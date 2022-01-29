@@ -4,9 +4,11 @@ use super::{
     res_to_error, CookieMap,
 };
 use crate::components::{
-    Comment, CommunityLink, ContentView, HTPage, IconExt, MaybeFillTextArea, TimeAgo, UserLink,
+    Comment, CommunityLink, ContentView, HTPage, IconExt, MaybeFillTextArea, PollView, TimeAgo,
+    UserLink,
 };
 use crate::lang;
+use crate::query_types::PollVoteBody;
 use crate::resp_types::{
     JustContentHTML, JustUser, RespCommunityInfoMaybeYour, RespList, RespPostCommentInfo,
     RespPostInfo,
@@ -35,6 +37,7 @@ async fn page_post(
         None,
         None,
         None,
+        None,
     )
     .await
 }
@@ -45,7 +48,8 @@ async fn page_post_inner(
     query: Option<&str>,
     cookies: &CookieMap<'_>,
     ctx: Arc<crate::RouteContext>,
-    display_error: Option<String>,
+    display_error_comments: Option<String>,
+    display_error_poll: Option<String>,
     prev_values: Option<&HashMap<Cow<'_, str>, serde_json::Value>>,
     display_preview: Option<&str>,
 ) -> Result<hyper::Response<hyper::Body>, crate::Error> {
@@ -244,6 +248,20 @@ async fn page_post_inner(
             <div class={"postContent"}>
                 <ContentView src={&post} />
             </div>
+            {
+                display_error_poll.map(|msg| {
+                    render::rsx! {
+                        <div class={"errorBox"}>{msg}</div>
+                    }
+                })
+            }
+            {
+                post.poll.as_ref().map(|poll| {
+                    render::rsx! {
+                        <PollView poll={poll} action={format!("/posts/{}/poll/submit", post.as_ref().as_ref().id)} lang={&lang} />
+                    }
+                })
+            }
             <div class={"actionList"}>
                 {
                     if author_is_me(&post.as_ref().author, &base_data.login) || (post.local && base_data.is_site_admin()) {
@@ -267,7 +285,7 @@ async fn page_post_inner(
             <div>
                 <h2>{lang.tr(&lang::comments())}</h2>
                 {
-                    display_error.map(|msg| {
+                    display_error_comments.map(|msg| {
                         render::rsx! {
                             <div class={"errorBox"}>{msg}</div>
                         }
@@ -611,6 +629,81 @@ async fn page_post_likes(
     }))
 }
 
+async fn handler_post_poll_submit(
+    params: (i64,),
+    ctx: Arc<crate::RouteContext>,
+    req: hyper::Request<hyper::Body>,
+) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+    let (post_id,) = params;
+
+    let (req_parts, body) = req.into_parts();
+    let cookies = get_cookie_map_for_headers(&req_parts.headers)?;
+
+    let body = hyper::body::to_bytes(body).await?;
+    let body: serde_json::map::Map<String, serde_json::Value> =
+        serde_urlencoded::from_bytes(&body)?;
+
+    let body = if let Some(choice) = body.get("choice") {
+        let choice = choice
+            .as_str()
+            .ok_or(crate::Error::InternalStrStatic("wrong type for choice"))?
+            .parse()
+            .map_err(|_| crate::Error::InternalStrStatic("Invalid choice"))?;
+
+        PollVoteBody::Single { option: choice }
+    } else {
+        let choices: Vec<_> = body
+            .keys()
+            .filter_map(|key| {
+                if let Ok(key) = key.parse::<i64>() {
+                    Some(key)
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        PollVoteBody::Multiple { options: choices }
+    };
+
+    let api_res = res_to_error(
+        ctx.http_client
+            .request(for_client(
+                hyper::Request::put(format!(
+                    "{}/api/unstable/posts/{}/poll/your_vote",
+                    ctx.backend_host, post_id
+                ))
+                .body(serde_json::to_vec(&body)?.into())?,
+                &req_parts.headers,
+                &cookies,
+            )?)
+            .await?,
+    )
+    .await;
+
+    match api_res {
+        Err(crate::Error::RemoteError((_, message))) => {
+            page_post_inner(
+                post_id,
+                &req_parts.headers,
+                None,
+                &cookies,
+                ctx,
+                None,
+                Some(message),
+                None,
+                None,
+            )
+            .await
+        }
+        Err(other) => Err(other),
+        Ok(_) => Ok(hyper::Response::builder()
+            .status(hyper::StatusCode::SEE_OTHER)
+            .header(hyper::header::LOCATION, format!("/posts/{}", post_id))
+            .body("Successfully voted.".into())?),
+    }
+}
+
 async fn handler_post_unlike(
     params: (i64,),
     ctx: Arc<crate::RouteContext>,
@@ -758,6 +851,7 @@ async fn handler_post_submit_reply(
                 &cookies,
                 ctx,
                 Some(error),
+                None,
                 Some(&body_values),
                 None,
             )
@@ -798,6 +892,7 @@ async fn handler_post_submit_reply(
                     &cookies,
                     ctx,
                     None,
+                    None,
                     Some(&body_values),
                     Some(&preview_res.content_html),
                 )
@@ -811,6 +906,7 @@ async fn handler_post_submit_reply(
                     &cookies,
                     ctx,
                     Some(message),
+                    None,
                     Some(&body_values),
                     None,
                 )
@@ -844,6 +940,7 @@ async fn handler_post_submit_reply(
                 &cookies,
                 ctx,
                 Some(message),
+                None,
                 Some(&body_values),
                 None,
             )
@@ -888,6 +985,14 @@ pub fn route_posts() -> crate::RouteNode<()> {
             .with_child(
                 "likes",
                 crate::RouteNode::new().with_handler_async(hyper::Method::GET, page_post_likes),
+            )
+            .with_child(
+                "poll",
+                crate::RouteNode::new().with_child(
+                    "submit",
+                    crate::RouteNode::new()
+                        .with_handler_async(hyper::Method::POST, handler_post_poll_submit),
+                ),
             )
             .with_child(
                 "unlike",

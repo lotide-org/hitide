@@ -7,7 +7,8 @@ use crate::lang;
 use crate::resp_types::{
     Content, RespCommentInfo, RespFlagDetails, RespFlagInfo, RespMinimalAuthorInfo,
     RespMinimalCommentInfo, RespMinimalCommunityInfo, RespNotification, RespNotificationInfo,
-    RespPostCommentInfo, RespPostInfo, RespPostListPost, RespThingComment, RespThingInfo,
+    RespPollInfo, RespPostCommentInfo, RespPostInfo, RespPostListPost, RespThingComment,
+    RespThingInfo,
 };
 use crate::util::{abbreviate_link, author_is_me};
 use crate::PageBaseData;
@@ -543,7 +544,7 @@ impl<I: serde_json::value::Index> GetIndex<I, serde_json::Value> for serde_json:
     }
 }
 
-fn maybe_fill_value<'a, 'b, M: GetIndex<&'b str, serde_json::Value>>(
+pub fn maybe_fill_value<'a, 'b, M: GetIndex<&'b str, serde_json::Value>>(
     values: &'a Option<&'a M>,
     name: &'b str,
     default_value: Option<&'a str>,
@@ -582,6 +583,59 @@ pub fn MaybeFillInput<'a, M: GetIndex<&'a str, serde_json::Value>>(
                 value
                 id
             />
+        }
+    }
+}
+
+#[render::component]
+pub fn MaybeFillCheckbox<'a, M: GetIndex<&'a str, serde_json::Value>>(
+    values: &'a Option<&'a M>,
+    name: &'a str,
+    id: &'a str,
+) {
+    let checked = values.map(|x| x.get(name).is_some()).unwrap_or(false);
+    log::debug!(
+        "MaybeFillCheckbox {} checked={} (values? {})",
+        name,
+        checked,
+        values.is_some()
+    );
+    if checked {
+        render::rsx! {
+            <input
+                type={"checkbox"}
+                name
+                id
+                checked={""}
+            />
+        }
+    } else {
+        render::rsx! {
+            <input
+                type={"checkbox"}
+                name
+                id
+            />
+        }
+    }
+}
+
+#[render::component]
+pub fn MaybeFillOption<'a, M: GetIndex<&'a str, serde_json::Value>, Children: render::Render>(
+    values: &'a Option<&'a M>,
+    name: &'a str,
+    value: &'a str,
+    children: Children,
+) {
+    let selected_value = maybe_fill_value(values, name, None);
+
+    if selected_value == value {
+        render::rsx! {
+            <option value={value} selected={""}>{children}</option>
+        }
+    } else {
+        render::rsx! {
+            <option value={value}>{children}</option>
         }
     }
 }
@@ -671,6 +725,79 @@ impl<'a> render::Render for NotificationItem<'a> {
         }
 
         write!(writer, "</li>")
+    }
+}
+
+pub struct PollView<'a> {
+    pub poll: &'a RespPollInfo<'a>,
+    pub action: String,
+    pub lang: &'a crate::Translator,
+}
+impl<'a> render::Render for PollView<'a> {
+    fn render_into<W: std::fmt::Write>(self, writer: &mut W) -> std::fmt::Result {
+        let PollView { poll, action, lang } = &self;
+
+        if poll.your_vote.is_some() || poll.is_closed {
+            let full_width_votes = f64::from(if poll.multiple {
+                poll.options.iter().map(|x| x.votes).max().unwrap_or(0)
+            } else {
+                poll.options.iter().map(|x| x.votes).sum()
+            });
+
+            render::rsx! {
+                <div>
+                    <table class={"pollResults"}>
+                        {
+                            poll.options.iter().map(|option| {
+                                let selected = poll.your_vote.as_ref().map(|your_vote| your_vote.options.iter().any(|x| x.id == option.id)).unwrap_or(false);
+                                render::rsx! {
+                                    <tr class={if selected { "selected" } else { "" }}>
+                                        <td class={"count"}>
+                                            <div class={"background"} style={format!("width: {}%", f64::from(option.votes) * 100.0 / full_width_votes)}>{""}</div>
+                                            {option.votes}
+                                        </td>
+                                        <td>{option.name.as_ref()}</td>
+                                    </tr>
+                                }
+                            }).collect::<Vec<_>>()
+                        }
+                    </table>
+                </div>
+            }.render_into(writer)
+        } else {
+            render::rsx! {
+                <div>
+                    <form method={"post"} action={action}>
+                        {
+                            if poll.multiple {
+                                poll.options.iter().map(|option| {
+                                    render::rsx! {
+                                        <div>
+                                            <label>
+                                                <input type={"checkbox"} name={option.id.to_string()} />{" "}
+                                                {option.name.as_ref()}
+                                            </label>
+                                        </div>
+                                    }
+                                }).collect::<Vec<_>>()
+                            } else {
+                                poll.options.iter().map(|option| {
+                                    render::rsx! {
+                                        <div>
+                                            <label>
+                                                <input type={"radio"} name={"choice"} value={option.id.to_string()} />{" "}
+                                                {option.name.as_ref()}
+                                            </label>
+                                        </div>
+                                    }
+                                }).collect::<Vec<_>>()
+                            }
+                        }
+                        <input type={"submit"} value={lang.tr(&lang::POLL_SUBMIT)} />
+                    </form>
+                </div>
+            }.render_into(writer)
+        }
     }
 }
 

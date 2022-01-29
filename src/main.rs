@@ -66,6 +66,7 @@ pub type RouteNode<P> = trout::Node<
 pub enum Error {
     Internal(Box<dyn std::error::Error + Send>),
     InternalStr(String),
+    InternalStrStatic(&'static str),
     UserError(hyper::Response<hyper::Body>),
     RoutingError(trout::RoutingFailure),
     RemoteError((hyper::StatusCode, String)),

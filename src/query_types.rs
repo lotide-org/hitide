@@ -20,3 +20,10 @@ pub struct FlagListQuery {
     pub to_this_site_admin: Option<bool>,
     pub to_community: Option<i64>,
 }
+
+#[derive(Serialize)]
+#[serde(untagged)]
+pub enum PollVoteBody {
+    Single { option: i64 },
+    Multiple { options: Vec<i64> },
+}
