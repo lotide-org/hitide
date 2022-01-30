@@ -1,6 +1,7 @@
 use serde_derive::Deserialize;
 use std::borrow::Cow;
 use std::collections::HashMap;
+use std::convert::TryInto;
 use std::sync::Arc;
 
 use crate::components::{
@@ -123,8 +124,6 @@ async fn page_about(
     ctx: Arc<crate::RouteContext>,
     req: hyper::Request<hyper::Body>,
 ) -> Result<hyper::Response<hyper::Body>, crate::Error> {
-    use std::convert::TryInto;
-
     let lang = crate::get_lang_for_req(&req);
     let cookies = get_cookie_map_for_req(&req)?;
 
@@ -643,6 +642,19 @@ async fn page_signup_inner(
 
     let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, headers, &cookies).await?;
 
+    let api_res = res_to_error(
+        ctx.http_client
+            .get(
+                format!("{}/api/unstable/instance", ctx.backend_host)
+                    .try_into()
+                    .unwrap(),
+            )
+            .await?,
+    )
+    .await?;
+    let api_res = hyper::body::to_bytes(api_res.into_body()).await?;
+    let api_res: RespInstanceInfo = serde_json::from_slice(&api_res)?;
+
     let title = lang.tr(&lang::REGISTER);
 
     Ok(html_response(render::html! {
@@ -654,29 +666,38 @@ async fn page_signup_inner(
                     }
                 })
             }
-            <form method={"POST"} action={"/signup/submit"}>
-                <table>
-                    <tr>
-                        <td><label for={"input_username"}>{lang.tr(&lang::username_prompt())}</label></td>
-                        <td>
-                            <MaybeFillInput values={&prev_values} r#type={"text"} name={"username"} required={true} id={"input_username"} />
-                        </td>
-                    </tr>
-                    <tr>
-                        <td><label for={"input_password"}>{lang.tr(&lang::password_prompt())}</label></td>
-                        <td>
-                            <MaybeFillInput values={&prev_values} r#type={"password"} name={"password"} required={true} id={"input_password"} />
-                        </td>
-                    </tr>
-                    <tr>
-                        <td><label for={"input_email_address"}>{lang.tr(&lang::signup_email_address_prompt())}</label></td>
-                        <td>
-                            <MaybeFillInput values={&prev_values} r#type={"email"} name={"email_address"} required={false} id={"input_email_address"} />
-                        </td>
-                    </tr>
-                </table>
-                <button r#type={"submit"}>{lang.tr(&lang::register())}</button>
-            </form>
+            {
+                (!api_res.signup_allowed).then(|| render::rsx! {
+                    <div class={"errorBox"}>{lang.tr(&lang::SIGNUP_NOT_ALLOWED)}</div>
+                })
+            }
+            {
+                api_res.signup_allowed.then(|| render::rsx! {
+                    <form method={"POST"} action={"/signup/submit"}>
+                        <table>
+                            <tr>
+                                <td><label for={"input_username"}>{lang.tr(&lang::USERNAME_PROMPT)}</label></td>
+                                <td>
+                                    <MaybeFillInput values={&prev_values} r#type={"text"} name={"username"} required={true} id={"input_username"} />
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><label for={"input_password"}>{lang.tr(&lang::PASSWORD_PROMPT)}</label></td>
+                                <td>
+                                    <MaybeFillInput values={&prev_values} r#type={"password"} name={"password"} required={true} id={"input_password"} />
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><label for={"input_email_address"}>{lang.tr(&lang::SIGNUP_EMAIL_ADDRESS_PROMPT)}</label></td>
+                                <td>
+                                    <MaybeFillInput values={&prev_values} r#type={"email"} name={"email_address"} required={false} id={"input_email_address"} />
+                                </td>
+                            </tr>
+                        </table>
+                        <button r#type={"submit"}>{lang.tr(&lang::REGISTER)}</button>
+                    </form>
+                })
+            }
         </HTPage>
     }))
 }

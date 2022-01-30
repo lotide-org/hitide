@@ -279,6 +279,7 @@ pub struct RespInstanceSoftwareInfo<'a> {
 pub struct RespInstanceInfo<'a> {
     pub description: Content<'a>,
     pub software: RespInstanceSoftwareInfo<'a>,
+    pub signup_allowed: bool,
 }
 
 #[derive(Deserialize, Debug)]

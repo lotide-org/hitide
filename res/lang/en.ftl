@@ -126,6 +126,7 @@ score = { $score } { $score ->
     *[other] likes
 }
 signup_email_address_prompt = Email Address (optional):
+signup_not_allowed = User registration is disabled on this server
 sort = Sort:
 sort_hot = hot
 sort_new = new
