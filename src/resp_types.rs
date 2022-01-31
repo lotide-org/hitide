@@ -154,6 +154,7 @@ pub struct RespPostInfo<'a> {
     pub content_text: Option<Cow<'a, str>>,
     pub content_html: Option<Cow<'a, str>>,
     pub approved: bool,
+    pub rejected: bool,
     pub score: i64,
     pub local: bool,
     pub your_vote: Option<Empty>,

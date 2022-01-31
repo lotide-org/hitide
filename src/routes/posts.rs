@@ -156,7 +156,11 @@ async fn page_post_inner(
                 if post.approved {
                     None
                 } else {
-                    Some(render::rsx! { <div class={"infoBox"}>{lang.tr(&lang::post_not_approved()).into_owned()}</div> })
+                    Some(if post.rejected {
+                        render::rsx! { <div class={"errorBox"}>{lang.tr(&lang::post_rejected()).into_owned()}</div> }
+                    } else {
+                        render::rsx! { <div class={"infoBox"}>{lang.tr(&lang::post_not_approved()).into_owned()}</div> }
+                    })
                 }
             }
             <h1>{title}</h1>

@@ -110,6 +110,7 @@ post_new_href_conflict = Cannot specify both URL and Image
 post_new_missing_content_type = Missing Content-Type for image upload
 post_new_image_prompt = Image:
 post_not_approved = This post has not been approved by the community.
+post_rejected = This post has been rejected by the community.
 post_timeframe = Posts from:
 preview = Preview
 profile = Profile
