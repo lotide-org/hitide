@@ -126,6 +126,7 @@ score = { $score } { $score ->
     [one] like
     *[other] likes
 }
+sensitive = Sensitive Content
 signup_email_address_prompt = Email Address (optional):
 signup_not_allowed = User registration is disabled on this server
 sort = Sort:

@@ -243,6 +243,10 @@ p {
 	margin-left: 1em;
 }
 
+.bigPostTitle > .icon {
+	margin-right: .5em;
+}
+
 @media (min-width: 768px) {
 	.communityDetailsMobile, .leftLinksMobile {
 		display: none !important;

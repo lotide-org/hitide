@@ -1250,6 +1250,11 @@ async fn page_community_new_post_inner(
                     <MaybeFillTextArea values={&prev_values} name={"content_markdown"} default_value={None} />
                 </label>
                 <br />
+                <label>
+                    <MaybeFillCheckbox values={&prev_values} id={"sensitiveCheckbox"} name={"sensitive"} />{" "}
+                    {lang.tr(&lang::sensitive()).into_owned()}
+                </label>
+                <br />
                 <MaybeFillCheckbox values={&prev_values} id={"pollEnableCheckbox"} name={"poll_enabled"} />
                 <label for={"pollEnableCheckbox"}>
                     {" "}
@@ -1501,6 +1506,10 @@ async fn handler_communities_new_post_submit(
     }
     if body_values.get("href").and_then(|x| x.as_str()) == Some("") {
         body_values.remove("href");
+    }
+
+    if body_values.remove("sensitive").is_some() {
+        body_values.insert("sensitive".into(), Cow::Owned(true.into()));
     }
 
     if body_values.remove("poll_enabled").is_some() {

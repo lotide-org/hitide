@@ -424,6 +424,7 @@ pub fn PostItemContent<'a>(
         <>
             <div class={"titleLine"}>
                 <a href={post_href.clone()}>
+                    {post.as_ref().as_ref().sensitive.then(|| hitide_icons::SENSITIVE.img(lang.tr(&lang::SENSITIVE)))}
                     {post.as_ref().as_ref().title.as_ref()}
                 </a>
                 {

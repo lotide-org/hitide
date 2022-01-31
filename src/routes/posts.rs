@@ -163,7 +163,10 @@ async fn page_post_inner(
                     })
                 }
             }
-            <h1>{title}</h1>
+            <h1 class={"bigPostTitle"}>
+                {post.as_ref().as_ref().sensitive.then(|| hitide_icons::SENSITIVE.img(lang.tr(&lang::SENSITIVE)))}
+                {title}
+            </h1>
             <div>
                 {
                     if base_data.login.is_some() {
