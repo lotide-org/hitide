@@ -4,8 +4,8 @@ use super::{
     res_to_error, CookieMap,
 };
 use crate::components::{
-    Comment, CommunityLink, ContentView, HTPage, IconExt, MaybeFillTextArea, PollView, TimeAgo,
-    UserLink,
+    Comment, CommunityLink, ContentView, HTPage, IconExt, MaybeFillCheckbox, MaybeFillTextArea,
+    PollView, TimeAgo, UserLink,
 };
 use crate::lang;
 use crate::query_types::PollVoteBody;
@@ -310,6 +310,13 @@ async fn page_post_inner(
                                         {lang.tr(&lang::comment_reply_image_prompt()).into_owned()}
                                         {" "}
                                         <input type={"file"} accept={"image/*"} name={"attachment_media"} />
+                                    </label>
+                                </div>
+                                <div>
+                                    <label>
+                                        <MaybeFillCheckbox values={&prev_values} name={"sensitive"} id={"sensitive"} default={post.as_ref().as_ref().sensitive} />
+                                        {" "}
+                                        {lang.tr(&lang::SENSITIVE)}
                                     </label>
                                 </div>
                                 <button r#type={"submit"}>{lang.tr(&lang::comment_submit()).into_owned()}</button>
@@ -922,6 +929,11 @@ async fn handler_post_submit_reply(
             Err(other) => Err(other),
         };
     }
+
+    body_values.insert(
+        "sensitive".into(),
+        body_values.contains_key("sensitive").into(),
+    );
 
     let api_res = res_to_error(
         ctx.http_client

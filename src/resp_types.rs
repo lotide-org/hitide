@@ -86,6 +86,7 @@ pub struct RespMinimalCommentInfo<'a> {
     pub id: i64,
     pub content_text: Option<Cow<'a, str>>,
     pub content_html: Option<Cow<'a, str>>,
+    pub sensitive: bool,
 }
 
 #[derive(Deserialize, Debug)]

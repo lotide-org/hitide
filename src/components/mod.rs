@@ -595,8 +595,9 @@ pub fn MaybeFillCheckbox<'a, M: GetIndex<&'a str, serde_json::Value>>(
     values: &'a Option<&'a M>,
     name: &'a str,
     id: &'a str,
+    default: bool,
 ) {
-    let checked = values.map(|x| x.get(name).is_some()).unwrap_or(false);
+    let checked = values.map(|x| x.get(name).is_some()).unwrap_or(default);
     log::debug!(
         "MaybeFillCheckbox {} checked={} (values? {})",
         name,

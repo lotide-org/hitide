@@ -2,7 +2,9 @@ use super::{
     default_comments_sort, fetch_base_data, for_client, get_cookie_map_for_headers,
     get_cookie_map_for_req, html_response, res_to_error, CookieMap, JustStringID, ReturnToParams,
 };
-use crate::components::{Comment, ContentView, HTPage, IconExt, MaybeFillTextArea, UserLink};
+use crate::components::{
+    Comment, ContentView, HTPage, IconExt, MaybeFillCheckbox, MaybeFillTextArea, UserLink,
+};
 use crate::lang;
 use crate::resp_types::{JustContentHTML, JustID, RespCommentInfo, RespList, RespPostCommentInfo};
 use crate::util::{abbreviate_link, author_is_me};
@@ -207,6 +209,13 @@ async fn page_comment_inner(
                                     {lang.tr(&lang::COMMENT_REPLY_IMAGE_PROMPT)}
                                     {" "}
                                     <input type={"file"} accept={"image/*"} name={"attachment_media"} />
+                                </label>
+                            </div>
+                            <div>
+                                <label>
+                                    <MaybeFillCheckbox values={&prev_values} name={"sensitive"} id={"sensitive"} default={comment.as_ref().as_ref().sensitive} />
+                                    {" "}
+                                    {lang.tr(&lang::SENSITIVE)}
                                 </label>
                             </div>
                             <button r#type={"submit"}>{lang.tr(&lang::REPLY_SUBMIT)}</button>
@@ -656,6 +665,11 @@ async fn handler_comment_submit_reply(
             Err(other) => Err(other),
         };
     }
+
+    body_values.insert(
+        "sensitive".into(),
+        body_values.contains_key("sensitive").into(),
+    );
 
     let api_res = res_to_error(
         ctx.http_client

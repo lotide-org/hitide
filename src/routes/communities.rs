@@ -1251,11 +1251,11 @@ async fn page_community_new_post_inner(
                 </label>
                 <br />
                 <label>
-                    <MaybeFillCheckbox values={&prev_values} id={"sensitiveCheckbox"} name={"sensitive"} />{" "}
+                    <MaybeFillCheckbox values={&prev_values} id={"sensitiveCheckbox"} name={"sensitive"} default={false} />{" "}
                     {lang.tr(&lang::sensitive()).into_owned()}
                 </label>
                 <br />
-                <MaybeFillCheckbox values={&prev_values} id={"pollEnableCheckbox"} name={"poll_enabled"} />
+                <MaybeFillCheckbox values={&prev_values} id={"pollEnableCheckbox"} name={"poll_enabled"} default={false} />
                 <label for={"pollEnableCheckbox"}>
                     {" "}
                     {lang.tr(&lang::new_post_poll())}
@@ -1264,7 +1264,7 @@ async fn page_community_new_post_inner(
                 <div class={"pollArea"}>
                     <div>
                         <label>
-                            <MaybeFillCheckbox values={&prev_values} name={"poll_multiple"} id={"poll_multiple"} />
+                            <MaybeFillCheckbox values={&prev_values} name={"poll_multiple"} id={"poll_multiple"} default={false} />
                             {" "}
                             {lang.tr(&lang::poll_new_multiple())}
                         </label>
