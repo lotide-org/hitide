@@ -19,9 +19,12 @@ pub use timeago::TimeAgo;
 pub fn Comment<'a>(
     comment: &'a RespPostCommentInfo<'a>,
     sort: crate::SortType,
+    root_sensitive: bool,
     base_data: &'a PageBaseData,
     lang: &'a crate::Translator,
 ) {
+    let sensitive_hide = !root_sensitive && comment.as_ref().sensitive;
+
     render::rsx! {
         <li class={"comment"} id={format!("comment{}", comment.as_ref().id)}>
             {
@@ -56,7 +59,24 @@ pub fn Comment<'a>(
                     <TimeAgo since={chrono::DateTime::parse_from_rfc3339(&comment.created).unwrap()} lang />
                 </small>
                 <div class={"commentContent"}>
-                    <ContentView src={comment} />
+                    {
+                        sensitive_hide.then(|| {
+                            render::rsx! {
+                                <details>
+                                    <summary>
+                                        {hitide_icons::SENSITIVE.img_aria_hidden()}
+                                        {lang.tr(&lang::SENSITIVE)}
+                                    </summary>
+                                    <ContentView src={comment} />
+                                </details>
+                            }
+                        })
+                    }
+                    {
+                        (!sensitive_hide).then(|| {
+                            render::rsx! { <ContentView src={comment} /> }
+                        })
+                    }
                 </div>
                 {
                     comment.attachments.iter().map(|attachment| {
@@ -104,7 +124,7 @@ pub fn Comment<'a>(
                                     {
                                         replies.items.iter().map(|reply| {
                                             render::rsx! {
-                                                <Comment sort={sort} comment={reply} base_data lang />
+                                                <Comment sort={sort} comment={reply} root_sensitive base_data lang />
                                             }
                                         })
                                         .collect::<Vec<_>>()
@@ -807,12 +827,19 @@ impl<'a> render::Render for PollView<'a> {
 
 pub trait IconExt {
     fn img<'a>(&self, alt: impl Into<Cow<'a, str>>) -> render::SimpleElement<'a, ()>;
+    fn img_aria_hidden(&self) -> render::SimpleElement<'static, ()>;
 }
 
 impl IconExt for hitide_icons::Icon {
     fn img<'a>(&self, alt: impl Into<Cow<'a, str>>) -> render::SimpleElement<'a, ()> {
         render::rsx! {
             <img src={format!("/static/{}", self.path)} class={if self.dark_invert { "icon darkInvert" } else { "icon" }} alt={alt.into()} />
+        }
+    }
+
+    fn img_aria_hidden(&self) -> render::SimpleElement<'static, ()> {
+        render::rsx! {
+            <img src={format!("/static/{}", self.path)} class={if self.dark_invert { "icon darkInvert" } else { "icon" }} aria-hidden={"true"} />
         }
     }
 }

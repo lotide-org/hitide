@@ -252,7 +252,7 @@ async fn page_comment_inner(
                 {
                     replies.items.iter().map(|reply| {
                         render::rsx! {
-                            <Comment comment={reply} sort={query.sort} base_data={&base_data} lang={&lang} />
+                            <Comment comment={reply} sort={query.sort} root_sensitive={comment.as_ref().as_ref().sensitive} base_data={&base_data} lang={&lang} />
                         }
                     }).collect::<Vec<_>>()
                 }
