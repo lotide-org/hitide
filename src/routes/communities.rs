@@ -394,7 +394,7 @@ async fn page_community(
                 }
             }
             {
-                if community_info.you_are_moderator == Some(true) {
+                if community_info.you_are_moderator == Some(true) || base_data.is_site_admin() {
                     Some(render::rsx! {
                         <p>
                             <a href={format!("/communities/{}/delete", community_id)}>{lang.tr(&lang::COMMUNITY_DELETE_LINK)}</a>
