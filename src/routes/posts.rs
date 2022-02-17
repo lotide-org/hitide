@@ -248,7 +248,7 @@ async fn page_post_inner(
             {
                 post.as_ref().href.as_ref().map(|href| {
                     render::rsx! {
-                        <p><a href={href.as_ref()}>{href.as_ref()}</a></p>
+                        <p><a rel={"ugc noopener"} href={href.as_ref()}>{href.as_ref()}</a></p>
                     }
                 })
             }
