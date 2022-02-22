@@ -117,12 +117,10 @@ pub struct RespPostCommentInfo<'a> {
 
     pub attachments: Vec<JustURL<'a>>,
 
-    #[serde(borrow)]
     pub author: Option<RespMinimalAuthorInfo<'a>>,
     pub created: Cow<'a, str>,
     pub local: bool,
     pub your_vote: Option<Empty>,
-    #[serde(borrow)]
     pub replies: Option<RespList<'a, RespPostCommentInfo<'a>>>,
 }
 
@@ -290,12 +288,12 @@ pub struct RespInstanceInfo<'a> {
 #[serde(rename_all = "snake_case")]
 pub enum RespNotificationInfo<'a> {
     PostReply {
-        reply: RespMinimalCommentInfo<'a>,
+        reply: RespPostCommentInfo<'a>,
         post: RespMinimalPostInfo<'a>,
     },
     CommentReply {
-        reply: RespMinimalCommentInfo<'a>,
-        comment: RespMinimalCommentInfo<'a>,
+        reply: RespPostCommentInfo<'a>,
+        comment: RespPostCommentInfo<'a>,
         post: RespMinimalPostInfo<'a>,
     },
     #[serde(other)]

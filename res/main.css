@@ -98,6 +98,10 @@ body {
 	margin-bottom: 0;
 }
 
+.notification-item .body {
+	margin-left: 1em;
+}
+
 .notification-item.unread {
 	border-left: 5px solid #FDD835;
 	padding-left: 5px;

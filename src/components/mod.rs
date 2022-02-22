@@ -724,9 +724,18 @@ impl<'a> render::Render for NotificationItem<'a> {
             RespNotificationInfo::PostReply { reply, post } => {
                 (render::rsx! {
                     <>
-                        <a href={format!("/comments/{}", reply.id)}>{lang.tr(&lang::comment())}</a>
-                        {" "}{lang.tr(&lang::on_your_post())}{" "}<a href={format!("/posts/{}", post.id)}>{post.title.as_ref()}</a>{":"}
-                        <ContentView src={reply} />
+                        <div>
+                            <a href={format!("/comments/{}", reply.as_ref().id)}>{lang.tr(&lang::comment())}</a>
+                            {" "}{lang.tr(&lang::on_your_post())}{" "}<a href={format!("/posts/{}", post.id)}>{post.title.as_ref()}</a>{":"}
+                        </div>
+                        <div class={"body"}>
+                            <small>
+                                <cite><UserLink lang user={reply.author.as_ref()} /></cite>
+                                {" "}
+                                <TimeAgo since={chrono::DateTime::parse_from_rfc3339(&reply.created).unwrap()} lang />
+                            </small>
+                            <ContentView src={reply} />
+                        </div>
                     </>
                 }).render_into(writer)?;
             }
@@ -737,12 +746,21 @@ impl<'a> render::Render for NotificationItem<'a> {
             } => {
                 (render::rsx! {
                     <>
-                        {lang.tr(&lang::reply_to())}
-                        {" "}
-                        <a href={format!("/comments/{}", comment.id)}>{lang.tr(&lang::your_comment())}</a>
-                        {" "}{lang.tr(&lang::on())}{" "}<a href={format!("/posts/{}", post.id)}>{post.title.as_ref()}</a>
-                        {":"}
-                        <ContentView src={reply} />
+                        <div>
+                            {lang.tr(&lang::reply_to())}
+                            {" "}
+                            <a href={format!("/comments/{}", comment.as_ref().id)}>{lang.tr(&lang::your_comment())}</a>
+                            {" "}{lang.tr(&lang::on())}{" "}<a href={format!("/posts/{}", post.id)}>{post.title.as_ref()}</a>
+                            {":"}
+                        </div>
+                        <div class={"body"}>
+                            <small>
+                                <cite><UserLink lang user={reply.author.as_ref()} /></cite>
+                                {" "}
+                                <TimeAgo since={chrono::DateTime::parse_from_rfc3339(&reply.created).unwrap()} lang />
+                            </small>
+                            <ContentView src={reply} />
+                        </div>
                     </>
                 }).render_into(writer)?;
             }
