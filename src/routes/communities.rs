@@ -6,7 +6,8 @@ use crate::lang;
 use crate::query_types::PostListQuery;
 use crate::resp_types::{
     JustContentHTML, JustStringID, RespCommunityInfoMaybeYour, RespList, RespMinimalAuthorInfo,
-    RespMinimalCommunityInfo, RespPostListPost, RespYourFollow,
+    RespMinimalCommunityInfo, RespModlogEvent, RespModlogEventDetails, RespPostListPost,
+    RespYourFollow,
 };
 use crate::routes::{
     fetch_base_data, for_client, get_cookie_map_for_headers, get_cookie_map_for_req, html_response,
@@ -1022,6 +1023,78 @@ async fn handler_community_moderators_remove(
     }
 }
 
+async fn page_community_modlog(
+    params: (i64,),
+    ctx: Arc<crate::RouteContext>,
+    req: hyper::Request<hyper::Body>,
+) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+    let (community_id,) = params;
+
+    let lang = crate::get_lang_for_req(&req);
+    let cookies = get_cookie_map_for_req(&req)?;
+
+    let base_data =
+        fetch_base_data(&ctx.backend_host, &ctx.http_client, req.headers(), &cookies).await?;
+
+    let api_res = res_to_error(
+        ctx.http_client
+            .request(for_client(
+                hyper::Request::get(format!(
+                    "{}/api/unstable/communities/{}/modlog/events",
+                    ctx.backend_host, community_id,
+                ))
+                .body(Default::default())?,
+                req.headers(),
+                &cookies,
+            )?)
+            .await?,
+    )
+    .await?;
+    let api_res = hyper::body::to_bytes(api_res.into_body()).await?;
+    let api_res: RespList<RespModlogEvent> = serde_json::from_slice(&api_res)?;
+
+    let title = lang.tr(&lang::MODLOG);
+
+    Ok(html_response(render::html! {
+        <HTPage base_data={&base_data} lang={&lang} title={&title}>
+            <h1>{title.as_ref()}</h1>
+            <ul>
+                {
+                    api_res.items.iter().map(|event| {
+                        render::rsx! {
+                            <li>
+                                {
+                                    match &event.details {
+                                        RespModlogEventDetails::ApprovePost { post } => {
+                                            render::rsx! {
+                                                <>
+                                                    {lang.tr(&lang::MODLOG_EVENT_APPROVE_POST)}
+                                                    {" "}
+                                                    <a href={format!("/posts/{}", post.id)}>{post.title.as_ref()}</a>
+                                                </>
+                                            }
+                                        }
+                                        RespModlogEventDetails::RejectPost { post } => {
+                                            render::rsx! {
+                                                <>
+                                                    {lang.tr(&lang::MODLOG_EVENT_REJECT_POST)}
+                                                    {" "}
+                                                    <a href={format!("/posts/{}", post.id)}>{post.title.as_ref()}</a>
+                                                </>
+                                            }
+                                        }
+                                    }
+                                }
+                            </li>
+                        }
+                    })
+                    .collect::<Vec<_>>()
+                }
+            </ul>
+        </HTPage>
+    }))
+}
+
 async fn handler_community_post_approve(
     params: (i64, i64),
     ctx: Arc<crate::RouteContext>,
@@ -1646,6 +1719,11 @@ pub fn route_communities() -> crate::RouteNode<()> {
                                 handler_community_moderators_remove,
                             ),
                         ),
+                )
+                .with_child(
+                    "modlog",
+                    crate::RouteNode::new()
+                        .with_handler_async(hyper::Method::GET, page_community_modlog),
                 )
                 .with_child(
                     "posts",

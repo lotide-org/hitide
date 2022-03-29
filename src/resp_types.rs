@@ -286,6 +286,21 @@ pub struct RespInstanceInfo<'a> {
 #[derive(Deserialize, Debug)]
 #[serde(tag = "type")]
 #[serde(rename_all = "snake_case")]
+pub enum RespModlogEventDetails<'a> {
+    RejectPost { post: RespMinimalPostInfo<'a> },
+    ApprovePost { post: RespMinimalPostInfo<'a> },
+}
+
+#[derive(Deserialize, Debug)]
+pub struct RespModlogEvent<'a> {
+    pub time: Cow<'a, str>,
+    #[serde(flatten)]
+    pub details: RespModlogEventDetails<'a>,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(tag = "type")]
+#[serde(rename_all = "snake_case")]
 pub enum RespNotificationInfo<'a> {
     PostReply {
         reply: RespPostCommentInfo<'a>,
