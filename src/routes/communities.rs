@@ -1,6 +1,6 @@
 use crate::components::{
     maybe_fill_value, CommunityLink, ContentView, HTPage, HTPageAdvanced, MaybeFillCheckbox,
-    MaybeFillInput, MaybeFillOption, MaybeFillTextArea, PostItem,
+    MaybeFillInput, MaybeFillOption, MaybeFillTextArea, PostItem, TimeAgo,
 };
 use crate::lang;
 use crate::query_types::PostListQuery;
@@ -1063,6 +1063,8 @@ async fn page_community_modlog(
                     api_res.items.iter().map(|event| {
                         render::rsx! {
                             <li>
+                                <TimeAgo since={chrono::DateTime::parse_from_rfc3339(&event.time).unwrap()} lang={&lang} />
+                                {" - "}
                                 {
                                     match &event.details {
                                         RespModlogEventDetails::ApprovePost { post } => {
