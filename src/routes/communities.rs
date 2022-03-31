@@ -5,9 +5,9 @@ use crate::components::{
 use crate::lang;
 use crate::query_types::PostListQuery;
 use crate::resp_types::{
-    JustContentHTML, JustStringID, RespCommunityInfoMaybeYour, RespList, RespMinimalAuthorInfo,
-    RespMinimalCommunityInfo, RespModlogEvent, RespModlogEventDetails, RespPostListPost,
-    RespYourFollow,
+    JustContentHTML, JustStringID, RespCommunityInfoMaybeYour, RespCommunityModlogEvent,
+    RespCommunityModlogEventDetails, RespList, RespMinimalAuthorInfo, RespMinimalCommunityInfo,
+    RespPostListPost, RespYourFollow,
 };
 use crate::routes::{
     fetch_base_data, for_client, get_cookie_map_for_headers, get_cookie_map_for_req, html_response,
@@ -1058,7 +1058,7 @@ async fn page_community_modlog(
     )
     .await?;
     let api_res = hyper::body::to_bytes(api_res.into_body()).await?;
-    let api_res: RespList<RespModlogEvent> = serde_json::from_slice(&api_res)?;
+    let api_res: RespList<RespCommunityModlogEvent> = serde_json::from_slice(&api_res)?;
 
     let title = lang.tr(&lang::MODLOG);
 
@@ -1074,7 +1074,7 @@ async fn page_community_modlog(
                                 {" - "}
                                 {
                                     match &event.details {
-                                        RespModlogEventDetails::ApprovePost { post } => {
+                                        RespCommunityModlogEventDetails::ApprovePost { post } => {
                                             render::rsx! {
                                                 <>
                                                     {lang.tr(&lang::MODLOG_EVENT_APPROVE_POST)}
@@ -1083,7 +1083,7 @@ async fn page_community_modlog(
                                                 </>
                                             }
                                         }
-                                        RespModlogEventDetails::RejectPost { post } => {
+                                        RespCommunityModlogEventDetails::RejectPost { post } => {
                                             render::rsx! {
                                                 <>
                                                     {lang.tr(&lang::MODLOG_EVENT_REJECT_POST)}
