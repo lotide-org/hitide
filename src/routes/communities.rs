@@ -384,11 +384,18 @@ async fn page_community(
             {
                 if community_info.as_ref().local {
                     Some(render::rsx! {
-                        <p>
-                            <a href={format!("/communities/{}/moderators", community_id)}>
-                                {lang.tr(&lang::MODERATORS)}
-                            </a>
-                        </p>
+                        <>
+                            <p>
+                                <a href={format!("/communities/{}/moderators", community_id)}>
+                                    {lang.tr(&lang::MODERATORS)}
+                                </a>
+                            </p>
+                            <p>
+                                <a href={format!("/communities/{}/modlog", community_id)}>
+                                    {lang.tr(&lang::MODLOG)}
+                                </a>
+                            </p>
+                        </>
                     })
                 } else {
                     None
