@@ -7,8 +7,8 @@ use crate::lang;
 use crate::resp_types::{
     Content, RespCommentInfo, RespFlagDetails, RespFlagInfo, RespMinimalAuthorInfo,
     RespMinimalCommentInfo, RespMinimalCommunityInfo, RespNotification, RespNotificationInfo,
-    RespPollInfo, RespPostCommentInfo, RespPostInfo, RespPostListPost, RespThingComment,
-    RespThingInfo,
+    RespPollInfo, RespPostCommentInfo, RespPostInfo, RespPostListPost, RespSiteModlogEvent,
+    RespSiteModlogEventDetails, RespThingComment, RespThingInfo,
 };
 use crate::util::{abbreviate_link, author_is_me};
 use crate::PageBaseData;
@@ -767,6 +767,82 @@ impl<'a> render::Render for NotificationItem<'a> {
         }
 
         write!(writer, "</li>")
+    }
+}
+
+pub struct SiteModlogEventItem<'a> {
+    pub event: &'a RespSiteModlogEvent<'a>,
+    pub lang: &'a crate::Translator,
+}
+
+impl<'a> render::Render for SiteModlogEventItem<'a> {
+    fn render_into<W: std::fmt::Write>(self, writer: &mut W) -> std::fmt::Result {
+        let lang = self.lang;
+        let event = &self.event;
+
+        write!(writer, "<li>")?;
+
+        (render::rsx! {
+            <>
+                <TimeAgo since={chrono::DateTime::parse_from_rfc3339(&event.time).unwrap()} lang={&lang} />
+                {" - "}
+            </>
+        }).render_into(writer)?;
+
+        match &event.details {
+            RespSiteModlogEventDetails::DeletePost { author, community } => {
+                render::rsx! {
+                    <>
+                        {lang.tr(&lang::MODLOG_EVENT_DELETE_POST_1)}
+                        {" "}
+                        <UserLink user={Some(author)} lang={&lang} />
+                        {" "}
+                        {lang.tr(&lang::MODLOG_EVENT_DELETE_POST_2)}
+                        {" "}
+                        <CommunityLink community />
+                    </>
+                }
+                .render_into(writer)?;
+            }
+            RespSiteModlogEventDetails::DeleteComment { author, post } => {
+                render::rsx! {
+                    <>
+                        {lang.tr(&lang::MODLOG_EVENT_DELETE_COMMENT_1)}
+                        {" "}
+                        <UserLink user={Some(author)} lang={&lang} />
+                        {" "}
+                        {lang.tr(&lang::MODLOG_EVENT_DELETE_COMMENT_2)}
+                        {" "}
+                        <a href={format!("/posts/{}", post.id)}>{post.title.as_ref()}</a>
+                    </>
+                }
+                .render_into(writer)?;
+            }
+            RespSiteModlogEventDetails::SuspendUser { user } => {
+                render::rsx! {
+                    <>
+                        {lang.tr(&lang::MODLOG_EVENT_SUSPEND_USER)}
+                        {" "}
+                        <UserLink user={Some(user)} lang={&lang} />
+                    </>
+                }
+                .render_into(writer)?;
+            }
+            RespSiteModlogEventDetails::UnsuspendUser { user } => {
+                render::rsx! {
+                    <>
+                        {lang.tr(&lang::MODLOG_EVENT_UNSUSPEND_USER)}
+                        {" "}
+                        <UserLink user={Some(user)} lang={&lang} />
+                    </>
+                }
+                .render_into(writer)?;
+            }
+        }
+
+        write!(writer, "</li>")?;
+
+        Ok(())
     }
 }
 
