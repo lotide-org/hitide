@@ -160,6 +160,9 @@ async fn page_about(
                     )
                 }
             </p>
+            <p>
+                <a href={"/modlog"}>{lang.tr(&lang::modlog_site())}</a>
+            </p>
             <h2>{lang.tr(&lang::about_what_is())}</h2>
             <p>
                 {lang.tr(&lang::about_text1())}
