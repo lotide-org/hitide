@@ -286,6 +286,48 @@ pub struct RespInstanceInfo<'a> {
 #[derive(Deserialize, Debug)]
 #[serde(tag = "type")]
 #[serde(rename_all = "snake_case")]
+pub enum RespCommunityModlogEventDetails<'a> {
+    RejectPost { post: RespMinimalPostInfo<'a> },
+    ApprovePost { post: RespMinimalPostInfo<'a> },
+}
+
+#[derive(Deserialize, Debug)]
+pub struct RespCommunityModlogEvent<'a> {
+    pub time: Cow<'a, str>,
+    #[serde(flatten)]
+    pub details: RespCommunityModlogEventDetails<'a>,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(tag = "type")]
+#[serde(rename_all = "snake_case")]
+pub enum RespSiteModlogEventDetails<'a> {
+    DeletePost {
+        author: RespMinimalAuthorInfo<'a>,
+        community: RespMinimalCommunityInfo<'a>,
+    },
+    DeleteComment {
+        author: RespMinimalAuthorInfo<'a>,
+        post: RespMinimalPostInfo<'a>,
+    },
+    SuspendUser {
+        user: RespMinimalAuthorInfo<'a>,
+    },
+    UnsuspendUser {
+        user: RespMinimalAuthorInfo<'a>,
+    },
+}
+
+#[derive(Deserialize, Debug)]
+pub struct RespSiteModlogEvent<'a> {
+    pub time: Cow<'a, str>,
+    #[serde(flatten)]
+    pub details: RespSiteModlogEventDetails<'a>,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(tag = "type")]
+#[serde(rename_all = "snake_case")]
 pub enum RespNotificationInfo<'a> {
     PostReply {
         reply: RespPostCommentInfo<'a>,

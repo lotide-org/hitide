@@ -6,13 +6,13 @@ use std::sync::Arc;
 
 use crate::components::{
     BoolCheckbox, ContentView, FlagItem, HTPage, MaybeFillInput, NotificationItem, PostItem,
-    ThingItem,
+    SiteModlogEventItem, ThingItem,
 };
 use crate::lang;
 use crate::query_types::{FlagListQuery, PostListQuery};
 use crate::resp_types::{
     JustStringID, RespFlagInfo, RespInstanceInfo, RespList, RespNotification, RespPostListPost,
-    RespThingInfo, RespUserInfo,
+    RespSiteModlogEvent, RespThingInfo, RespUserInfo,
 };
 use crate::PageBaseData;
 
@@ -159,6 +159,9 @@ async fn page_about(
                         )
                     )
                 }
+            </p>
+            <p>
+                <a href={"/modlog"}>{lang.tr(&lang::modlog_site())}</a>
             </p>
             <h2>{lang.tr(&lang::about_what_is())}</h2>
             <p>
@@ -439,6 +442,53 @@ async fn page_lookup(
             }))
         }
     }
+}
+
+async fn page_modlog(
+    _: (),
+    ctx: Arc<crate::RouteContext>,
+    req: hyper::Request<hyper::Body>,
+) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+    let lang = crate::get_lang_for_req(&req);
+    let cookies = get_cookie_map_for_req(&req)?;
+
+    let base_data =
+        fetch_base_data(&ctx.backend_host, &ctx.http_client, req.headers(), &cookies).await?;
+
+    let api_res = res_to_error(
+        ctx.http_client
+            .request(for_client(
+                hyper::Request::get(format!(
+                    "{}/api/unstable/instance/modlog/events",
+                    ctx.backend_host,
+                ))
+                .body(Default::default())?,
+                req.headers(),
+                &cookies,
+            )?)
+            .await?,
+    )
+    .await?;
+    let api_res = hyper::body::to_bytes(api_res.into_body()).await?;
+    let api_res: RespList<RespSiteModlogEvent> = serde_json::from_slice(&api_res)?;
+
+    let title = lang.tr(&lang::MODLOG_SITE);
+
+    Ok(html_response(render::html! {
+        <HTPage base_data={&base_data} lang={&lang} title={&title}>
+            <h1>{title.as_ref()}</h1>
+            <ul>
+                {
+                    api_res.items.iter().map(|event| {
+                        render::rsx! {
+                            <SiteModlogEventItem event={event} lang={&lang} />
+                        }
+                    })
+                    .collect::<Vec<_>>()
+                }
+            </ul>
+        </HTPage>
+    }))
 }
 
 async fn page_new_community(
@@ -1590,6 +1640,10 @@ pub fn route_root() -> crate::RouteNode<()> {
         .with_child(
             "lookup",
             crate::RouteNode::new().with_handler_async(hyper::Method::GET, page_lookup),
+        )
+        .with_child(
+            "modlog",
+            crate::RouteNode::new().with_handler_async(hyper::Method::GET, page_modlog),
         )
         .with_child(
             "new_community",
