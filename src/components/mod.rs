@@ -791,7 +791,7 @@ impl<'a> render::Render for SiteModlogEventItem<'a> {
 
         match &event.details {
             RespSiteModlogEventDetails::DeletePost { author, community } => {
-                render::rsx! {
+                (render::rsx! {
                     <>
                         {lang.tr(&lang::MODLOG_EVENT_DELETE_POST_1)}
                         {" "}
@@ -801,11 +801,11 @@ impl<'a> render::Render for SiteModlogEventItem<'a> {
                         {" "}
                         <CommunityLink community />
                     </>
-                }
+                })
                 .render_into(writer)?;
             }
             RespSiteModlogEventDetails::DeleteComment { author, post } => {
-                render::rsx! {
+                (render::rsx! {
                     <>
                         {lang.tr(&lang::MODLOG_EVENT_DELETE_COMMENT_1)}
                         {" "}
@@ -815,27 +815,27 @@ impl<'a> render::Render for SiteModlogEventItem<'a> {
                         {" "}
                         <a href={format!("/posts/{}", post.id)}>{post.title.as_ref()}</a>
                     </>
-                }
+                })
                 .render_into(writer)?;
             }
             RespSiteModlogEventDetails::SuspendUser { user } => {
-                render::rsx! {
+                (render::rsx! {
                     <>
                         {lang.tr(&lang::MODLOG_EVENT_SUSPEND_USER)}
                         {" "}
                         <UserLink user={Some(user)} lang={&lang} />
                     </>
-                }
+                })
                 .render_into(writer)?;
             }
             RespSiteModlogEventDetails::UnsuspendUser { user } => {
-                render::rsx! {
+                (render::rsx! {
                     <>
                         {lang.tr(&lang::MODLOG_EVENT_UNSUSPEND_USER)}
                         {" "}
                         <UserLink user={Some(user)} lang={&lang} />
                     </>
-                }
+                })
                 .render_into(writer)?;
             }
         }
