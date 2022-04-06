@@ -27,6 +27,7 @@ communities_remote_more = More Remote Communities
 communities_page_next = View More
 community_add_moderator = Add Moderator
 community_create = Create Community
+community_create_not_allowed = You are not allowed to create communities
 community_create_submit = Create
 community_delete_link = Delete Community
 community_delete_question = Delete this community?

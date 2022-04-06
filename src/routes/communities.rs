@@ -135,8 +135,12 @@ async fn page_communities(
                                 }
                             }
                             {
-                                if base_data.login.is_some() {
-                                    Some(render::rsx! { <a href={"/new_community"}>{lang.tr(&lang::COMMUNITY_CREATE)}</a> })
+                                if let Some(login) = &base_data.login {
+                                    if login.permissions.create_community.allowed {
+                                        Some(render::rsx! { <a href={"/new_community"}>{lang.tr(&lang::COMMUNITY_CREATE)}</a> })
+                                    } else {
+                                        None
+                                    }
                                 } else {
                                     None
                                 }

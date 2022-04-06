@@ -222,6 +222,17 @@ pub struct RespLoginInfoUser {
 #[derive(Deserialize, Debug)]
 pub struct RespLoginInfo {
     pub user: RespLoginInfoUser,
+    pub permissions: RespLoginPermissions,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct RespLoginPermissions {
+    pub create_community: RespPermissionInfo,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct RespPermissionInfo {
+    pub allowed: bool,
 }
 
 #[derive(Deserialize, Debug)]

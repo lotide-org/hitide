@@ -513,6 +513,15 @@ async fn page_new_community_inner(
 
     let title = lang.tr(&lang::COMMUNITY_CREATE);
 
+    let not_allowed = base_data.login.is_some()
+        && !base_data
+            .login
+            .as_ref()
+            .unwrap()
+            .permissions
+            .create_community
+            .allowed;
+
     Ok(html_response(render::html! {
         <HTPage base_data={&base_data} lang={&lang} title={&title}>
             <h1>{title.as_ref()}</h1>
@@ -523,16 +532,29 @@ async fn page_new_community_inner(
                     }
                 })
             }
-            <form method={"POST"} action={"/new_community/submit"}>
-                <div>
-                    <label>
-                        {lang.tr(&lang::name_prompt())}{" "}<MaybeFillInput values={&prev_values} r#type={"text"} name={"name"} required={true} id={"input_name"} />
-                    </label>
-                </div>
-                <div>
-                    <button r#type={"submit"}>{lang.tr(&lang::community_create_submit())}</button>
-                </div>
-            </form>
+            {
+                not_allowed.then(|| {
+                    render::rsx! {
+                        <div class={"errorBox"}>{lang.tr(&lang::COMMUNITY_CREATE_NOT_ALLOWED)}</div>
+                    }
+                })
+            }
+            {
+                (!not_allowed).then(|| {
+                    render::rsx! {
+                        <form method={"POST"} action={"/new_community/submit"}>
+                            <div>
+                                <label>
+                                    {lang.tr(&lang::NAME_PROMPT)}{" "}<MaybeFillInput values={&prev_values} r#type={"text"} name={"name"} required={true} id={"input_name"} />
+                                </label>
+                            </div>
+                            <div>
+                                <button r#type={"submit"}>{lang.tr(&lang::COMMUNITY_CREATE_SUBMIT)}</button>
+                            </div>
+                        </form>
+                    }
+                })
+            }
         </HTPage>
     }))
 }
