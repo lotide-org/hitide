@@ -295,6 +295,15 @@ pub struct RespInstanceInfo<'a> {
 }
 
 #[derive(Deserialize, Debug)]
+pub struct RespInvitationInfo<'a> {
+    pub id: i32,
+    pub key: Cow<'a, str>,
+    pub created_by: RespMinimalAuthorInfo<'a>,
+    pub created_at: Cow<'a, str>,
+    pub used: bool,
+}
+
+#[derive(Deserialize, Debug)]
 #[serde(tag = "type")]
 #[serde(rename_all = "snake_case")]
 pub enum RespCommunityModlogEventDetails<'a> {
