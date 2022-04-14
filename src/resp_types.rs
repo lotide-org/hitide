@@ -228,6 +228,7 @@ pub struct RespLoginInfo {
 #[derive(Deserialize, Debug)]
 pub struct RespLoginPermissions {
     pub create_community: RespPermissionInfo,
+    pub create_invitation: RespPermissionInfo,
 }
 
 #[derive(Deserialize, Debug)]
@@ -301,6 +302,12 @@ pub struct RespInvitationInfo<'a> {
     pub created_by: RespMinimalAuthorInfo<'a>,
     pub created_at: Cow<'a, str>,
     pub used: bool,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct InvitationsCreateResponse<'a> {
+    pub id: i32,
+    pub key: Cow<'a, str>,
 }
 
 #[derive(Deserialize, Debug)]

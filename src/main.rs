@@ -50,6 +50,7 @@ pub type HttpClient = hyper::Client<hyper_tls::HttpsConnector<hyper::client::Htt
 
 pub struct RouteContext {
     backend_host: String,
+    frontend_url: url::Url,
     http_client: HttpClient,
 }
 
@@ -168,6 +169,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let routes = Arc::new(routes::route_root());
     let context = Arc::new(RouteContext {
         backend_host: config.backend_host,
+        frontend_url: config.frontend_url,
         http_client: hyper::Client::builder().build(hyper_tls::HttpsConnector::new()),
     });
 
