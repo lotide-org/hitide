@@ -9,6 +9,8 @@ fn default_port() -> u16 {
 pub struct Config {
     pub backend_host: String,
 
+    pub frontend_url: url::Url,
+
     #[serde(default = "default_port")]
     pub port: u16,
 }

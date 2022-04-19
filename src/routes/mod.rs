@@ -1,4 +1,4 @@
-use serde_derive::Deserialize;
+use serde_derive::{Deserialize, Serialize};
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::convert::TryInto;
@@ -11,8 +11,8 @@ use crate::components::{
 use crate::lang;
 use crate::query_types::{FlagListQuery, PostListQuery};
 use crate::resp_types::{
-    JustStringID, RespFlagInfo, RespInstanceInfo, RespList, RespNotification, RespPostListPost,
-    RespSiteModlogEvent, RespThingInfo, RespUserInfo,
+    InvitationsCreateResponse, JustStringID, RespFlagInfo, RespInstanceInfo, RespInvitationInfo,
+    RespList, RespNotification, RespPostListPost, RespSiteModlogEvent, RespThingInfo, RespUserInfo,
 };
 use crate::PageBaseData;
 
@@ -27,6 +27,11 @@ const COOKIE_AGE: u32 = 60 * 60 * 24 * 365;
 #[derive(Deserialize)]
 struct ReturnToParams<'a> {
     return_to: Option<Cow<'a, str>>,
+}
+
+#[derive(Deserialize, Serialize)]
+struct SignupQuery<'a> {
+    invitation_key: Option<Cow<'a, str>>,
 }
 
 type CookieMap<'a> = std::collections::HashMap<&'a str, ginger::Cookie<'a>>;
@@ -491,6 +496,121 @@ async fn page_modlog(
     }))
 }
 
+async fn page_my_invitations(
+    _: (),
+    ctx: Arc<crate::RouteContext>,
+    req: hyper::Request<hyper::Body>,
+) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+    let cookies = get_cookie_map_for_req(&req)?;
+
+    page_my_invitations_inner(ctx, req.headers(), &cookies, None).await
+}
+
+async fn page_my_invitations_inner(
+    ctx: Arc<crate::RouteContext>,
+    headers: &hyper::header::HeaderMap,
+    cookies: &CookieMap<'_>,
+    res: Option<Result<InvitationsCreateResponse<'_>, &str>>,
+) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+    let lang = crate::get_lang_for_headers(headers);
+
+    let base_data = fetch_base_data(&ctx.backend_host, &ctx.http_client, headers, &cookies).await?;
+
+    let can_create_result = match &base_data.login {
+        None => Err(lang.tr(&lang::MUST_LOGIN)),
+        Some(login) => {
+            if login.permissions.create_invitation.allowed {
+                Ok(())
+            } else {
+                Err(lang.tr(&lang::MISSING_PERMISSION_CREATE_INVITATION))
+            }
+        }
+    };
+
+    let title = lang.tr(&lang::MY_INVITATIONS);
+
+    match can_create_result {
+        Ok(()) => Ok(html_response(render::html! {
+            <HTPage base_data={&base_data} lang={&lang} title={&title}>
+                <h1>{title.as_ref()}</h1>
+                <form method={"POST"} action={"/my_invitations/create"}>
+                    <button type={"submit"}>{lang.tr(&lang::CREATE_INVITATION)}</button>
+                </form>
+                <br />
+                {
+                    if let Some(Ok(res)) = &res {
+                        let url = {
+                            let mut url = ctx.frontend_url.clone();
+                            url.path_segments_mut().unwrap().push("signup");
+                            url.set_query(Some(&format!("invitation_key={}", res.key)));
+                            url
+                        };
+
+                        Some(render::rsx! {
+                            <div>
+                                <p>{lang.tr(&lang::CREATE_INVITATION_RESULT)}</p>
+                                <input type={"text"} readonly={""} value={String::from(url)} />
+                            </div>
+                        })
+                    } else {
+                        None
+                    }
+                }
+                {
+                    if let Some(Err(message)) = res {
+                        Some(render::rsx! {
+                            <div class={"errorBox"}>
+                                {message}
+                            </div>
+                        })
+                    } else {
+                        None
+                    }
+                }
+            </HTPage>
+        })),
+        Err(err) => Ok(html_response(render::html! {
+            <HTPage base_data={&base_data} lang={&lang} title={&title}>
+                <h1>{title.as_ref()}</h1>
+                <div class={"errorBox"}>{err}</div>
+            </HTPage>
+        })),
+    }
+}
+
+async fn handler_my_invitations_create(
+    _: (),
+    ctx: Arc<crate::RouteContext>,
+    req: hyper::Request<hyper::Body>,
+) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+    let cookies = get_cookie_map_for_req(&req)?;
+
+    let api_res = res_to_error(
+        ctx.http_client
+            .request(for_client(
+                hyper::Request::post(format!("{}/api/unstable/invitations", ctx.backend_host))
+                    .body(Default::default())?,
+                &req.headers(),
+                &cookies,
+            )?)
+            .await?,
+    )
+    .await;
+
+    match api_res {
+        Ok(api_res) => {
+            let api_res = hyper::body::to_bytes(api_res.into_body()).await?;
+            let api_res: InvitationsCreateResponse = serde_json::from_slice(&api_res)?;
+
+            page_my_invitations_inner(ctx, req.headers(), &cookies, Some(Ok(api_res))).await
+        }
+        Err(crate::Error::RemoteError((status, message))) if status.is_client_error() => {
+            page_my_invitations_inner(ctx, req.headers(), &cookies, Some(Err(&message))).await
+        }
+        Err(other) => Err(other),
+    }
+}
+
 async fn page_new_community(
     _: (),
     ctx: Arc<crate::RouteContext>,
@@ -700,12 +820,15 @@ async fn page_signup(
     ctx: Arc<crate::RouteContext>,
     req: hyper::Request<hyper::Body>,
 ) -> Result<hyper::Response<hyper::Body>, crate::Error> {
-    page_signup_inner(ctx, req.headers(), None, None).await
+    let query: SignupQuery = serde_urlencoded::from_str(req.uri().query().unwrap_or(""))?;
+
+    page_signup_inner(ctx, req.headers(), query, None, None).await
 }
 
 async fn page_signup_inner(
     ctx: Arc<crate::RouteContext>,
     headers: &hyper::HeaderMap,
+    query: SignupQuery<'_>,
     display_error: Option<String>,
     prev_values: Option<&HashMap<Cow<'_, str>, serde_json::Value>>,
 ) -> Result<hyper::Response<hyper::Body>, crate::Error> {
@@ -725,7 +848,51 @@ async fn page_signup_inner(
     )
     .await?;
     let api_res = hyper::body::to_bytes(api_res.into_body()).await?;
-    let api_res: RespInstanceInfo = serde_json::from_slice(&api_res)?;
+    let instance_info: RespInstanceInfo = serde_json::from_slice(&api_res)?;
+
+    let can_signup_res = {
+        if let Some(invitation_key) = &query.invitation_key {
+            let api_res = res_to_error(
+                ctx.http_client
+                    .get(
+                        format!(
+                            "{}/api/unstable/invitations?{}",
+                            ctx.backend_host,
+                            serde_urlencoded::to_string(&serde_json::json!({
+                                "key": invitation_key
+                            }))
+                            .unwrap()
+                        )
+                        .try_into()
+                        .unwrap(),
+                    )
+                    .await?,
+            )
+            .await?;
+            let api_res = hyper::body::to_bytes(api_res.into_body()).await?;
+            let api_res: RespList<RespInvitationInfo> = serde_json::from_slice(&api_res)?;
+
+            if let Some(info) = api_res.items.first() {
+                if info.used {
+                    Err(lang.tr(&lang::INVITATION_ALREADY_USED))
+                } else {
+                    Ok(())
+                }
+            } else {
+                if instance_info.signup_allowed {
+                    Ok(())
+                } else {
+                    Err(lang.tr(&lang::NO_SUCH_INVITATION))
+                }
+            }
+        } else {
+            if instance_info.signup_allowed {
+                Ok(())
+            } else {
+                Err(lang.tr(&lang::SIGNUP_NOT_ALLOWED))
+            }
+        }
+    };
 
     let title = lang.tr(&lang::REGISTER);
 
@@ -739,13 +906,20 @@ async fn page_signup_inner(
                 })
             }
             {
-                (!api_res.signup_allowed).then(|| render::rsx! {
-                    <div class={"errorBox"}>{lang.tr(&lang::SIGNUP_NOT_ALLOWED)}</div>
+                can_signup_res.as_ref().err().map(|err| render::rsx! {
+                    <div class={"errorBox"}>{err.as_ref()}</div>
                 })
             }
             {
-                api_res.signup_allowed.then(|| render::rsx! {
+                can_signup_res.is_ok().then(|| render::rsx! {
                     <form method={"POST"} action={"/signup/submit"}>
+                        {
+                            query.invitation_key.map(|invitation_key| {
+                                render::rsx! {
+                                    <input type={"hidden"} name={"invitation_key"} value={invitation_key} />
+                                }
+                            })
+                        }
                         <table>
                             <tr>
                                 <td><label for={"input_username"}>{lang.tr(&lang::USERNAME_PROMPT)}</label></td>
@@ -793,6 +967,31 @@ async fn handler_signup_submit(
         body.remove("email_address");
     }
 
+    let invitation_key = if let Some(key) = body.get("invitation_key") {
+        match key.as_str() {
+            Some("") => {
+                body.remove("invitation_key");
+
+                None
+            }
+            Some(key) => Some(key),
+            None => {
+                return Err(crate::Error::UserError({
+                    let mut res =
+                        hyper::Response::new("Invalid value type for invitation_key".into());
+                    *res.status_mut() = hyper::StatusCode::BAD_REQUEST;
+                    res
+                }));
+            }
+        }
+    } else {
+        None
+    };
+
+    let query = SignupQuery {
+        invitation_key: invitation_key.map(Cow::Borrowed),
+    };
+
     let api_res = res_to_error(
         ctx.http_client
             .request(
@@ -820,7 +1019,7 @@ async fn handler_signup_submit(
                 .body("Successfully registered new account.".into())?)
         }
         Err(crate::Error::RemoteError((status, message))) if status.is_client_error() => {
-            page_signup_inner(ctx, &req_parts.headers, Some(message), Some(&body)).await
+            page_signup_inner(ctx, &req_parts.headers, query, Some(message), Some(&body)).await
         }
         Err(other) => Err(other),
     }
@@ -968,7 +1167,22 @@ async fn page_user(
             {
                 if let Some(login) = &base_data.login {
                     if login.user.id == user_id {
-                        Some(render::rsx! { <a href={format!("/users/{}/edit", user_id)}>{lang.tr(&lang::EDIT)}</a> })
+                        Some(render::rsx! {
+                            <>
+                                <div>
+                                    <a href={format!("/users/{}/edit", user_id)}>{lang.tr(&lang::EDIT)}</a>
+                                </div>
+                                {
+                                    login.permissions.create_invitation.allowed.then(|| {
+                                        render::rsx! {
+                                            <div>
+                                                <a href={"/my_invitations"}>{lang.tr(&lang::INVITE_USERS)}</a>
+                                            </div>
+                                        }
+                                    })
+                                }
+                            </>
+                        })
                     } else {
                         None
                     }
@@ -1666,6 +1880,16 @@ pub fn route_root() -> crate::RouteNode<()> {
         .with_child(
             "modlog",
             crate::RouteNode::new().with_handler_async(hyper::Method::GET, page_modlog),
+        )
+        .with_child(
+            "my_invitations",
+            crate::RouteNode::new()
+                .with_handler_async(hyper::Method::GET, page_my_invitations)
+                .with_child(
+                    "create",
+                    crate::RouteNode::new()
+                        .with_handler_async(hyper::Method::POST, handler_my_invitations_create),
+                ),
         )
         .with_child(
             "new_community",
