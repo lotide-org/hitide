@@ -52,107 +52,111 @@ pub fn Comment<'a>(
                     None
                 }
             }
-            <div class={"content"}>
-                <small>
-                    <cite><UserLink lang user={comment.author.as_ref()} /></cite>
-                    {" "}
-                    <TimeAgo since={chrono::DateTime::parse_from_rfc3339(&comment.created).unwrap()} lang />
-                </small>
-                <div class={"commentContent"}>
+            <details class={"commentCollapse"} open={"open"}>
+                <summary>
+                    <small>
+                        <cite><UserLink lang user={comment.author.as_ref()} /></cite>
+                        {" "}
+                        <TimeAgo since={chrono::DateTime::parse_from_rfc3339(&comment.created).unwrap()} lang />
+                    </small>
+                </summary>
+                <div class={"content"}>
+                    <div class={"commentContent"}>
+                        {
+                            sensitive_hide.then(|| {
+                                render::rsx! {
+                                    <details>
+                                        <summary>
+                                            {hitide_icons::SENSITIVE.img_aria_hidden()}
+                                            {lang.tr(&lang::SENSITIVE)}
+                                        </summary>
+                                        <ContentView src={comment} />
+                                    </details>
+                                }
+                            })
+                        }
+                        {
+                            (!sensitive_hide).then(|| {
+                                render::rsx! { <ContentView src={comment} /> }
+                            })
+                        }
+                    </div>
                     {
-                        sensitive_hide.then(|| {
+                        comment.attachments.iter().map(|attachment| {
+                            let href = &attachment.url;
                             render::rsx! {
-                                <details>
-                                    <summary>
-                                        {hitide_icons::SENSITIVE.img_aria_hidden()}
-                                        {lang.tr(&lang::SENSITIVE)}
-                                    </summary>
-                                    <ContentView src={comment} />
-                                </details>
+                                <div>
+                                    <strong>{lang.tr(&lang::COMMENT_ATTACHMENT_PREFIX)}</strong>
+                                    {" "}
+                                    <em><a href={href.as_ref()}>{abbreviate_link(href)}{" ↗"}</a></em>
+                                </div>
                             }
                         })
+                        .collect::<Vec<_>>()
                     }
-                    {
-                        (!sensitive_hide).then(|| {
-                            render::rsx! { <ContentView src={comment} /> }
-                        })
-                    }
+                    <div class={"actionList small"}>
+                        {
+                            if base_data.login.is_some() {
+                                Some(render::rsx! {
+                                    <a href={format!("/comments/{}?sort={}", comment.as_ref().id, sort.as_str())}>{lang.tr(&lang::REPLY)}</a>
+                                })
+                            } else {
+                                None
+                            }
+                        }
+                        {
+                            if author_is_me(&comment.author, &base_data.login) || (comment.local && base_data.is_site_admin()) {
+                                Some(render::rsx! {
+                                    <a href={format!("/comments/{}/delete", comment.as_ref().id)}>{lang.tr(&lang::DELETE)}</a>
+                                })
+                            } else {
+                                None
+                            }
+                        }
+                    </div>
                 </div>
-                {
-                    comment.attachments.iter().map(|attachment| {
-                        let href = &attachment.url;
-                        render::rsx! {
-                            <div>
-                                <strong>{lang.tr(&lang::COMMENT_ATTACHMENT_PREFIX)}</strong>
-                                {" "}
-                                <em><a href={href.as_ref()}>{abbreviate_link(href)}{" ↗"}</a></em>
-                            </div>
-                        }
-                    })
-                    .collect::<Vec<_>>()
-                }
-                <div class={"actionList small"}>
-                    {
-                        if base_data.login.is_some() {
-                            Some(render::rsx! {
-                                <a href={format!("/comments/{}?sort={}", comment.as_ref().id, sort.as_str())}>{lang.tr(&lang::REPLY)}</a>
-                            })
-                        } else {
-                            None
-                        }
-                    }
-                    {
-                        if author_is_me(&comment.author, &base_data.login) || (comment.local && base_data.is_site_admin()) {
-                            Some(render::rsx! {
-                                <a href={format!("/comments/{}/delete", comment.as_ref().id)}>{lang.tr(&lang::DELETE)}</a>
-                            })
-                        } else {
-                            None
-                        }
-                    }
-                </div>
-            </div>
 
-            {
-                if let Some(replies) = &comment.replies {
-                    if replies.items.is_empty() {
-                        None
-                    } else {
-                        Some(render::rsx! {
-                            <>
-                                <ul class={"commentList"}>
+                {
+                    if let Some(replies) = &comment.replies {
+                        if replies.items.is_empty() {
+                            None
+                        } else {
+                            Some(render::rsx! {
+                                <>
+                                    <ul class={"commentList"}>
+                                        {
+                                            replies.items.iter().map(|reply| {
+                                                render::rsx! {
+                                                    <Comment sort={sort} comment={reply} root_sensitive base_data lang />
+                                                }
+                                            })
+                                            .collect::<Vec<_>>()
+                                        }
+                                    </ul>
                                     {
-                                        replies.items.iter().map(|reply| {
+                                        replies.next_page.as_ref().map(|next_page| {
                                             render::rsx! {
-                                                <Comment sort={sort} comment={reply} root_sensitive base_data lang />
+                                                <a href={format!("/comments/{}?sort={}&page={}", comment.base.id, sort.as_str(), next_page)}>{"-> "}{lang.tr(&lang::VIEW_MORE_COMMENTS)}</a>
                                             }
                                         })
-                                        .collect::<Vec<_>>()
                                     }
-                                </ul>
-                                {
-                                    replies.next_page.as_ref().map(|next_page| {
-                                        render::rsx! {
-                                            <a href={format!("/comments/{}?sort={}&page={}", comment.base.id, sort.as_str(), next_page)}>{"-> "}{lang.tr(&lang::VIEW_MORE_COMMENTS)}</a>
-                                        }
-                                    })
-                                }
-                            </>
-                        })
+                                </>
+                            })
+                        }
+                    } else {
+                        None
                     }
-                } else {
-                    None
                 }
-            }
-            {
-                if comment.replies.is_none() {
-                    Some(render::rsx! {
-                        <ul><li><a href={format!("/comments/{}", comment.as_ref().id)}>{"-> "}{lang.tr(&lang::VIEW_MORE_COMMENTS)}</a></li></ul>
-                    })
-                } else {
-                    None
+                {
+                    if comment.replies.is_none() {
+                        Some(render::rsx! {
+                            <ul><li><a href={format!("/comments/{}", comment.as_ref().id)}>{"-> "}{lang.tr(&lang::VIEW_MORE_COMMENTS)}</a></li></ul>
+                        })
+                    } else {
+                        None
+                    }
                 }
-            }
+            </details>
         </li>
     }
 }
