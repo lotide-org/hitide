@@ -51,6 +51,7 @@ flags_title_other = Flags
 flags_title_site_admin = Flags for this site's admins
 follow = Follow
 follow_request_sent = Follow request sent!
+follow_request_cancel = Cancel Follow Request
 follow_undo = Unfollow
 forgot_password = Forgot Password
 forgot_password_code_info = You should have received a code via email.

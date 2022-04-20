@@ -342,8 +342,8 @@ async fn page_community(
                             },
                             Some(RespYourFollow { accepted: false }) => {
                                 render::rsx! {
-                                    <form>
-                                        <button disabled={""}>{lang.tr(&lang::FOLLOW_REQUEST_SENT)}</button>
+                                    <form method={"POST"} action={format!("/communities/{}/unfollow", community_id)}>
+                                        <button type={"submit"}>{lang.tr(&lang::FOLLOW_REQUEST_CANCEL)}</button>
                                     </form>
                                 }
                             },
