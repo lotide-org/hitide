@@ -169,9 +169,11 @@ body {
 }
 
 .titleLine {
-	white-space: nowrap;
-	display: flex;
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	-webkit-box-orient: vertical;
 	padding-right: .5em;
+	overflow-y: hidden;
 }
 .titleLine > a {
 	min-width: 0;
