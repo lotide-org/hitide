@@ -254,17 +254,17 @@ pub struct RespYourFollow {
     pub accepted: bool,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct RespCommunityFeedsType<'a> {
     pub new: Cow<'a, str>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct RespCommunityFeeds<'a> {
     pub atom: RespCommunityFeedsType<'a>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct RespCommunityInfoMaybeYour<'a> {
     #[serde(flatten)]
     pub base: RespMinimalCommunityInfo<'a>,
@@ -274,6 +274,7 @@ pub struct RespCommunityInfoMaybeYour<'a> {
 
     pub you_are_moderator: Option<bool>,
     pub your_follow: Option<RespYourFollow>,
+    pub pending_moderation_actions: Option<u32>,
 }
 
 impl<'a> AsRef<RespMinimalCommunityInfo<'a>> for RespCommunityInfoMaybeYour<'a> {

@@ -19,6 +19,7 @@ use crate::PageBaseData;
 mod comments;
 mod communities;
 mod forgot_password;
+mod moderation;
 mod posts;
 mod r#static;
 
@@ -1877,6 +1878,7 @@ pub fn route_root() -> crate::RouteNode<()> {
             "lookup",
             crate::RouteNode::new().with_handler_async(hyper::Method::GET, page_lookup),
         )
+        .with_child("moderation", moderation::route_moderation())
         .with_child(
             "modlog",
             crate::RouteNode::new().with_handler_async(hyper::Method::GET, page_modlog),
