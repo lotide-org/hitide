@@ -253,6 +253,23 @@ p {
 	margin-right: .5em;
 }
 
+.tabs {
+	margin-top: 1em;
+	float: left;
+	display: block;
+	margin-right: 2em;
+	border: 1px solid gray;
+}
+
+.tabs > a {
+	display: block;
+	padding: .2em .5em;
+}
+
+.tabs > .selected {
+	background-color: #81D4FA;
+}
+
 @media (min-width: 768px) {
 	.communityDetailsMobile, .leftLinksMobile {
 		display: none !important;
@@ -280,7 +297,7 @@ p {
 		color: #D0ADF0;
 	}
 
-	.mainHeader, .leftLinksMobile > div {
+	.mainHeader, .leftLinksMobile > div, .tabs > .selected {
 		background-color: #00567D;
 	}
 

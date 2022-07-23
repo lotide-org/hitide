@@ -71,17 +71,15 @@ async fn page_moderation(
 
     Ok(html_response(render::html!(
         <HTPage base_data={&base_data} lang={&lang} title={&title}>
-            <ul>
+            <nav class={"tabs"}>
                 {communities.items.iter().map(|community| {
                     render::rsx! {
-                        <li>
-                            <a class={if query.community == Some(community.base.id) { "selected" } else { "" }} href={format!("/moderation?community={}", community.base.id)}>
-                                {community.base.name.deref()}{" ("}{community.pending_moderation_actions.unwrap()}{")"}
-                            </a>
-                        </li>
+                        <a class={if query.community == Some(community.base.id) { "selected" } else { "" }} href={format!("/moderation?community={}", community.base.id)}>
+                            {community.base.name.deref()}{" ("}{community.pending_moderation_actions.unwrap()}{")"}
+                        </a>
                     }
                 }).collect::<Vec<_>>()}
-            </ul>
+            </nav>
             {
                 if query.community.is_some() {
                     Some(flags.as_ref().unwrap().items.iter().map(|flag| {
