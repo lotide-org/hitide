@@ -217,6 +217,7 @@ pub struct RespLoginInfoUser {
     pub id: i64,
     pub is_site_admin: bool,
     pub has_unread_notifications: bool,
+    pub has_pending_moderation_actions: bool,
 }
 
 #[derive(Deserialize, Debug)]

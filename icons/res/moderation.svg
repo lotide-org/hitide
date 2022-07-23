@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+<!--#darkInvert#-->
+<svg version="1.1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="black" stroke="black">
+	<path d="M 6 11 l 8 -8 c .5 -.5 4.5 3.5 4 4 l -8 8 c -.5 .5 -4.5 -3.5 -4 -4" />
+	<line x1="14" y1="11" x2="20" y2="17" />
+
+	<path d="M 2 22 h 8 c 0 -2 -8 -2 -8 0 z" />
+</svg>

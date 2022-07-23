@@ -76,6 +76,7 @@ lookup_nothing = Nothing found.
 lookup_title = Lookup
 missing_permission_create_invitation = You are not allowed to create invitations
 moderation_dashboard = Moderation Dashboard
+moderation_dashboard_some = Moderation Dashboard (Pending Actions)
 moderators = Moderators
 modlog = Modlog
 modlog_event_approve_post = Post Approved:

@@ -385,6 +385,15 @@ pub fn HTPageAdvanced<'a, HeadItems: render::Render, Children: render::Render>(
                                             <a href={format!("/users/{}", login.user.id)}>
                                                 {hitide_icons::PERSON.img(lang.tr(&lang::profile()).into_owned())}
                                             </a>
+                                            <a href={"/moderation"}>
+                                                {
+                                                    if login.user.has_pending_moderation_actions {
+                                                        hitide_icons::MODERATION_SOME.img(lang.tr(&lang::moderation_dashboard_some()).into_owned())
+                                                    } else {
+                                                        hitide_icons::MODERATION.img(lang.tr(&lang::moderation_dashboard()).into_owned())
+                                                    }
+                                                }
+                                            </a>
                                             {
                                                 base_data.is_site_admin().then(|| {
                                                     render::rsx! {
