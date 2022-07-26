@@ -1,4 +1,7 @@
-use super::{fetch_base_data, for_client, get_cookie_map_for_req, html_response, res_to_error};
+use super::{
+    fetch_base_data, for_client, get_cookie_map_for_headers, get_cookie_map_for_req, html_response,
+    res_to_error,
+};
 use crate::components::{FlagItem, HTPage};
 use crate::lang;
 use crate::resp_types::{RespCommunityInfoMaybeYour, RespFlagInfo, RespList};
@@ -48,7 +51,7 @@ async fn page_moderation(
             ctx.http_client
                 .request(for_client(
                     hyper::Request::get(format!(
-                        "{}/api/unstable/flags?to_community={}",
+                        "{}/api/unstable/flags?to_community={}&dismissed=false",
                         ctx.backend_host, community,
                     ))
                     .body(Default::default())?,
@@ -83,7 +86,16 @@ async fn page_moderation(
             {
                 if query.community.is_some() {
                     Some(flags.as_ref().unwrap().items.iter().map(|flag| {
-                        FlagItem { flag, in_community: true, lang: &lang }
+                        render::rsx! {
+                            <div>
+                                <FlagItem flag in_community={true} lang={&lang} />
+                                <form method={"POST"} action={"/moderation/submit_dismiss"}>
+                                    <input type={"hidden"} name={"community"} value={query.community.unwrap().to_string()} />
+                                    <input type={"hidden"} name={"flag"} value={flag.id.to_string()} />
+                                    <input type={"submit"} value={lang.tr(&lang::FLAG_DISMISS)} />
+                                </form>
+                            </div>
+                        }
                     }).collect::<Vec<_>>())
                          }
                          else {
@@ -94,6 +106,53 @@ async fn page_moderation(
     )))
 }
 
+async fn handler_moderation_submit_dismiss(
+    _params: (),
+    ctx: Arc<crate::RouteContext>,
+    req: hyper::Request<hyper::Body>,
+) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+    #[derive(Deserialize)]
+    struct Body {
+        community: i64,
+        flag: i64,
+    }
+
+    let (req_parts, body) = req.into_parts();
+    let body = hyper::body::to_bytes(body).await?;
+    let body: Body = serde_urlencoded::from_bytes(&body)?;
+
+    let cookies = get_cookie_map_for_headers(&req_parts.headers)?;
+
+    res_to_error(
+        ctx.http_client
+            .request(for_client(
+                hyper::Request::patch(format!(
+                    "{}/api/unstable/flags/{}",
+                    ctx.backend_host, body.flag
+                ))
+                .body(r#"{"community_dismissed":true}"#.into())?,
+                &req_parts.headers,
+                &cookies,
+            )?)
+            .await?,
+    )
+    .await?;
+
+    Ok(hyper::Response::builder()
+        .status(hyper::StatusCode::SEE_OTHER)
+        .header(
+            hyper::header::LOCATION,
+            format!("/moderation?community={}", body.community),
+        )
+        .body("Successfully dismissed.".into())?)
+}
+
 pub fn route_moderation() -> crate::RouteNode<()> {
-    crate::RouteNode::new().with_handler_async(hyper::Method::GET, page_moderation)
+    crate::RouteNode::new()
+        .with_handler_async(hyper::Method::GET, page_moderation)
+        .with_child(
+            "submit_dismiss",
+            crate::RouteNode::new()
+                .with_handler_async(hyper::Method::POST, handler_moderation_submit_dismiss),
+        )
 }

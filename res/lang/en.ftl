@@ -44,6 +44,7 @@ description = Description
 edit = Edit
 fetch = Fetch
 flag_comment_prompt = Add a comment:
+flag_dismiss = Dismiss
 flagged_by = Flagged by
 flags = Flags
 flags_title_community = Flags for this Community
