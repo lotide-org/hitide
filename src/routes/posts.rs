@@ -280,6 +280,16 @@ async fn page_post_inner(
                     }
                 }
                 {
+                    match (&post.as_ref().author, &post.as_ref().as_ref().remote_url) {
+                        (Some(author), Some(remote_url)) if !author.local => {
+                            Some(render::rsx! {
+                                <a href={remote_url.as_ref()}>{lang.tr(&lang::remote_url()).into_owned()}</a>
+                            })
+                        }
+                        _ => None,
+                    }
+                }
+                {
                     if base_data.login.is_some() && !author_is_me(&post.as_ref().author, &base_data.login) {
                         Some(render::rsx! {
                             <a href={format!("/posts/{}/flag", post_id)}>{lang.tr(&lang::action_flag()).into_owned()}</a>

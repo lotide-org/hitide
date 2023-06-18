@@ -139,6 +139,7 @@ preview = Preview
 profile = Profile
 register = Register
 remote = Remote
+remote_url = source
 remove = remove
 remove_upvote = Remove upvote
 reply = reply

@@ -36,6 +36,7 @@ pub struct RespMinimalAuthorInfo<'a> {
 pub struct RespMinimalPostInfo<'a> {
     pub id: i64,
     pub title: Cow<'a, str>,
+    pub remote_url: Option<Cow<'a, str>>,
     pub sensitive: bool,
 }
 
