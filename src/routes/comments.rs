@@ -181,6 +181,19 @@ async fn page_comment_inner(
             </p>
             <div class={"actionList"}>
                 {
+                    if !comment.as_ref().local {
+                        if let Some(remote_url) = &comment.as_ref().as_ref().remote_url {
+                            Some(render::rsx! {
+                                <a href={remote_url.as_ref()}>{lang.tr(&lang::remote_url()).into_owned()}</a>
+                            })
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                }
+                {
                     if author_is_me(&comment.as_ref().author, &base_data.login) {
                         Some(render::rsx! {
                             <a href={format!("/comments/{}/delete", comment.as_ref().as_ref().id)}>{lang.tr(&lang::DELETE)}</a>
