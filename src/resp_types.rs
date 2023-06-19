@@ -88,6 +88,7 @@ pub struct RespMinimalCommentInfo<'a> {
     pub content_text: Option<Cow<'a, str>>,
     pub content_html: Option<Cow<'a, str>>,
     pub sensitive: bool,
+    pub remote_url: Option<Cow<'a, str>>,
 }
 
 #[derive(Deserialize, Debug)]

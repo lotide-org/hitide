@@ -105,6 +105,19 @@ pub fn Comment<'a>(
                             }
                         }
                         {
+                            if !comment.local {
+                                if let Some(remote_url) = &comment.as_ref().remote_url {
+                                    Some(render::rsx! {
+                                        <a href={remote_url.as_ref()}>{lang.tr(&lang::remote_url()).into_owned()}</a>
+                                    })
+                                } else {
+                                    None
+                                }
+                            } else {
+                                None
+                            }
+                        }
+                        {
                             if author_is_me(&comment.author, &base_data.login) || (comment.local && base_data.is_site_admin()) {
                                 Some(render::rsx! {
                                     <a href={format!("/comments/{}/delete", comment.as_ref().id)}>{lang.tr(&lang::DELETE)}</a>
