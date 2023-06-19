@@ -280,13 +280,16 @@ async fn page_post_inner(
                     }
                 }
                 {
-                    match (&post.as_ref().author, &post.as_ref().as_ref().remote_url) {
-                        (Some(author), Some(remote_url)) if !author.local => {
+                    if post.local {
+                        None
+                    } else {
+                        if let Some(remote_url) = &post.as_ref().as_ref().remote_url {
                             Some(render::rsx! {
                                 <a href={remote_url.as_ref()}>{lang.tr(&lang::remote_url()).into_owned()}</a>
                             })
+                        } else {
+                            None
                         }
-                        _ => None,
                     }
                 }
                 {
