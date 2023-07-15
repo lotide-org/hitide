@@ -789,6 +789,27 @@ impl<'a> render::Render for NotificationItem<'a> {
                     </>
                 }).render_into(writer)?;
             }
+            RespNotificationInfo::CommentMention { comment, post } => {
+                (render::rsx! {
+                    <>
+                        <div>
+                            {lang.tr(&lang::notification_comment_mention_1())}{" "}
+                            <a href={format!("/posts/{}", post.as_ref().as_ref().id)}>
+                                {post.as_ref().as_ref().title.as_ref()}
+                            </a>
+                            {":"}
+                            <div class={"body"}>
+                                <small>
+                                    <cite><UserLink lang user={comment.author.as_ref()} /></cite>
+                                    {" "}
+                                    <TimeAgo since={chrono::DateTime::parse_from_rfc3339(&comment.created).unwrap()} lang />
+                                </small>
+                                <ContentView src={comment} />
+                            </div>
+                        </div>
+                    </>
+                }).render_into(writer)?;
+            }
         }
 
         write!(writer, "</li>")

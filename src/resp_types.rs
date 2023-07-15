@@ -374,6 +374,11 @@ pub enum RespNotificationInfo<'a> {
         #[serde(borrow)]
         post: RespPostListPost<'a>,
     },
+    CommentMention {
+        comment: RespPostCommentInfo<'a>,
+        #[serde(borrow)]
+        post: RespPostListPost<'a>,
+    },
     #[serde(other)]
     Unknown,
 }

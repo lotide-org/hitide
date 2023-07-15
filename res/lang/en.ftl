@@ -100,6 +100,7 @@ no_such_local_user = No such local user
 nothing = Looks like there's nothing here.
 nothing_yet = Looks like there's nothing here (yet!).
 notifications = Notifications
+notification_comment_mention_1 = You were mentioned in a comment on
 notification_post_mention = You were mentioned in a post:
 on = on
 on_your_post = on your post
