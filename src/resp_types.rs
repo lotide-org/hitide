@@ -361,12 +361,18 @@ pub struct RespSiteModlogEvent<'a> {
 pub enum RespNotificationInfo<'a> {
     PostReply {
         reply: RespPostCommentInfo<'a>,
-        post: RespMinimalPostInfo<'a>,
+        #[serde(borrow)]
+        post: RespPostListPost<'a>,
+    },
+    PostMention {
+        #[serde(borrow)]
+        post: RespPostListPost<'a>,
     },
     CommentReply {
         reply: RespPostCommentInfo<'a>,
         comment: RespPostCommentInfo<'a>,
-        post: RespMinimalPostInfo<'a>,
+        #[serde(borrow)]
+        post: RespPostListPost<'a>,
     },
     #[serde(other)]
     Unknown,
@@ -375,6 +381,7 @@ pub enum RespNotificationInfo<'a> {
 #[derive(Deserialize, Debug)]
 pub struct RespNotification<'a> {
     #[serde(flatten)]
+    #[serde(borrow)]
     pub info: RespNotificationInfo<'a>,
 
     pub unseen: bool,

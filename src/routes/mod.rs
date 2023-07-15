@@ -753,7 +753,7 @@ async fn page_notifications(
     let lang = crate::get_lang_for_req(&req);
     let cookies = get_cookie_map_for_req(&req)?;
 
-    let api_res: Result<Result<RespList<RespNotification>, _>, _> = res_to_error(
+    let api_res: Result<_, _> = res_to_error(
         ctx.http_client
             .request(for_client(
                 hyper::Request::get(format!(
@@ -768,8 +768,15 @@ async fn page_notifications(
     )
     .map_err(crate::Error::from)
     .and_then(|body| hyper::body::to_bytes(body).map_err(crate::Error::from))
-    .await
-    .map(|body| serde_json::from_slice(&body));
+    .await;
+
+    // I really hope there's a better way to do this
+    // I need to return the error in the Err case, but only borrow the value from Ok
+    let api_res: Result<Result<RespList<RespNotification>, _>, _> = if api_res.is_ok() {
+        Ok(serde_json::from_slice(&api_res.as_ref().unwrap()))
+    } else {
+        Err(api_res.unwrap_err())
+    };
 
     let base_data =
         fetch_base_data(&ctx.backend_host, &ctx.http_client, req.headers(), &cookies).await?;
