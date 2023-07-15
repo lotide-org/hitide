@@ -752,7 +752,7 @@ impl<'a> render::Render for NotificationItem<'a> {
                     <>
                         <div>
                             <a href={format!("/comments/{}", reply.as_ref().id)}>{lang.tr(&lang::comment())}</a>
-                            {" "}{lang.tr(&lang::on_your_post())}{" "}<a href={format!("/posts/{}", post.id)}>{post.title.as_ref()}</a>{":"}
+                            {" "}{lang.tr(&lang::on_your_post())}{" "}<a href={format!("/posts/{}", post.as_ref().as_ref().id)}>{post.as_ref().as_ref().title.as_ref()}</a>{":"}
                         </div>
                         <div class={"body"}>
                             <small>
@@ -761,6 +761,18 @@ impl<'a> render::Render for NotificationItem<'a> {
                                 <TimeAgo since={chrono::DateTime::parse_from_rfc3339(&reply.created).unwrap()} lang />
                             </small>
                             <ContentView src={reply} />
+                        </div>
+                    </>
+                }).render_into(writer)?;
+            }
+            RespNotificationInfo::PostMention { post } => {
+                (render::rsx! {
+                    <>
+                        <div>
+                            {lang.tr(&lang::notification_post_mention())}
+                            <div class={"body"}>
+                                <PostItemContent post={post} in_community={false} no_user={false} lang={lang} />
+                            </div>
                         </div>
                     </>
                 }).render_into(writer)?;
@@ -776,7 +788,7 @@ impl<'a> render::Render for NotificationItem<'a> {
                             {lang.tr(&lang::reply_to())}
                             {" "}
                             <a href={format!("/comments/{}", comment.as_ref().id)}>{lang.tr(&lang::your_comment())}</a>
-                            {" "}{lang.tr(&lang::on())}{" "}<a href={format!("/posts/{}", post.id)}>{post.title.as_ref()}</a>
+                            {" "}{lang.tr(&lang::on())}{" "}<a href={format!("/posts/{}", post.as_ref().as_ref().id)}>{post.as_ref().as_ref().title.as_ref()}</a>
                             {":"}
                         </div>
                         <div class={"body"}>
@@ -786,6 +798,27 @@ impl<'a> render::Render for NotificationItem<'a> {
                                 <TimeAgo since={chrono::DateTime::parse_from_rfc3339(&reply.created).unwrap()} lang />
                             </small>
                             <ContentView src={reply} />
+                        </div>
+                    </>
+                }).render_into(writer)?;
+            }
+            RespNotificationInfo::CommentMention { comment, post } => {
+                (render::rsx! {
+                    <>
+                        <div>
+                            {lang.tr(&lang::notification_comment_mention_1())}{" "}
+                            <a href={format!("/posts/{}", post.as_ref().as_ref().id)}>
+                                {post.as_ref().as_ref().title.as_ref()}
+                            </a>
+                            {":"}
+                            <div class={"body"}>
+                                <small>
+                                    <cite><UserLink lang user={comment.author.as_ref()} /></cite>
+                                    {" "}
+                                    <TimeAgo since={chrono::DateTime::parse_from_rfc3339(&comment.created).unwrap()} lang />
+                                </small>
+                                <ContentView src={comment} />
+                            </div>
                         </div>
                     </>
                 }).render_into(writer)?;
