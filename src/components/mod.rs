@@ -410,7 +410,14 @@ pub fn HTPageAdvanced<'a, HeadItems: render::Render, Children: render::Render>(
                                             {
                                                 base_data.is_site_admin().then(|| {
                                                     render::rsx! {
-                                                        <a href={"/flags?to_this_site_admin=true"}>{hitide_icons::FLAG.img(lang.tr(&lang::flags()).into_owned())}</a>
+                                                        <>
+                                                            <a href={"/administration"}>
+                                                                {hitide_icons::ADMINISTRATION.img(lang.tr(&lang::administration()).into_owned())}
+                                                            </a>
+                                                            <a href={"/flags?to_this_site_admin=true"}>
+                                                                {hitide_icons::FLAG.img(lang.tr(&lang::flags()).into_owned())}
+                                                            </a>
+                                                        </>
                                                     }
                                                 })
                                             }

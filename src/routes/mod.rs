@@ -16,6 +16,7 @@ use crate::resp_types::{
 };
 use crate::PageBaseData;
 
+mod administration;
 mod comments;
 mod communities;
 mod forgot_password;
@@ -1852,6 +1853,7 @@ pub fn route_root() -> crate::RouteNode<()> {
             "about",
             crate::RouteNode::new().with_handler_async(hyper::Method::GET, page_about),
         )
+        .with_child("administration", administration::route_administration())
         .with_child(
             "all",
             crate::RouteNode::new().with_handler_async(hyper::Method::GET, page_all),
