@@ -1371,9 +1371,9 @@ async fn page_community_new_post_inner(
                         {" "}
                         <input type={"number"} name={"poll_duration_value"} required={""} value={maybe_fill_value(&prev_values, "poll_duration_value", Some("10"))} />
                         <select name={"poll_duration_unit"}>
-                            <MaybeFillOption values={&prev_values} name={"poll_duration_unit"} value={"m"}>{lang.tr(&lang::time_input_minutes())}</MaybeFillOption>
-                            <MaybeFillOption values={&prev_values} name={"poll_duration_unit"} value={"h"}>{lang.tr(&lang::time_input_hours())}</MaybeFillOption>
-                            <MaybeFillOption values={&prev_values} name={"poll_duration_unit"} value={"d"}>{lang.tr(&lang::time_input_days())}</MaybeFillOption>
+                            <MaybeFillOption default_value={None} values={&prev_values} name={"poll_duration_unit"} value={"m"}>{lang.tr(&lang::time_input_minutes())}</MaybeFillOption>
+                            <MaybeFillOption default_value={None} values={&prev_values} name={"poll_duration_unit"} value={"h"}>{lang.tr(&lang::time_input_hours())}</MaybeFillOption>
+                            <MaybeFillOption default_value={None} values={&prev_values} name={"poll_duration_unit"} value={"d"}>{lang.tr(&lang::time_input_days())}</MaybeFillOption>
                         </select>
                     </div>
                 </div>

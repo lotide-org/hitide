@@ -160,6 +160,14 @@ pub fn get_lang_for_req(req: &hyper::Request<hyper::Body>) -> Translator {
     get_lang_for_headers(req.headers())
 }
 
+pub fn bool_as_str(src: bool) -> &'static str {
+    if src {
+        "true"
+    } else {
+        "false"
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();

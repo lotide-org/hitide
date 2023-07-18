@@ -680,13 +680,27 @@ pub fn MaybeFillCheckbox<'a, M: GetIndex<&'a str, serde_json::Value>>(
 #[render::component]
 pub fn MaybeFillOption<'a, M: GetIndex<&'a str, serde_json::Value>, Children: render::Render>(
     values: &'a Option<&'a M>,
+    default_value: Option<&'a str>,
     name: &'a str,
     value: &'a str,
     children: Children,
 ) {
-    let selected_value = maybe_fill_value(values, name, None);
+    let selected_value = maybe_fill_value(values, name, default_value);
 
-    if selected_value == value {
+    SelectOption {
+        value,
+        selected: selected_value == value,
+        children,
+    }
+}
+
+#[render::component]
+pub fn SelectOption<'a, Children: render::Render>(
+    value: &'a str,
+    selected: bool,
+    children: Children,
+) {
+    if selected {
         render::rsx! {
             <option value={value} selected={""}>{children}</option>
         }
