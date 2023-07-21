@@ -2,9 +2,10 @@ use super::{
     fetch_base_data, for_client, get_cookie_map_for_headers, get_cookie_map_for_req, html_response,
     res_to_error, CookieMap,
 };
-use crate::components::{HTPage, MaybeFillOption};
+use crate::components::{HTPage, MaybeFillOption, MaybeFillTextArea};
 use crate::lang;
 use crate::resp_types::RespInstanceInfo;
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::convert::TryInto;
 use std::sync::Arc;
@@ -79,7 +80,7 @@ async fn page_administration_edit_inner(
     cookies: &CookieMap<'_>,
     ctx: Arc<crate::RouteContext>,
     display_error: Option<String>,
-    prev_values: Option<&HashMap<&str, serde_json::Value>>,
+    prev_values: Option<&HashMap<Cow<'_, str>, serde_json::Value>>,
 ) -> Result<hyper::Response<hyper::Body>, crate::Error> {
     let lang = crate::get_lang_for_headers(headers);
 
@@ -113,6 +114,14 @@ async fn page_administration_edit_inner(
 
     let signup_allowed_value = Some(crate::bool_as_str(api_res.signup_allowed));
 
+    let (description_content, description_format) = match api_res.description.content_markdown {
+        Some(content) => (content, "markdown"),
+        None => match api_res.description.content_html {
+            Some(content) => (content, "html"),
+            None => (api_res.description.content_text.unwrap(), "text"),
+        },
+    };
+
     Ok(html_response(render::html! {
         <HTPage base_data={&base_data} lang={&lang} title={&title}>
             <h1>{title.as_ref()}</h1>
@@ -136,6 +145,24 @@ async fn page_administration_edit_inner(
                     </select>
                 </label>
                 <br />
+                <label>
+                    {lang.tr(&lang::description())}
+                    <br />
+                    <MaybeFillTextArea values={&prev_values} name={"description"} default_value={Some(&description_content)} />
+                    <br />
+                    <select name={"description_format"}>
+                        <MaybeFillOption value={"text"} values={&prev_values} default_value={Some(description_format)} name={"description_format"}>
+                            {lang.tr(&lang::content_format_text())}
+                        </MaybeFillOption>
+                        <MaybeFillOption value={"markdown"} values={&prev_values} default_value={Some(description_format)} name={"description_format"}>
+                            {lang.tr(&lang::content_format_markdown())}
+                        </MaybeFillOption>
+                        <MaybeFillOption value={"html"} values={&prev_values} default_value={Some(description_format)} name={"description_format"}>
+                            {lang.tr(&lang::content_format_html())}
+                        </MaybeFillOption>
+                    </select>
+                </label>
+                <br />
                 <br />
                 <button type={"submit"}>{"Save"}</button>
             </form>
@@ -153,10 +180,12 @@ async fn handler_administration_edit_submit(
     let cookies = get_cookie_map_for_headers(&req_parts.headers)?;
 
     let body = hyper::body::to_bytes(body).await?;
-    let mut body: HashMap<&str, serde_json::Value> = serde_urlencoded::from_bytes(&body)?;
+    let body_original: HashMap<Cow<'_, str>, serde_json::Value> =
+        serde_urlencoded::from_bytes(&body)?;
+    let mut body = body_original.clone();
 
     body.insert(
-        "signup_allowed",
+        "signup_allowed".into(),
         body.get("signup_allowed")
             .and_then(|x| x.as_str())
             .ok_or(crate::Error::InternalStrStatic(
@@ -164,6 +193,24 @@ async fn handler_administration_edit_submit(
             ))?
             .parse()?,
     );
+
+    if let Some(content) = body.remove("description") {
+        let content = content.as_str().ok_or(crate::Error::InternalStrStatic(
+            "Failed to extract description in administration edit",
+        ))?;
+
+        let format = body.remove("description_format");
+        let format = match format.as_ref().and_then(|x| x.as_str()) {
+            Some(format) => format,
+            None => {
+                return Err(crate::Error::InternalStrStatic(
+                    "Invalid or missing description format",
+                ))
+            }
+        };
+
+        body.insert(format!("description_{}", format).into(), content.into());
+    }
 
     let api_res = res_to_error(
         ctx.http_client
