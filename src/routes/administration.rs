@@ -60,6 +60,40 @@ async fn page_administration(
                         &lang::ALLOWED_FALSE
                     })}</strong>
                 </li>
+                <li>
+                    {lang.tr(&lang::ADMINISTRATION_INVITATIONS_ENABLED)}{" "}
+                    <strong>{lang.tr(if api_res.invitations_enabled {
+                        &lang::ENABLED_TRUE
+                    } else {
+                        &lang::ENABLED_FALSE
+                    })}</strong>
+                    {
+                        if api_res.invitations_enabled {
+                            Some(render::rsx! {
+                                <ul>
+                                    <li>
+                                        {lang.tr(&lang::ADMINISTRATION_INVITATION_CREATION_REQUIREMENT)}{" "}
+                                        <strong>{lang.tr(match api_res.invitation_creation_requirement.as_deref() {
+                                            None => &lang::REQUIREMENT_NONE,
+                                            Some("site_admin") => &lang::REQUIREMENT_SITE_ADMIN,
+                                            Some(_) => &lang::UNKNOWN,
+                                        })}</strong>
+                                    </li>
+                                </ul>
+                            })
+                        } else {
+                            None
+                        }
+                    }
+                </li>
+                <li>
+                    {lang.tr(&lang::ADMINISTRATION_COMMUNITY_CREATION_REQUIREMENT)}{" "}
+                    <strong>{lang.tr(match api_res.community_creation_requirement.as_deref() {
+                        None => &lang::REQUIREMENT_NONE,
+                        Some("site_admin") => &lang::REQUIREMENT_SITE_ADMIN,
+                        Some(_) => &lang::UNKNOWN,
+                    })}</strong>
+                </li>
             </ul>
         </HTPage>
     }))
@@ -113,6 +147,19 @@ async fn page_administration_edit_inner(
     let api_res: RespInstanceInfo = serde_json::from_slice(&api_res)?;
 
     let signup_allowed_value = Some(crate::bool_as_str(api_res.signup_allowed));
+    let invitations_enabled_value = Some(crate::bool_as_str(api_res.invitations_enabled));
+    let invitation_creation_requirement_value = Some(
+        api_res
+            .invitation_creation_requirement
+            .as_deref()
+            .unwrap_or(""),
+    );
+    let community_creation_requirement_value = Some(
+        api_res
+            .community_creation_requirement
+            .as_deref()
+            .unwrap_or(""),
+    );
 
     let (description_content, description_format) = match api_res.description.content_markdown {
         Some(content) => (content, "markdown"),
@@ -133,18 +180,58 @@ async fn page_administration_edit_inner(
                 })
             }
             <form method={"POST"} action={"/administration/edit/submit"}>
-                <label>
-                    {lang.tr(&lang::administration_edit_signup_allowed())}<br />
-                    <select name={"signup_allowed"}>
-                        <MaybeFillOption value={"true"} values={&prev_values} default_value={signup_allowed_value} name={"signup_allowed"}>
-                            {lang.tr(&lang::allowed_true())}
-                        </MaybeFillOption>
-                        <MaybeFillOption value={"false"} values={&prev_values} default_value={signup_allowed_value} name={"signup_allowed"}>
-                            {lang.tr(&lang::allowed_false())}
-                        </MaybeFillOption>
-                    </select>
-                </label>
-                <br />
+                <div>
+                    <label>
+                        {lang.tr(&lang::administration_edit_signup_allowed())}<br />
+                        <select name={"signup_allowed"}>
+                            <MaybeFillOption value={"true"} values={&prev_values} default_value={signup_allowed_value} name={"signup_allowed"}>
+                                {lang.tr(&lang::allowed_true())}
+                            </MaybeFillOption>
+                            <MaybeFillOption value={"false"} values={&prev_values} default_value={signup_allowed_value} name={"signup_allowed"}>
+                                {lang.tr(&lang::allowed_false())}
+                            </MaybeFillOption>
+                        </select>
+                    </label>
+                </div>
+                <div>
+                    <label>
+                        {lang.tr(&lang::administration_edit_invitations_enabled())}<br />
+                        <select name={"invitations_enabled"}>
+                            <MaybeFillOption value={"true"} values={&prev_values} default_value={invitations_enabled_value} name={"invitations_enabled"}>
+                                {lang.tr(&lang::enabled_true())}
+                            </MaybeFillOption>
+                            <MaybeFillOption value={"false"} values={&prev_values} default_value={invitations_enabled_value} name={"invitations_enabled"}>
+                                {lang.tr(&lang::enabled_false())}
+                            </MaybeFillOption>
+                        </select>
+                    </label>
+                </div>
+                <div>
+                    <label>
+                        {lang.tr(&lang::administration_invitation_creation_requirement())}{":"}<br />
+                        <select name={"invitation_creation_requirement"}>
+                            <MaybeFillOption value={""} values={&prev_values} default_value={invitation_creation_requirement_value} name={"invitation_creation_requirement"}>
+                                {lang.tr(&lang::requirement_none())}
+                            </MaybeFillOption>
+                            <MaybeFillOption value={"site_admin"} values={&prev_values} default_value={invitation_creation_requirement_value} name={"invitation_creation_requirement"}>
+                                {lang.tr(&lang::requirement_site_admin())}
+                            </MaybeFillOption>
+                        </select>
+                    </label>
+                </div>
+                <div>
+                    <label>
+                        {lang.tr(&lang::administration_community_creation_requirement())}{":"}<br />
+                        <select name={"community_creation_requirement"}>
+                            <MaybeFillOption value={""} values={&prev_values} default_value={community_creation_requirement_value} name={"community_creation_requirement"}>
+                                {lang.tr(&lang::requirement_none())}
+                            </MaybeFillOption>
+                            <MaybeFillOption value={"site_admin"} values={&prev_values} default_value={community_creation_requirement_value} name={"community_creation_requirement"}>
+                                {lang.tr(&lang::requirement_site_admin())}
+                            </MaybeFillOption>
+                        </select>
+                    </label>
+                </div>
                 <label>
                     {lang.tr(&lang::description())}
                     <br />
@@ -184,15 +271,26 @@ async fn handler_administration_edit_submit(
         serde_urlencoded::from_bytes(&body)?;
     let mut body = body_original.clone();
 
-    body.insert(
-        "signup_allowed".into(),
-        body.get("signup_allowed")
-            .and_then(|x| x.as_str())
-            .ok_or(crate::Error::InternalStrStatic(
-                "Failed to extract signup_allowed in administration edit",
-            ))?
-            .parse()?,
-    );
+    for key in ["signup_allowed", "invitations_enabled"] {
+        body.insert(
+            key.into(),
+            body.get(key)
+                .and_then(|x| x.as_str())
+                .ok_or(crate::Error::InternalStrStatic(
+                    "Failed to extract value in administration edit",
+                ))?
+                .parse()?,
+        );
+    }
+
+    for key in [
+        "invitation_creation_requirement",
+        "community_creation_requirement",
+    ] {
+        if body.get(key).and_then(|x| x.as_str()) == Some("") {
+            body.insert(key.into(), serde_json::Value::Null);
+        }
+    }
 
     if let Some(content) = body.remove("description") {
         let content = content.as_str().ok_or(crate::Error::InternalStrStatic(

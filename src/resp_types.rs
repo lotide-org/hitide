@@ -297,6 +297,11 @@ pub struct RespInstanceInfo<'a> {
     pub description: Content<'a>,
     pub software: RespInstanceSoftwareInfo<'a>,
     pub signup_allowed: bool,
+    pub invitations_enabled: bool,
+    pub community_creation_requirement: Option<Cow<'a, str>>,
+    pub invitation_creation_requirement: Option<Cow<'a, str>>,
+
+    pub web_push_vapid_key: Cow<'a, str>,
 }
 
 #[derive(Deserialize, Debug)]
