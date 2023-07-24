@@ -828,6 +828,8 @@ impl<'a> render::Render for NotificationItem<'a> {
                     <>
                         <div>
                             {lang.tr(&lang::notification_comment_mention_1())}{" "}
+                            <a href={format!("/comments/{}", comment.as_ref().id)}>{lang.tr(&lang::a_comment())}</a>
+                            {" "}{lang.tr(&lang::on())}{" "}
                             <a href={format!("/posts/{}", post.as_ref().as_ref().id)}>
                                 {post.as_ref().as_ref().title.as_ref()}
                             </a>

@@ -1,3 +1,4 @@
+a_comment = a comment
 about = About
 about_title = About this instance
 about_what_is = What is lotide?
@@ -116,7 +117,7 @@ not_site_admin = You are not an instance admin
 nothing = Looks like there's nothing here.
 nothing_yet = Looks like there's nothing here (yet!).
 notifications = Notifications
-notification_comment_mention_1 = You were mentioned in a comment on
+notification_comment_mention_1 = You were mentioned in
 notification_post_mention = You were mentioned in a post:
 on = on
 on_your_post = on your post
