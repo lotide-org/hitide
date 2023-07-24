@@ -475,7 +475,7 @@ checksum = "fed44880c466736ef9a5c5b5facefb5ed0785676d0c02d612db14e54f0d84286"
 
 [[package]]
 name = "hitide"
-version = "0.13.0-dev"
+version = "0.14.0-dev"
 dependencies = [
  "chrono",
  "config",
