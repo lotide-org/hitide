@@ -230,9 +230,9 @@ dependencies = [
 
 [[package]]
 name = "fluent"
-version = "0.13.1"
+version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ef9e54ec7b674ae3477d948ae790e90ae24d54fb31c2e7173252978d9b09bdfa"
+checksum = "61f69378194459db76abd2ce3952b790db103ceb003008d3d50d97c41ff847a7"
 dependencies = [
  "fluent-bundle",
  "unic-langid",
@@ -240,15 +240,16 @@ dependencies = [
 
 [[package]]
 name = "fluent-bundle"
-version = "0.13.2"
+version = "0.15.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "092ebd50cd3f8a6d664bf156e3550d2f7232fbe446da6707d727cca53f707ce2"
+checksum = "e242c601dec9711505f6d5bbff5bedd4b61b2469f2e8bb8e57ee7c9747a87ffd"
 dependencies = [
  "fluent-langneg",
- "fluent-syntax 0.10.3",
+ "fluent-syntax",
  "intl-memoizer",
  "intl_pluralrules",
- "rental",
+ "rustc-hash",
+ "self_cell",
  "smallvec",
  "unic-langid",
 ]
@@ -261,12 +262,6 @@ checksum = "2c4ad0989667548f06ccd0e306ed56b61bd4d35458d54df5ec7587c0e8ed5e94"
 dependencies = [
  "unic-langid",
 ]
-
-[[package]]
-name = "fluent-syntax"
-version = "0.10.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "784f660373ea898f712a7e67b43f35bf79608d46112747c29767d087611d716b"
 
 [[package]]
 name = "fluent-syntax"
@@ -483,13 +478,14 @@ dependencies = [
  "fallible-iterator",
  "fluent",
  "fluent-langneg",
- "fluent-syntax 0.11.0",
+ "fluent-syntax",
  "futures-util",
  "ginger",
  "hitide_icons",
  "http",
  "hyper",
  "hyper-tls",
+ "intl-memoizer",
  "lazy_static",
  "log",
  "multer",
@@ -1153,27 +1149,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rental"
-version = "0.5.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cc89fe2acac36d212474d138aaf939c04a82df5b61d07011571ebce5aef81f2e"
-dependencies = [
- "rental-impl",
- "stable_deref_trait",
-]
-
-[[package]]
-name = "rental-impl"
-version = "0.5.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "475e68978dc5b743f2f40d8e0a8fdc83f1c5e78cbf4b8fa5e74e73beebc340de"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 1.0.109",
-]
-
-[[package]]
 name = "rust-ini"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1245,6 +1220,12 @@ dependencies = [
  "core-foundation-sys",
  "libc",
 ]
+
+[[package]]
+name = "self_cell"
+version = "0.10.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1ef965a420fe14fdac7dd018862966a4c14094f900e1650bbc71ddd7d580c8af"
 
 [[package]]
 name = "semver"
@@ -1326,12 +1307,6 @@ dependencies = [
  "libc",
  "winapi 0.3.9",
 ]
-
-[[package]]
-name = "stable_deref_trait"
-version = "1.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
 
 [[package]]
 name = "static_assertions"

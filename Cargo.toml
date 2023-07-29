@@ -31,11 +31,12 @@ unic-langid = { version = "0.9.0", features = ["macros"] }
 futures-util = "0.3.5"
 hitide_icons = { path = "./icons" }
 multer = "1.2.2"
-fluent = "0.13.1"
+fluent = "0.16.0"
 log = "0.4"
 env_logger = "0.8"
 config = { version = "0.11.0", default-features = false, features = ["ini"] }
 url = { version = "2.2.2", features = ["serde"] }
+intl-memoizer = "0.5.1"
 
 [build-dependencies]
 fluent-syntax = "0.11.0"

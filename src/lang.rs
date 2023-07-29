@@ -1,12 +1,18 @@
 use std::borrow::Cow;
 
 pub struct Translator {
-    bundle: fluent::concurrent::FluentBundle<&'static fluent::FluentResource>,
+    bundle: fluent::bundle::FluentBundle<
+        &'static fluent::FluentResource,
+        intl_memoizer::concurrent::IntlLangMemoizer,
+    >,
     primary_language: unic_langid::LanguageIdentifier,
 }
 impl Translator {
     pub fn new(
-        bundle: fluent::concurrent::FluentBundle<&'static fluent::FluentResource>,
+        bundle: fluent::bundle::FluentBundle<
+            &'static fluent::FluentResource,
+            intl_memoizer::concurrent::IntlLangMemoizer,
+        >,
         primary_language: unic_langid::LanguageIdentifier,
     ) -> Translator {
         Translator {
@@ -22,7 +28,7 @@ impl Translator {
         let mut errors = Vec::with_capacity(0);
         let out = match self.bundle.get_message(key) {
             Some(msg) => self.bundle.format_pattern(
-                msg.value.expect("Missing value for translation key"),
+                msg.value().expect("Missing value for translation key"),
                 args,
                 &mut errors,
             ),
