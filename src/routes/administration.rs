@@ -5,6 +5,7 @@ use super::{
 use crate::components::{HTPage, MaybeFillOption, MaybeFillTextArea};
 use crate::lang;
 use crate::resp_types::RespInstanceInfo;
+use render::Render;
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::convert::TryInto;
@@ -53,20 +54,42 @@ async fn page_administration(
             <a href={"/administration/edit"}>{lang.tr(&lang::administration_edit())}</a>
             <ul>
                 <li>
-                    {lang.tr(&lang::ADMINISTRATION_SIGNUP_ALLOWED)}{" "}
-                    <strong>{lang.tr(if api_res.signup_allowed {
-                        &lang::ALLOWED_TRUE
-                    } else {
-                        &lang::ALLOWED_FALSE
-                    })}</strong>
+                    {
+                        lang::TrElements::new(
+                            lang.tr(&lang::administration_signup_allowed(lang::LangPlaceholder(0))),
+                            |id, w| {
+                                match id {
+                                    0 => render::rsx! {
+                                        <strong>{lang.tr(if api_res.signup_allowed {
+                                            &lang::ALLOWED_TRUE
+                                        } else {
+                                            &lang::ALLOWED_FALSE
+                                        })}</strong>
+                                    }.render_into(w),
+                                    _ => unreachable!(),
+                                }
+                            }
+                        )
+                    }
                 </li>
                 <li>
-                    {lang.tr(&lang::ADMINISTRATION_INVITATIONS_ENABLED)}{" "}
-                    <strong>{lang.tr(if api_res.invitations_enabled {
-                        &lang::ENABLED_TRUE
-                    } else {
-                        &lang::ENABLED_FALSE
-                    })}</strong>
+                    {
+                        lang::TrElements::new(
+                            lang.tr(&lang::administration_invitations_enabled(lang::LangPlaceholder(0))),
+                            |id, w| {
+                                match id {
+                                    0 => render::rsx! {
+                                        <strong>{lang.tr(if api_res.invitations_enabled {
+                                            &lang::ENABLED_TRUE
+                                        } else {
+                                            &lang::ENABLED_FALSE
+                                        })}</strong>
+                                    }.render_into(w),
+                                    _ => unreachable!(),
+                                }
+                            }
+                        )
+                    }
                     {
                         if api_res.invitations_enabled {
                             Some(render::rsx! {

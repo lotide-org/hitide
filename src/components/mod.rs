@@ -178,7 +178,7 @@ pub struct CommunityLink<'community> {
     pub community: &'community RespMinimalCommunityInfo<'community>,
 }
 impl<'community> render::Render for CommunityLink<'community> {
-    fn render_into<W: std::fmt::Write>(self, writer: &mut W) -> std::fmt::Result {
+    fn render_into<W: std::fmt::Write + ?Sized>(self, writer: &mut W) -> std::fmt::Result {
         let community = &self.community;
 
         if community.deleted {
@@ -284,7 +284,7 @@ pub struct ContentView<'a, T: HavingContent + 'a> {
 }
 
 impl<'a, T: HavingContent + 'a> render::Render for ContentView<'a, T> {
-    fn render_into<W: std::fmt::Write>(self, writer: &mut W) -> std::fmt::Result {
+    fn render_into<W: std::fmt::Write + ?Sized>(self, writer: &mut W) -> std::fmt::Result {
         match self.src.content_html() {
             Some(html) => {
                 (render::rsx! { <div class={"contentView"}>{render::raw!(html)}</div> })
@@ -302,26 +302,52 @@ impl<'a, T: HavingContent + 'a> render::Render for ContentView<'a, T> {
     }
 }
 
-#[render::component]
-pub fn FlagItem<'a>(flag: &'a RespFlagInfo<'a>, in_community: bool, lang: &'a crate::Translator) {
-    let RespFlagDetails::Post { post } = &flag.details;
+pub struct FlagItem<'a> {
+    pub flag: &'a RespFlagInfo<'a>,
+    pub in_community: bool,
+    pub lang: &'a crate::Translator,
+}
 
-    render::rsx! {
-        <li class={"flagItem"}>
-            <div class={"flaggedContent"}>
-                <PostItemContent post={post} in_community no_user={false} lang />
-            </div>
-            {lang.tr(&lang::FLAGGED_BY)}{" "}<UserLink user={Some(&flag.flagger)} lang />
-            {
-                flag.content.as_ref().map(|content| {
-                    render::rsx! {
-                        <blockquote>
-                            {content.content_text.as_ref()}
-                        </blockquote>
-                    }
-                })
-            }
-        </li>
+impl<'a> render::Render for FlagItem<'a> {
+    fn render_into<W: std::fmt::Write + ?Sized>(self, w: &mut W) -> std::fmt::Result {
+        let Self {
+            flag,
+            in_community,
+            lang,
+        } = self;
+
+        let RespFlagDetails::Post { post } = &flag.details;
+
+        render::rsx! {
+            <li class={"flagItem"}>
+                <div class={"flaggedContent"}>
+                    <PostItemContent post={post} in_community no_user={false} lang />
+                </div>
+                {
+                    lang::TrElements::new(
+                        lang.tr(&lang::flagged_by(lang::LangPlaceholder(0))),
+                        |id, w| {
+                            match id {
+                                0 => render::rsx! {
+                                    <UserLink user={Some(&flag.flagger)} lang />
+                                }.render_into(w),
+                                _ => unreachable!(),
+                            }
+                        },
+                    )
+                }
+                {
+                    flag.content.as_ref().map(|content| {
+                        render::rsx! {
+                            <blockquote>
+                                {content.content_text.as_ref()}
+                            </blockquote>
+                        }
+                    })
+                }
+            </li>
+        }
+        .render_into(w)
     }
 }
 
@@ -464,58 +490,69 @@ pub fn PostItem<'a>(
     }
 }
 
-#[render::component]
-pub fn PostItemContent<'a>(
+pub struct PostItemContent<'a> {
     post: &'a RespPostListPost<'a>,
     in_community: bool,
     no_user: bool,
     lang: &'a crate::Translator,
-) {
-    let post_href = format!("/posts/{}", post.as_ref().as_ref().id);
+}
 
-    render::rsx! {
-        <>
-            <div class={"titleLine"}>
-                <a href={post_href.clone()}>
-                    {post.as_ref().as_ref().sensitive.then(|| hitide_icons::SENSITIVE.img(lang.tr(&lang::SENSITIVE)))}
-                    {post.as_ref().as_ref().title.as_ref()}
-                </a>
-                {
-                    post.as_ref().href.as_ref().map(|href| {
-                        render::rsx! {
-                            <em><a href={href.as_ref()}>{abbreviate_link(href)}{" ↗"}</a></em>
-                        }
-                    })
-                }
-            </div>
-            <small>
-                {lang.tr(&lang::SUBMITTED)}
-                {" "}
-                <TimeAgo since={chrono::DateTime::parse_from_rfc3339(&post.as_ref().created).unwrap()} lang />
-                {
-                    if no_user {
-                        None
-                    } else {
-                        Some(render::rsx! {
-                            <>
-                                {" "}{lang.tr(&lang::BY)}{" "}<UserLink lang user={post.as_ref().author.as_ref()} />
-                            </>
+impl<'a> render::Render for PostItemContent<'a> {
+    fn render_into<W: std::fmt::Write + ?Sized>(self, w: &mut W) -> std::fmt::Result {
+        let Self {
+            post,
+            in_community,
+            no_user,
+            lang,
+        } = self;
+
+        let post_href = format!("/posts/{}", post.as_ref().as_ref().id);
+
+        render::rsx! {
+            <>
+                <div class={"titleLine"}>
+                    <a href={post_href.clone()}>
+                        {post.as_ref().as_ref().sensitive.then(|| hitide_icons::SENSITIVE.img(lang.tr(&lang::SENSITIVE)))}
+                        {post.as_ref().as_ref().title.as_ref()}
+                    </a>
+                    {
+                        post.as_ref().href.as_ref().map(|href| {
+                            render::rsx! {
+                                <em><a href={href.as_ref()}>{abbreviate_link(href)}{" ↗"}</a></em>
+                            }
                         })
                     }
-                }
-                {
-                    if !in_community {
-                        Some(render::rsx! {
-                            <>{" "}{lang.tr(&lang::TO)}{" "}<CommunityLink community={&post.as_ref().community} /></>
-                        })
-                    } else {
-                        None
+                </div>
+                <small>
+                    {
+                        lang::TrElements::new(
+                            lang.tr(&match (no_user, in_community) {
+                                (false, false) => lang::post_submitted_by_to(lang::LangPlaceholder(0), lang::LangPlaceholder(1), lang::LangPlaceholder(2)),
+                                (false, true) => lang::post_submitted_by(lang::LangPlaceholder(0), lang::LangPlaceholder(1)),
+                                (true, false) => lang::post_submitted_to(lang::LangPlaceholder(0), lang::LangPlaceholder(2)),
+                                (true, true) => lang::post_submitted(lang::LangPlaceholder(0)),
+                            }),
+                            |id, w| {
+                                match id {
+                                    0 => render::rsx! {
+                                        <TimeAgo since={chrono::DateTime::parse_from_rfc3339(&post.as_ref().created).unwrap()} lang />
+                                    }.render_into(w),
+                                    1 => render::rsx! {
+                                        <UserLink lang user={post.as_ref().author.as_ref()} />
+                                    }.render_into(w),
+                                    2 => render::rsx! {
+                                        <CommunityLink community={&post.as_ref().community} />
+                                    }.render_into(w),
+                                    _ => unreachable!(),
+                                }
+                            },
+                        )
                     }
-                }
-                {" | "}
-                <a href={post_href}>{lang.tr(&lang::post_comments_count(post.replies_count_total)).into_owned()}</a>
-            </small>
-        </>
+                    {" | "}
+                    <a href={post_href}>{lang.tr(&lang::post_comments_count(post.replies_count_total)).into_owned()}</a>
+                </small>
+            </>
+        }.render_into(w)
     }
 }
 
@@ -525,7 +562,7 @@ pub struct ThingItem<'a> {
 }
 
 impl<'a> render::Render for ThingItem<'a> {
-    fn render_into<W: std::fmt::Write>(self, writer: &mut W) -> std::fmt::Result {
+    fn render_into<W: std::fmt::Write + ?Sized>(self, writer: &mut W) -> std::fmt::Result {
         let lang = self.lang;
 
         match self.thing {
@@ -536,8 +573,26 @@ impl<'a> render::Render for ThingItem<'a> {
                 (render::rsx! {
                     <li>
                         <small>
-                            <a href={format!("/comments/{}", comment.as_ref().id)}>{lang.tr(&lang::comment())}</a>
-                            {" "}{lang.tr(&lang::on())}{" "}<a href={format!("/posts/{}", comment.post.id)}>{comment.post.title.as_ref()}</a>{":"}
+                            {
+                                lang::TrElements::new(
+                                    lang.tr(&lang::thing_comment(lang::LangPlaceholder(0), lang::LangPlaceholder(1))),
+                                    |id, w| {
+                                        match id {
+                                            0 => render::rsx! {
+                                                <a href={format!("/comments/{}", comment.as_ref().id)}>
+                                                    {lang.tr(&lang::thing_comment_part_comment())}
+                                                </a>
+                                            }.render_into(w),
+                                            1 => render::rsx! {
+                                                <a href={format!("/posts/{}", comment.post.id)}>
+                                                    {comment.post.title.as_ref()}
+                                                </a>
+                                            }.render_into(w),
+                                            _ => unreachable!(),
+                                        }
+                                    }
+                                )
+                            }
                         </small>
                         <ContentView src={comment} />
                     </li>
@@ -553,7 +608,7 @@ pub struct UserLink<'a> {
 }
 
 impl<'user> render::Render for UserLink<'user> {
-    fn render_into<W: std::fmt::Write>(self, writer: &mut W) -> std::fmt::Result {
+    fn render_into<W: std::fmt::Write + ?Sized>(self, writer: &mut W) -> std::fmt::Result {
         match self.user {
             None => "[unknown]".render_into(writer),
             Some(user) => {
@@ -756,7 +811,7 @@ pub struct NotificationItem<'a> {
 }
 
 impl<'a> render::Render for NotificationItem<'a> {
-    fn render_into<W: std::fmt::Write>(self, writer: &mut W) -> std::fmt::Result {
+    fn render_into<W: std::fmt::Write + ?Sized>(self, writer: &mut W) -> std::fmt::Result {
         let lang = self.lang;
 
         write!(writer, "<li class=\"notification-item")?;
@@ -772,8 +827,26 @@ impl<'a> render::Render for NotificationItem<'a> {
                 (render::rsx! {
                     <>
                         <div>
-                            <a href={format!("/comments/{}", reply.as_ref().id)}>{lang.tr(&lang::comment())}</a>
-                            {" "}{lang.tr(&lang::on_your_post())}{" "}<a href={format!("/posts/{}", post.as_ref().as_ref().id)}>{post.as_ref().as_ref().title.as_ref()}</a>{":"}
+                            {
+                                lang::TrElements::new(
+                                    lang.tr(&lang::notification_post_reply(lang::LangPlaceholder(0), lang::LangPlaceholder(1))),
+                                    |id, w| {
+                                        match id {
+                                            0 => render::rsx! {
+                                                <a href={format!("/comments/{}", reply.as_ref().id)}>
+                                                    {lang.tr(&lang::notification_post_reply_part_comment())}
+                                                </a>
+                                            }.render_into(w),
+                                            1 => render::rsx! {
+                                                <a href={format!("/posts/{}", post.as_ref().as_ref().id)}>
+                                                    {post.as_ref().as_ref().title.as_ref()}
+                                                </a>
+                                            }.render_into(w),
+                                            _ => unreachable!(),
+                                        }
+                                    }
+                                )
+                            }
                         </div>
                         <div class={"body"}>
                             <small>
@@ -806,11 +879,26 @@ impl<'a> render::Render for NotificationItem<'a> {
                 (render::rsx! {
                     <>
                         <div>
-                            {lang.tr(&lang::reply_to())}
-                            {" "}
-                            <a href={format!("/comments/{}", comment.as_ref().id)}>{lang.tr(&lang::your_comment())}</a>
-                            {" "}{lang.tr(&lang::on())}{" "}<a href={format!("/posts/{}", post.as_ref().as_ref().id)}>{post.as_ref().as_ref().title.as_ref()}</a>
-                            {":"}
+                            {
+                                lang::TrElements::new(
+                                    lang.tr(&lang::notification_comment_reply(lang::LangPlaceholder(0), lang::LangPlaceholder(1))),
+                                    |id, w| {
+                                        match id {
+                                            0 => render::rsx! {
+                                                <a href={format!("/comments/{}", comment.as_ref().id)}>
+                                                    {lang.tr(&lang::notification_comment_reply_part_your_comment())}
+                                                </a>
+                                            }.render_into(w),
+                                            1 => render::rsx! {
+                                                <a href={format!("/posts/{}", post.as_ref().as_ref().id)}>
+                                                    {post.as_ref().as_ref().title.as_ref()}
+                                                </a>
+                                            }.render_into(w),
+                                            _ => unreachable!(),
+                                        }
+                                    }
+                                )
+                            }
                         </div>
                         <div class={"body"}>
                             <small>
@@ -827,13 +915,26 @@ impl<'a> render::Render for NotificationItem<'a> {
                 (render::rsx! {
                     <>
                         <div>
-                            {lang.tr(&lang::notification_comment_mention_1())}{" "}
-                            <a href={format!("/comments/{}", comment.as_ref().id)}>{lang.tr(&lang::a_comment())}</a>
-                            {" "}{lang.tr(&lang::on())}{" "}
-                            <a href={format!("/posts/{}", post.as_ref().as_ref().id)}>
-                                {post.as_ref().as_ref().title.as_ref()}
-                            </a>
-                            {":"}
+                            {
+                                lang::TrElements::new(
+                                    lang.tr(&lang::notification_comment_mention(lang::LangPlaceholder(0), lang::LangPlaceholder(1))),
+                                    |id, w| {
+                                        match id {
+                                            0 => render::rsx! {
+                                                <a href={format!("/comments/{}", comment.as_ref().id)}>
+                                                    {lang.tr(&lang::notification_comment_mention_part_comment())}
+                                                </a>
+                                            }.render_into(w),
+                                            1 => render::rsx! {
+                                                <a href={format!("/posts/{}", post.as_ref().as_ref().id)}>
+                                                    {post.as_ref().as_ref().title.as_ref()}
+                                                </a>
+                                            }.render_into(w),
+                                            _ => unreachable!(),
+                                        }
+                                    },
+                                )
+                            }
                             <div class={"body"}>
                                 <small>
                                     <cite><UserLink lang user={comment.author.as_ref()} /></cite>
@@ -858,7 +959,7 @@ pub struct SiteModlogEventItem<'a> {
 }
 
 impl<'a> render::Render for SiteModlogEventItem<'a> {
-    fn render_into<W: std::fmt::Write>(self, writer: &mut W) -> std::fmt::Result {
+    fn render_into<W: std::fmt::Write + ?Sized>(self, writer: &mut W) -> std::fmt::Result {
         let lang = self.lang;
         let event = &self.event;
 
@@ -873,31 +974,43 @@ impl<'a> render::Render for SiteModlogEventItem<'a> {
 
         match &event.details {
             RespSiteModlogEventDetails::DeletePost { author, community } => {
-                (render::rsx! {
-                    <>
-                        {lang.tr(&lang::MODLOG_EVENT_DELETE_POST_1)}
-                        {" "}
-                        <UserLink user={Some(author)} lang={&lang} />
-                        {" "}
-                        {lang.tr(&lang::MODLOG_EVENT_DELETE_POST_2)}
-                        {" "}
-                        <CommunityLink community />
-                    </>
-                })
+                lang::TrElements::new(
+                    lang.tr(&lang::modlog_event_delete_post(
+                        lang::LangPlaceholder(0),
+                        lang::LangPlaceholder(1),
+                    )),
+                    |id, w| match id {
+                        0 => render::rsx! {
+                            <UserLink user={Some(author)} lang={&lang} />
+                        }
+                        .render_into(w),
+                        1 => render::rsx! {
+                            <CommunityLink community />
+                        }
+                        .render_into(w),
+                        _ => unreachable!(),
+                    },
+                )
                 .render_into(writer)?;
             }
             RespSiteModlogEventDetails::DeleteComment { author, post } => {
-                (render::rsx! {
-                    <>
-                        {lang.tr(&lang::MODLOG_EVENT_DELETE_COMMENT_1)}
-                        {" "}
-                        <UserLink user={Some(author)} lang={&lang} />
-                        {" "}
-                        {lang.tr(&lang::MODLOG_EVENT_DELETE_COMMENT_2)}
-                        {" "}
-                        <a href={format!("/posts/{}", post.id)}>{post.title.as_ref()}</a>
-                    </>
-                })
+                lang::TrElements::new(
+                    lang.tr(&lang::modlog_event_delete_comment(
+                        lang::LangPlaceholder(0),
+                        lang::LangPlaceholder(1),
+                    )),
+                    |id, w| match id {
+                        0 => render::rsx! {
+                            <UserLink user={Some(author)} lang={&lang} />
+                        }
+                        .render_into(w),
+                        1 => render::rsx! {
+                            <a href={format!("/posts/{}", post.id)}>{post.title.as_ref()}</a>
+                        }
+                        .render_into(w),
+                        _ => unreachable!(),
+                    },
+                )
                 .render_into(writer)?;
             }
             RespSiteModlogEventDetails::SuspendUser { user } => {
@@ -934,7 +1047,7 @@ pub struct PollView<'a> {
     pub lang: &'a crate::Translator,
 }
 impl<'a> render::Render for PollView<'a> {
-    fn render_into<W: std::fmt::Write>(self, writer: &mut W) -> std::fmt::Result {
+    fn render_into<W: std::fmt::Write + ?Sized>(self, writer: &mut W) -> std::fmt::Result {
         let PollView { poll, action, lang } = &self;
 
         if poll.your_vote.is_some() || poll.is_closed {

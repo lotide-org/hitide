@@ -1,3 +1,4 @@
+use render::Render;
 use serde_derive::{Deserialize, Serialize};
 use std::borrow::Cow;
 use std::collections::HashMap;
@@ -172,13 +173,34 @@ async fn page_about(
             </p>
             <h2>{lang.tr(&lang::about_what_is())}</h2>
             <p>
-                {lang.tr(&lang::about_text1())}
-                {" "}<a href={"https://activitypub.rocks"}>{"ActivityPub"}</a>{"."}
+                {
+                    lang::TrElements::new(
+                        lang.tr(&lang::about_text1(lang::LangPlaceholder(0))),
+                        |id, w| {
+                            match id {
+                                0 => render::rsx! {
+                                    <a href={"https://activitypub.rocks"}>{"ActivityPub"}</a>
+                                }.render_into(w),
+                                _ => unreachable!(),
+                            }
+                        },
+                    )
+                }
             </p>
             <p>
-                {lang.tr(&lang::about_text2())}
-                {" "}
-                <a href={"https://sr.ht/~vpzom/lotide/"}>{lang.tr(&lang::about_sourcehut())}</a>{"."}
+                {
+                    lang::TrElements::new(
+                        lang.tr(&lang::about_text2(lang::LangPlaceholder(0))),
+                        |id, w| {
+                            match id {
+                                0 => render::rsx! {
+                                    <a href={"https://sr.ht/~vpzom/lotide/"}>{lang.tr(&lang::about_text2_part_sourcehut())}</a>
+                                }.render_into(w),
+                                _ => unreachable!(),
+                            }
+                        }
+                    )
+                }
             </p>
         </HTPage>
     }))
@@ -239,7 +261,19 @@ async fn page_login_inner(
             </form>
             <br />
             <p>
-                {lang.tr(&lang::or_start())}{" "}<a href={"/signup"}>{lang.tr(&lang::login_signup_link())}</a>
+                {
+                    lang::TrElements::new(
+                        lang.tr(&lang::login_signup(lang::LangPlaceholder(0))),
+                        |id, w| {
+                            match id {
+                                0 => render::rsx! {
+                                    <a href={"/signup"}>{lang.tr(&lang::login_signup_part_signup())}</a>
+                                }.render_into(w),
+                                _ => unreachable!(),
+                            }
+                        }
+                    )
+                }
             </p>
             <p>
                 <a href={"/forgot_password"}>{lang.tr(&lang::forgot_password())}</a>
@@ -1555,6 +1589,9 @@ async fn page_home(
     let api_res = hyper::body::to_bytes(api_res.into_body()).await?;
     let api_res: RespList<RespPostListPost<'_>> = serde_json::from_slice(&api_res)?;
 
+    let home_follow_prompt_src = lang::home_follow_prompt(lang::LangPlaceholder(0));
+    let home_follow_prompt_src = lang.tr(&home_follow_prompt_src);
+
     Ok(html_response(render::html! {
         <HTPage base_data={&base_data} lang={&lang} title={"lotide"}>
             {
@@ -1563,9 +1600,19 @@ async fn page_home(
                         <p>
                             {lang.tr(&lang::NOTHING)}
                             {" "}
-                            {lang.tr(&lang::HOME_FOLLOW_PROMPT1)}
-                            {" "}
-                            <a href={"/communities"}>{lang.tr(&lang::HOME_FOLLOW_PROMPT2)}</a>
+                            {
+                                lang::TrElements::new(
+                                    home_follow_prompt_src,
+                                    |id, w| {
+                                        match id {
+                                            0 => render::rsx! {
+                                                <a href={"/communities"}>{lang.tr(&lang::HOME_FOLLOW_PROMPT_PART_FOLLOW)}</a>
+                                            }.render_into(w),
+                                            _ => unreachable!(),
+                                        }
+                                    }
+                                )
+                            }
                         </p>
                     })
                 } else {

@@ -14,6 +14,7 @@ use crate::resp_types::{
     RespPostInfo,
 };
 use crate::util::author_is_me;
+use render::Render;
 use serde_derive::{Deserialize, Serialize};
 use std::borrow::Cow;
 use std::collections::HashMap;
@@ -150,6 +151,8 @@ async fn page_post_inner(
 
     let title = post.as_ref().as_ref().title.as_ref();
 
+    let created = chrono::DateTime::parse_from_rfc3339(&post.as_ref().created)?;
+
     Ok(html_response(render::html! {
         <HTPage base_data={&base_data} lang={&lang} title={title}>
             {
@@ -240,10 +243,25 @@ async fn page_post_inner(
             </div>
             <br />
             <p>
-                {lang.tr(&lang::submitted())}
-                {" "}<TimeAgo since={chrono::DateTime::parse_from_rfc3339(&post.as_ref().created)?} lang={&lang} />
-                {" "}{lang.tr(&lang::by())}{" "}<UserLink lang={&lang} user={post.as_ref().author.as_ref()} />
-                {" "}{lang.tr(&lang::to())}{" "}<CommunityLink community={&post.as_ref().community} />
+                {
+                    lang::TrElements::new(
+                        lang.tr(&lang::post_submitted_by_to(lang::LangPlaceholder(0), lang::LangPlaceholder(1), lang::LangPlaceholder(2))),
+                        |id, w| {
+                            match id {
+                                0 => render::rsx! {
+                                    <TimeAgo since={created} lang={&lang} />
+                                }.render_into(w),
+                                1 => render::rsx! {
+                                    <UserLink lang={&lang} user={post.as_ref().author.as_ref()} />
+                                }.render_into(w),
+                                2 => render::rsx! {
+                                    <CommunityLink community={&post.as_ref().community} />
+                                }.render_into(w),
+                                _ => unreachable!(),
+                            }
+                        }
+                    )
+                }
             </p>
             {
                 post.as_ref().href.as_ref().map(|href| {
