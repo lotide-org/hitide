@@ -1132,7 +1132,7 @@ checksum = "436b050e76ed2903236f032a59761c1eb99e1b0aead2c257922771dab1fc8c78"
 [[package]]
 name = "render"
 version = "0.3.1"
-source = "git+https://github.com/vpzomtrrfrt/render.rs?rev=ec18ff5f#ec18ff5f013e4d448ff59c5dffb2c11fb6668bc2"
+source = "git+https://github.com/vpzomtrrfrt/render.rs?branch=for-hitide#19750310ed42eb978da944b0ee206731dad293c4"
 dependencies = [
  "render_macros",
 ]
@@ -1140,7 +1140,7 @@ dependencies = [
 [[package]]
 name = "render_macros"
 version = "0.3.1"
-source = "git+https://github.com/vpzomtrrfrt/render.rs?rev=ec18ff5f#ec18ff5f013e4d448ff59c5dffb2c11fb6668bc2"
+source = "git+https://github.com/vpzomtrrfrt/render.rs?branch=for-hitide#19750310ed42eb978da944b0ee206731dad293c4"
 dependencies = [
  "proc-macro-error",
  "proc-macro2",

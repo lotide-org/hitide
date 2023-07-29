@@ -178,7 +178,7 @@ pub struct CommunityLink<'community> {
     pub community: &'community RespMinimalCommunityInfo<'community>,
 }
 impl<'community> render::Render for CommunityLink<'community> {
-    fn render_into<W: std::fmt::Write>(self, writer: &mut W) -> std::fmt::Result {
+    fn render_into<W: std::fmt::Write + ?Sized>(self, writer: &mut W) -> std::fmt::Result {
         let community = &self.community;
 
         if community.deleted {
@@ -284,7 +284,7 @@ pub struct ContentView<'a, T: HavingContent + 'a> {
 }
 
 impl<'a, T: HavingContent + 'a> render::Render for ContentView<'a, T> {
-    fn render_into<W: std::fmt::Write>(self, writer: &mut W) -> std::fmt::Result {
+    fn render_into<W: std::fmt::Write + ?Sized>(self, writer: &mut W) -> std::fmt::Result {
         match self.src.content_html() {
             Some(html) => {
                 (render::rsx! { <div class={"contentView"}>{render::raw!(html)}</div> })
@@ -525,7 +525,7 @@ pub struct ThingItem<'a> {
 }
 
 impl<'a> render::Render for ThingItem<'a> {
-    fn render_into<W: std::fmt::Write>(self, writer: &mut W) -> std::fmt::Result {
+    fn render_into<W: std::fmt::Write + ?Sized>(self, writer: &mut W) -> std::fmt::Result {
         let lang = self.lang;
 
         match self.thing {
@@ -553,7 +553,7 @@ pub struct UserLink<'a> {
 }
 
 impl<'user> render::Render for UserLink<'user> {
-    fn render_into<W: std::fmt::Write>(self, writer: &mut W) -> std::fmt::Result {
+    fn render_into<W: std::fmt::Write + ?Sized>(self, writer: &mut W) -> std::fmt::Result {
         match self.user {
             None => "[unknown]".render_into(writer),
             Some(user) => {
@@ -756,7 +756,7 @@ pub struct NotificationItem<'a> {
 }
 
 impl<'a> render::Render for NotificationItem<'a> {
-    fn render_into<W: std::fmt::Write>(self, writer: &mut W) -> std::fmt::Result {
+    fn render_into<W: std::fmt::Write + ?Sized>(self, writer: &mut W) -> std::fmt::Result {
         let lang = self.lang;
 
         write!(writer, "<li class=\"notification-item")?;
@@ -858,7 +858,7 @@ pub struct SiteModlogEventItem<'a> {
 }
 
 impl<'a> render::Render for SiteModlogEventItem<'a> {
-    fn render_into<W: std::fmt::Write>(self, writer: &mut W) -> std::fmt::Result {
+    fn render_into<W: std::fmt::Write + ?Sized>(self, writer: &mut W) -> std::fmt::Result {
         let lang = self.lang;
         let event = &self.event;
 
@@ -934,7 +934,7 @@ pub struct PollView<'a> {
     pub lang: &'a crate::Translator,
 }
 impl<'a> render::Render for PollView<'a> {
-    fn render_into<W: std::fmt::Write>(self, writer: &mut W) -> std::fmt::Result {
+    fn render_into<W: std::fmt::Write + ?Sized>(self, writer: &mut W) -> std::fmt::Result {
         let PollView { poll, action, lang } = &self;
 
         if poll.your_vote.is_some() || poll.is_closed {
