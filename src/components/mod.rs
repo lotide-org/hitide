@@ -827,8 +827,26 @@ impl<'a> render::Render for NotificationItem<'a> {
                 (render::rsx! {
                     <>
                         <div>
-                            <a href={format!("/comments/{}", reply.as_ref().id)}>{lang.tr(&lang::comment())}</a>
-                            {" "}{lang.tr(&lang::on_your_post())}{" "}<a href={format!("/posts/{}", post.as_ref().as_ref().id)}>{post.as_ref().as_ref().title.as_ref()}</a>{":"}
+                            {
+                                lang::TrElements::new(
+                                    lang.tr(&lang::notification_post_reply(lang::LangPlaceholder(0), lang::LangPlaceholder(1))),
+                                    |id, w| {
+                                        match id {
+                                            0 => render::rsx! {
+                                                <a href={format!("/comments/{}", reply.as_ref().id)}>
+                                                    {lang.tr(&lang::notification_post_reply_part_comment())}
+                                                </a>
+                                            }.render_into(w),
+                                            1 => render::rsx! {
+                                                <a href={format!("/posts/{}", post.as_ref().as_ref().id)}>
+                                                    {post.as_ref().as_ref().title.as_ref()}
+                                                </a>
+                                            }.render_into(w),
+                                            _ => unreachable!(),
+                                        }
+                                    }
+                                )
+                            }
                         </div>
                         <div class={"body"}>
                             <small>
