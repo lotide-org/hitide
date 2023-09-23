@@ -106,7 +106,7 @@ sort_hot = furora
 sort_new = nova
 submit = Sendi
 text_with_markdown = Teksto (markdown estas permesita)
-thing_comment = { $part_comment } sur { $part_post }:
+thing_comment = { $part_comment } sur { $part_post } { $part_time }:
 thing_comment_part_comment = Komento
 timeago_years =
     antaŭ { $years } { $years ->

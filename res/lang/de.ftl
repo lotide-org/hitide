@@ -96,7 +96,7 @@ sort_hot = Heis
 sort_new = Neu
 submit = Absenden
 text_with_markdown = Text (Markdown unterstützt)
-thing_comment = { $part_comment } Auf { $part_post }
+thing_comment = { $part_comment } Auf { $part_post } { $part_time }:
 thing_comment_part_comment = Kommentar
 timeago_years =
     { $years } { $years ->

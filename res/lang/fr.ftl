@@ -91,7 +91,7 @@ sort_hot = tendance
 sort_new = nouveau
 submit = Envoyer
 text_with_markdown = Texte (markdown supporté)
-thing_comment = { $part_comment } sur { $part_post }
+thing_comment = { $part_comment } sur { $part_post } { $part_time }:
 thing_comment_part_comment = Commentaire
 timeago_years =
     il y a { $years } { $years ->

@@ -575,7 +575,7 @@ impl<'a> render::Render for ThingItem<'a> {
                         <small>
                             {
                                 lang::TrElements::new(
-                                    lang.tr(&lang::thing_comment(lang::LangPlaceholder(0), lang::LangPlaceholder(1))),
+                                    lang.tr(&lang::thing_comment(lang::LangPlaceholder(0), lang::LangPlaceholder(1), lang::LangPlaceholder(2))),
                                     |id, w| {
                                         match id {
                                             0 => render::rsx! {
@@ -587,6 +587,10 @@ impl<'a> render::Render for ThingItem<'a> {
                                                 <a href={format!("/posts/{}", comment.post.id)}>
                                                     {comment.post.title.as_ref()}
                                                 </a>
+                                            }.render_into(w),
+                                            2 => TimeAgo {
+                                                since: chrono::DateTime::parse_from_rfc3339(&comment.created).unwrap(),
+                                                lang,
                                             }.render_into(w),
                                             _ => unreachable!(),
                                         }

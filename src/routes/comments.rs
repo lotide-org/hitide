@@ -3,7 +3,7 @@ use super::{
     get_cookie_map_for_req, html_response, res_to_error, CookieMap, JustStringID, ReturnToParams,
 };
 use crate::components::{
-    Comment, ContentView, HTPage, IconExt, MaybeFillCheckbox, MaybeFillTextArea, UserLink,
+    Comment, ContentView, HTPage, IconExt, MaybeFillCheckbox, MaybeFillTextArea, TimeAgo, UserLink,
 };
 use crate::lang;
 use crate::resp_types::{JustContentHTML, JustID, RespCommentInfo, RespList, RespPostCommentInfo};
@@ -163,7 +163,11 @@ async fn page_comment_inner(
                         }
                     })
                 }
-                <small><cite><UserLink lang={&lang} user={comment.as_ref().author.as_ref()} /></cite>{":"}</small>
+                <small>
+                    <cite><UserLink lang={&lang} user={comment.as_ref().author.as_ref()} /></cite>
+                    {" "}
+                    <TimeAgo since={chrono::DateTime::parse_from_rfc3339(&comment.as_ref().created).unwrap()} lang={&lang} />
+                </small>
                 <ContentView src={&comment} />
                 {
                     comment.as_ref().attachments.iter().map(|attachment| {
