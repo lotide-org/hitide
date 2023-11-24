@@ -19,10 +19,10 @@ body {
 	display: block;
 }
 .mainHeader > .left {
-	float: left;
+	float: inline-start;
 }
 .mainHeader > .right {
-	float: right;
+	float: inline-end;
 }
 .mainHeader a {
 	text-decoration: none;
@@ -32,11 +32,11 @@ body {
 	text-decoration: underline;
 }
 .mainHeader .actionList.left > * {
-	margin-right: 1em;
+	margin-inline-end: 1em;
 }
 
 .actionList > * {
-	margin-right: .5em;
+	margin-inline-end: .5em;
 }
 .actionList.small {
 	font-size: .8em;
@@ -48,20 +48,20 @@ body {
 .siteName {
 	font-weight: bold;
 	font-size: 1.2em;
-	margin-right: 1em;
-	margin-left: 1.4em;
+	margin-inline-end: 1em;
+	margin-inline-start: 1.4em;
 }
 
 .leftLinksMobile {
 	position: absolute;
 	display: inline-block;
-	margin-right: 1em;
+	margin-inline-end: 1em;
 	line-height: 1.5em;
 	left: 0;
 }
 
 .leftLinksMobile > summary {
-	margin-left: 8px;
+	margin-inline-start: 8px;
 	list-style: none;
 }
 
@@ -90,7 +90,7 @@ body {
 }
 
 .communitySidebar {
-	float: right;
+	float: inline-end;
 	width: 300px;
 }
 
@@ -99,12 +99,12 @@ body {
 }
 
 .notification-item .body {
-	margin-left: 1em;
+	margin-inline-start: 1em;
 }
 
 .notification-item.unread {
-	border-left: 5px solid #FDD835;
-	padding-left: 5px;
+	border-inline-start: 5px solid #FDD835;
+	padding-inline-start: 5px;
 }
 
 .sortOptions, .timeframeOptions {
@@ -112,7 +112,7 @@ body {
 }
 
 .sortOptions > *, .timeframeOptions > * {
-	margin-right: .5em;
+	margin-inline-end: .5em;
 }
 
 .preview {
@@ -142,7 +142,7 @@ body {
 
 .votebox {
 	float: left;
-	margin-right: .5em;
+	margin-inline-end: .5em;
 }
 
 .comment > .content {
@@ -160,7 +160,7 @@ body {
 }
 
 .commentList.topLevel {
-	padding-left: 0;
+	padding-margin-start: 0;
 }
 
 .sticky > .titleLine > a {
@@ -172,14 +172,17 @@ body {
 	display: -webkit-box;
 	-webkit-line-clamp: 2;
 	-webkit-box-orient: vertical;
-	padding-right: .5em;
+	padding-inline-end: .5em;
 	overflow-y: hidden;
 }
 .titleLine > a {
 	min-width: 0;
 	overflow: hidden;
 	text-overflow: ellipsis;
-	margin-right: .5em;
+	margin-inline-end: .5em;
+}
+.titleLine > * {
+	unicode-bidi: isolate;
 }
 
 form.inline {
@@ -205,7 +208,7 @@ p {
 }
 
 .flaggedContent {
-	margin-left: 2em;
+	margin-inline-start: 2em;
 }
 
 .pollResults {
@@ -223,7 +226,7 @@ p {
 
 .pollResults tr > .count {
 	width: 3em;
-	text-align: right;
+	text-align: inline-end;
 	font-weight: bold;
 }
 
@@ -246,18 +249,18 @@ p {
 }
 
 .pollArea {
-	margin-left: 1em;
+	margin-inline-start: 1em;
 }
 
 .bigPostTitle > .icon {
-	margin-right: .5em;
+	margin-inline-end: .5em;
 }
 
 .tabs {
 	margin-top: 1em;
-	float: left;
+	float: inline-start;
 	display: block;
-	margin-right: 2em;
+	margin-inline-end: 2em;
 	border: 1px solid gray;
 }
 
@@ -278,7 +281,7 @@ p {
 		display: inline-block;
 	}
 	.siteName {
-		margin-left: 0;
+		margin-inline-start: 0;
 	}
 }
 

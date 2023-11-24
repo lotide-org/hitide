@@ -383,7 +383,13 @@ pub fn HTPageAdvanced<'a, HeadItems: render::Render, Children: render::Render>(
     render::rsx! {
         <>
             <render::html::HTML5Doctype />
-            <html lang={lang.primary_language().to_string()}>
+            <html
+                lang={lang.primary_language().to_string()}
+                dir={match lang.primary_language().character_direction() {
+                    unic_langid::CharacterDirection::LTR => "ltr",
+                    unic_langid::CharacterDirection::RTL => "rtl",
+                }}
+            >
                 <head>
                     <meta charset={"utf-8"} />
                     <meta name={"viewport"} content={"width=device-width, initial-scale=1"} />
