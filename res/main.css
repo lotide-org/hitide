@@ -1,7 +1,9 @@
 :root {
 	color-scheme: light dark;
 }
-
+*:lang(fa) {
+    direction: rtl;
+}
 body {
 	margin: 8px;
 	font-family: sans-serif;
