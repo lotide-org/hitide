@@ -16,6 +16,7 @@ use crate::routes::{
 use serde_derive::{Deserialize, Serialize};
 use std::borrow::Cow;
 use std::collections::HashMap;
+use std::fmt::Write;
 use std::ops::Deref;
 use std::sync::Arc;
 
@@ -29,81 +30,52 @@ async fn page_communities(
     let base_data =
         fetch_base_data(&ctx.backend_host, &ctx.http_client, req.headers(), &cookies).await?;
 
-    #[derive(Deserialize)]
+    #[derive(Deserialize, Serialize)]
     struct Query<'a> {
         local: Option<bool>,
+        #[serde(rename = "your_follow.accepted")]
+        your_follow_accepted: Option<bool>,
         page: Option<Cow<'a, str>>,
     }
 
     let query: Query = serde_urlencoded::from_str(req.uri().query().unwrap_or(""))?;
 
-    let page_param = if let Some(page) = query.page {
-        Cow::Owned(format!("&page={}", page))
-    } else {
-        Cow::Borrowed("")
-    };
-
-    let remote_communities_api_res = if query.local == Some(true) {
-        None
-    } else {
-        Some(
-            hyper::body::to_bytes(
-                res_to_error(
-                    ctx.http_client
-                        .request(
-                            hyper::Request::get(format!(
-                                "{}/api/unstable/communities?local=false{}",
-                                ctx.backend_host, page_param
-                            ))
-                            .body(Default::default())?,
-                        )
-                        .await?,
-                )
-                .await?
-                .into_body(),
-            )
-            .await?,
+    let api_res = hyper::body::to_bytes(
+        res_to_error(
+            ctx.http_client
+                .request(for_client(
+                    hyper::Request::get(format!(
+                        "{}/api/unstable/communities?{}",
+                        ctx.backend_host,
+                        // for now this works but will need to change if we add other page parameters
+                        serde_urlencoded::to_string(&query)?,
+                    ))
+                    .body(Default::default())?,
+                    req.headers(),
+                    &cookies,
+                )?)
+                .await?,
         )
-    };
-    let remote_communities: Option<RespList<RespMinimalCommunityInfo>> = remote_communities_api_res
-        .map(|value| serde_json::from_slice(&value))
-        .transpose()?;
+        .await?
+        .into_body(),
+    )
+    .await?;
 
-    let local_communities_api_res = if query.local == Some(false) {
-        None
-    } else {
-        Some(
-            hyper::body::to_bytes(
-                res_to_error(
-                    ctx.http_client
-                        .request(
-                            hyper::Request::get(format!(
-                                "{}/api/unstable/communities?local=true{}",
-                                ctx.backend_host, page_param
-                            ))
-                            .body(Default::default())?,
-                        )
-                        .await?,
-                )
-                .await?
-                .into_body(),
-            )
-            .await?,
-        )
-    };
-    let local_communities: Option<RespList<RespMinimalCommunityInfo>> = local_communities_api_res
-        .map(|value| serde_json::from_slice(&value))
-        .transpose()?;
+    let communities: RespList<RespMinimalCommunityInfo> = serde_json::from_slice(&api_res)?;
 
-    let title = if let Some(local) = query.local {
-        if local {
-            lang.tr(&lang::COMMUNITIES_LOCAL_MORE)
-        } else {
-            lang.tr(&lang::COMMUNITIES_REMOTE_MORE)
-        }
-    } else {
-        lang.tr(&lang::COMMUNITIES)
-    };
+    let title = lang.tr(&lang::COMMUNITIES);
+
+    let filter_options: &[(lang::LangKey, bool, Option<bool>, Option<bool>)] = &[
+        (lang::COMMUNITIES_FILTER_ALL, true, None, None),
+        (lang::COMMUNITIES_FILTER_LOCAL, true, Some(true), None),
+        (lang::COMMUNITIES_FILTER_REMOTE, true, Some(false), None),
+        (
+            lang::COMMUNITIES_FILTER_MINE,
+            base_data.login.is_some(),
+            None,
+            Some(true),
+        ),
+    ];
 
     Ok(html_response(render::html! {
         <HTPage
@@ -113,106 +85,72 @@ async fn page_communities(
         >
             <h1>{title.as_ref()}</h1>
             {
-                if query.local.is_some() {
-                    Some(render::rsx! {
-                        <a href={"/communities"}>{lang.tr(&lang::COMMUNITIES_ALL_VIEW)}</a>
-                    })
+                if let Some(login) = &base_data.login {
+                    if login.permissions.create_community.allowed {
+                        Some(render::rsx! { <a href={"/new_community"}>{lang.tr(&lang::COMMUNITY_CREATE)}</a> })
+                    } else {
+                        None
+                    }
                 } else {
                     None
                 }
             }
-            {
-                if let Some(local_communities) = &local_communities {
-                    Some(render::rsx! {
-                        <div>
-                            {
-                                if query.local.is_none() {
-                                    Some(render::rsx! {
-                                        <h2>{lang.tr(&lang::LOCAL)}</h2>
-                                    })
+            <form method={"GET"} action={"/lookup"}>
+                <label>
+                    {lang.tr(&lang::ADD_BY_REMOTE_ID)}{" "}
+                    <input r#type={"text"} name={"query"} placeholder={"group@example.com"} />
+                </label>
+                {" "}
+                <button r#type={"submit"}>{lang.tr(&lang::FETCH)}</button>
+            </form>
+            <div class={"sortOptions"}>
+                {
+                    filter_options.iter()
+                        .map(|(key, show, local, followed)| {
+                            if *show {
+                                let name = lang.tr(key);
+                                Ok(Some(if &query.local == local && &query.your_follow_accepted == followed {
+                                    render::rsx! { <span>{name}</span> }
                                 } else {
-                                    None
-                                }
-                            }
-                            {
-                                if let Some(login) = &base_data.login {
-                                    if login.permissions.create_community.allowed {
-                                        Some(render::rsx! { <a href={"/new_community"}>{lang.tr(&lang::COMMUNITY_CREATE)}</a> })
-                                    } else {
-                                        None
+                                    let mut href = "/communities".to_owned();
+                                    if let Some(local) = local {
+                                        if followed.is_some() {
+                                            return Err(crate::Error::InternalStrStatic("Unimplemented"));
+                                        }
+                                        write!(href, "?local={}", local).unwrap();
+                                    } else if let Some(followed) = followed {
+                                        write!(href, "?your_follow.accepted={}", followed).unwrap();
                                     }
-                                } else {
-                                    None
-                                }
+
+                                    render::rsx! { <a href={href}>{name}</a> }
+                                }))
+                            } else {
+                                Ok(None)
                             }
-                            <ul>
-                                {
-                                    local_communities.items.iter()
-                                        .map(|community| {
-                                            render::rsx! {
-                                                <li><CommunityLink community={community} /></li>
-                                            }
-                                        })
-                                        .collect::<Vec<_>>()
-                                }
-                            </ul>
-                            {
-                                local_communities.next_page.as_ref().map(|next_page| {
-                                    render::rsx! {
-                                        <a href={format!("/communities?local=true&page={}", next_page)}>
-                                            {lang.tr(&lang::COMMUNITIES_PAGE_NEXT)}
-                                        </a>
-                                    }
-                                })
-                            }
-                        </div>
-                    })
-                } else {
-                    None
+                        })
+                        .collect::<Result<Vec<_>, _>>()?
                 }
-            }
+            </div>
+            <ul>
+                {
+                    communities.items.iter()
+                        .map(|community| {
+                            render::rsx! {
+                                <li><CommunityLink community={community} /></li>
+                            }
+                        })
+                        .collect::<Vec<_>>()
+                }
+            </ul>
             {
-                if let Some(remote_communities) = &remote_communities {
+                if let Some(next_page) = communities.next_page {
                     Some(render::rsx! {
-                        <div>
-                            {
-                                if query.local.is_none() {
-                                    Some(render::rsx! {
-                                        <h2>{lang.tr(&lang::REMOTE)}</h2>
-                                    })
-                                } else {
-                                    None
-                                }
-                            }
-                            <form method={"GET"} action={"/lookup"}>
-                                <label>
-                                    {lang.tr(&lang::ADD_BY_REMOTE_ID)}{" "}
-                                    <input r#type={"text"} name={"query"} placeholder={"group@example.com"} />
-                                </label>
-                                {" "}
-                                <button r#type={"submit"}>{lang.tr(&lang::FETCH)}</button>
-                            </form>
-                            <ul>
-                                {
-                                    remote_communities.items.iter()
-                                        .map(|community| {
-                                            render::rsx! {
-                                                <li><CommunityLink community={community} /></li>
-                                            }
-                                        })
-                                        .collect::<Vec<_>>()
-                                }
-                            </ul>
-                            {
-                                remote_communities.next_page.as_ref().map(|next_page| {
-                                    render::rsx! {
-                                        <a href={format!("/communities?local=false&page={}", next_page)}>
-                                            {lang.tr(&lang::COMMUNITIES_PAGE_NEXT)}
-                                        </a>
-                                    }
-                                })
-                            }
-                        </div>
+                        <a href={format!("/communities?{}", serde_urlencoded::to_string(&Query {
+                            page: Some(Cow::Borrowed(&next_page)),
+                            ..query
+                        })?)}>
+                            {lang.tr(&lang::COMMUNITIES_PAGE_NEXT)}
+                        </a>
                     })
                 } else {
                     None
