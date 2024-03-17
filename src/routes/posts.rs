@@ -298,6 +298,15 @@ async fn page_post_inner(
                     }
                 }
                 {
+                    if !post.local && base_data.is_site_admin() {
+                        Some(render::rsx! {
+                            <a href={format!("/posts/{}/site_block", post_id)}>{lang.tr(&lang::SITE_BLOCK)}</a>
+                        })
+                    } else {
+                        None
+                    }
+                }
+                {
                     if post.local {
                         None
                     } else {
@@ -473,6 +482,110 @@ async fn handler_post_delete_confirm(
         .status(hyper::StatusCode::SEE_OTHER)
         .header(hyper::header::LOCATION, "/")
         .body("Successfully deleted.".into())?)
+}
+
+async fn page_post_site_block(
+    params: (i64,),
+    ctx: Arc<crate::RouteContext>,
+    req: hyper::Request<hyper::Body>,
+) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+    let (post_id,) = params;
+
+    let lang = crate::get_lang_for_req(&req);
+    let cookies = get_cookie_map_for_req(&req)?;
+
+    let base_data =
+        fetch_base_data(&ctx.backend_host, &ctx.http_client, req.headers(), &cookies).await?;
+
+    let api_res = res_to_error(
+        ctx.http_client
+            .request(for_client(
+                hyper::Request::get(format!(
+                    "{}/api/unstable/posts/{}",
+                    ctx.backend_host, post_id
+                ))
+                .body(Default::default())?,
+                req.headers(),
+                &cookies,
+            )?)
+            .await?,
+    )
+    .await?;
+    let api_res = hyper::body::to_bytes(api_res.into_body()).await?;
+
+    let post: RespPostInfo = serde_json::from_slice(&api_res)?;
+
+    Ok(html_response(render::html! {
+        <HTPage base_data={&base_data} lang={&lang} title={&lang.tr(&lang::post_site_block_title())}>
+            <h1>{post.as_ref().as_ref().title.as_ref()}</h1>
+            <h2>{lang.tr(&lang::post_site_block_question())}</h2>
+            <p>{lang.tr(&lang::post_site_block_question_description())}</p>
+            <form method={"POST"} action={format!("/posts/{}/site_block/confirm", post.as_ref().as_ref().id)}>
+                <a href={format!("/posts/{}/", post.as_ref().as_ref().id)}>{lang.tr(&lang::no_cancel())}</a>
+                {" "}
+                <button r#type={"submit"}>{lang.tr(&lang::site_block_yes())}</button>
+            </form>
+        </HTPage>
+    }))
+}
+
+async fn handler_post_site_block_confirm(
+    params: (i64,),
+    ctx: Arc<crate::RouteContext>,
+    req: hyper::Request<hyper::Body>,
+) -> Result<hyper::Response<hyper::Body>, crate::Error> {
+    let (post_id,) = params;
+
+    let cookies = get_cookie_map_for_req(&req)?;
+
+    let api_res_get = res_to_error(
+        ctx.http_client
+            .request(for_client(
+                hyper::Request::get(format!(
+                    "{}/api/unstable/posts/{}",
+                    ctx.backend_host, post_id
+                ))
+                .body(Default::default())?,
+                req.headers(),
+                &cookies,
+            )?)
+            .await?,
+    )
+    .await?;
+    let api_res_get = hyper::body::to_bytes(api_res_get.into_body()).await?;
+    let post: RespPostInfo = serde_json::from_slice(&api_res_get)?;
+
+    if let Some(remote_url) = &post.as_ref().as_ref().remote_url {
+        res_to_error(
+            ctx.http_client
+                .request(for_client(
+                    hyper::Request::put(format!(
+                        "{}/api/unstable/objects:blocks/{}",
+                        ctx.backend_host,
+                        percent_encoding::utf8_percent_encode(
+                            &remote_url,
+                            percent_encoding::NON_ALPHANUMERIC
+                        ),
+                    ))
+                    .body("".into())?,
+                    req.headers(),
+                    &cookies,
+                )?)
+                .await?,
+        )
+        .await?;
+
+        Ok(hyper::Response::builder()
+            .status(hyper::StatusCode::SEE_OTHER)
+            .header(hyper::header::LOCATION, "/")
+            .body("Successfully blocked from site.".into())?)
+    } else {
+        Err(crate::Error::UserError({
+            let mut res = hyper::Response::new("Not a remote post".into());
+            *res.status_mut() = hyper::StatusCode::BAD_REQUEST;
+            res
+        }))
+    }
 }
 
 async fn page_post_flag(
@@ -1024,6 +1137,18 @@ pub fn route_posts() -> crate::RouteNode<()> {
                         "confirm",
                         crate::RouteNode::new()
                             .with_handler_async(hyper::Method::POST, handler_post_delete_confirm),
+                    ),
+            )
+            .with_child(
+                "site_block",
+                crate::RouteNode::new()
+                    .with_handler_async(hyper::Method::GET, page_post_site_block)
+                    .with_child(
+                        "confirm",
+                        crate::RouteNode::new().with_handler_async(
+                            hyper::Method::POST,
+                            handler_post_site_block_confirm,
+                        ),
                     ),
             )
             .with_child(
