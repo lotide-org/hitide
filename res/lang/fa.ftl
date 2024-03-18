@@ -1,7 +1,7 @@
 about = درباره
 about_title = درباره‌ی این شعبه
 about_what_is = لوتاید (lotide) چیست?
-about_text1 = لوتاید یک انجمن فدرال است. کاربران می‌توانند انجمن‌هایی ایجاد کنند تا پیوندها و پست‌های متنی را به اشتراک بگذارند و درباره آن‌ها با سایر کاربران، از جمله کاربران ثبت‌شده در سرورهای دیگر از طریق {$part_activitypub} بحث کنند.
+about_text1 = لوتاید یک انجمن فدرال است. کاربران می‌توانند انجمن‌هایی ایجاد کنند تا پیوندها و پست‌های متنی را به اشتراک بگذارند و درباره آن‌ها با سایر کاربران، از جمله کاربران ثبت‌شده در سرورهای دیگر از طریق { $part_activitypub } بحث کنند.
 about_text2 = برای اطلاعات بیشتر یا مشاهده کد منبع، { $part_sourcehut } را بررسی کنید.
 about_text2_part_sourcehut = صفحه‌ی SourceHut
 about_versions = این شعبه در حال اجرای هیتاید { $hitide_version } بر روی { $backend_name } { $backend_version } است.
@@ -30,9 +30,6 @@ comment_reply_attachment_missing_content_type = نوع محتوا برای ای�
 comment_reply_image_prompt = پیوست تصویر (اختیاری):
 comment_submit = فرستادن دیدگاه
 communities = انجمن‌ها
-communities_all_view = مشاهده‌ی همه
-communities_local_more = انجمن‌های محلی بیشتر
-communities_remote_more = انجمن‌های راه‌دور بیشتر
 communities_page_next = نمایش موارد بیشتر
 community_add_moderator = اضافه کردن ناظر
 community_create = ایجاد انجمن
@@ -133,7 +130,7 @@ post_approve_undo = حذف از اجتماع
 post_comments_count =
     { $count } { $count ->
         [one] دیدگاه
-        *[other] دیدگاه
+       *[other] دیدگاه
     }
 post_delete_question = این فرسته حذف شود؟
 post_delete_title = حذف فرسته
@@ -155,7 +152,7 @@ post_rejected = این فرسته توسط انجمن حذف شد.
 post_submitted = زمان ثبت { $part_time }
 post_submitted_by = ثبت شده در { $part_time } توسط { $part_user }
 post_submitted_by_to = ثبت شده در { $part_time } توسط { $part_user } در { $part_community }
-post_submitted_to =  زمان در { $part_time } داخل { $part_community } ثبت شده
+post_submitted_to = زمان در { $part_time } داخل { $part_community } ثبت شده
 post_timeframe = فرسته‌ها از:
 preview = پیش‌نمایش
 profile = رُخ
@@ -169,10 +166,11 @@ reply_submit = پاسخ
 requirement_none = همه کاربرها
 requirement_site_admin = مدیرهای سایت
 save = ذخیره
-score = { $score } { $score ->
-    [one] پسند
-    *[other] پسند
-}
+score =
+    { $score } { $score ->
+        [one] پسند
+       *[other] پسند
+    }
 sensitive = محتوای حساسیت‌بر‌انگیز
 signup_email_address_prompt = نشانی نامه‌رسان الکترونیکی (دلخواه است):
 signup_not_allowed = ثبت‌نام کاربران جدید در این شعبه امکان‌پذیر نیست
@@ -190,37 +188,37 @@ time_input_days = روز
 timeago_years =
     { $years } { $years ->
         [one] سال
-        *[other] سال
+       *[other] سال
     } ago
 timeago_months =
     { $months } { $months ->
         [one] ماه
-        *[other] ماه
+       *[other] ماه
     } ago
 timeago_weeks =
     { $weeks } { $weeks ->
         [one] هفته
-        *[other] هفته
+       *[other] هفته
     } ago
 timeago_days =
     { $days } { $days ->
         [one] روز
-        *[other] روز
+       *[other] روز
     } ago
 timeago_hours =
     { $hours } { $hours ->
         [one] ساعت
-        *[other] ساعت
+       *[other] ساعت
     } ago
 timeago_minutes =
     { $minutes } { $minutes ->
         [one] دقیقه
-        *[other] دقیقه
+       *[other] دقیقه
     } ago
 timeago_seconds =
     { $seconds } { $seconds ->
         [one] ثانیه
-        *[other] ثانیه
+       *[other] ثانیه
     } ago
 timeago_now = الان
 timeago_future = در آینده
@@ -233,7 +231,7 @@ timeframe_year = سال گذشته
 title = عنوان
 to_parent = مشاهده‌ی والد
 to_post = ایجاد دیدگاه
-unknown = [ناشناخته]
+unknown = { "[" }ناشناخته]
 upvote = رای مثبت
 url = نشانی اینترنتی
 user_bot_tag = بات
